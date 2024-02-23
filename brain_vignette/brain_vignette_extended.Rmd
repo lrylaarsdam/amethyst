@@ -1,0 +1,227 @@
+### PART ONE: RECOMMENDED TO RUN ON THE CLUSTER ###
+########################################################################################################
+### LOADING DEPENDENCIES AND FUNCTIONS ###
+First, you need to install and load the dependencies and functions. I am working on assembling a package, but for now, I have compiled the necessary info into a single script called amethyst_singlescript.R. You can open this script with the file.edit command followed by the path to the document.
+
+```{r}
+file.edit("/home/groups/ravnica/projects/amethyst/amethyst_singlescript.R") # If on the server, copy and paste the contents of the file into R and run. May have to address package loading separate from function loading.
+```
+
+Run the whole script (Command + A -> Run icon at the top) to load everything.
+
+Or to just load the dependencies, if amethyst functions are already saved in your workspace:
+
+```{r}
+packages <- c("rhdf5", "rtracklayer", "ggnewscale", "Rphenograph", "irlba",
+              "Rcpp", "umap", "ggplot2", "pheatmap", "gridExtra", "grid",
+              "patchwork", "lattice", "cowplot", "plotly", "janitor",
+              "data.table", "readr", "tidyverse", "tibble", "plyr",
+              "tidyr", "Rmagic", "future", "furrr", "purrr", "dplyr")
+
+# Load packages with tryCatch
+for (pkg in packages) {
+  tryCatch(library(pkg, character.only = TRUE),
+           error = function(e) {
+             message(paste("Error loading package", pkg, ":", conditionMessage(e)))
+           }
+  )
+}
+
+pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2",  "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3",  "#FFA976")
+options(scipen = 999)
+options(future.globals.maxSize = (20000*1024^2)) # 20 GB; adjust if local
+```
+
+
+########################################################################################################
+### INDEXING ### (This is only necessary if you want to look at gene-specific methylation information)
+There are some other tools we need still. First, let's fetch the reference annotation file. This contains the start/end position of each gene in the genome. We need the annotation file because we want to index which components of the base .h5 file correspond to which gene. That way it can be read from a lot faster.
+ 
+```{r}
+ref <- makeRef(ref = "hg38") # mm10 is also an option
+```
+
+We want hg38 in this case because our example data is from human brain. 
+Indexing all the genes can take a long time, so a pre-determined list of marker genes can be loaded with the fetchMarkers command:
+
+```{r}
+markerGenes <- fetchMarkers(ref = "hg38", type = "brain") # pbmc will be added eventually
+```
+
+Now let's get the positions in the h5 file that correspond to these genes using the index function.
+
+```{r}
+path <- "/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette.h5"
+index <- indexAll(hdf5 = path, subset = markerGenes, threads = 30) 
+```
+
+Alternatively, you could just index one type of methylation.
+
+```{r}
+index <- list() # make an empty list
+index[["CH"]] <- indexGenes(hdf5 = path, type = "CH", subset = markerGenes, threads = 30)
+index[["promoters"]] <- indexGenes(hdf5 = path, type = "promoters", subset = markerGenes, threads = 30) #CG
+index[["CAC"]] <- indexGenes(hdf5 = path, type = "CAC", subset = markerGenes, threads = 30)
+```
+... or any other type, as long as it is included as a group in the h5 file. (CAC is not, in this particular example.)
+
+In the future, indexes can easily be added with the addIndex function. 
+*Note: there is a bug in addIndex right now. In the meantime, do:
+
+```{r}
+add <- c("PACS1", "TBR1")
+obj@index[["CH"]] <- c(obj@index[["CH"]], indexGenes(hdf5 = path, type = "CH", subset = add, threads = 1))
+```
+
+########################################################################################################
+### ASSEMBLING THE AMETHYST OBJECT ###
+Now that we have all the components, let's construct the amethyst object. This helps organize the different components in one place.
+*Note: If indexing was not done, just define index and ref as empty fields so the object can be created.
+
+```{r}
+obj <- createObject(h5path = path, index = index, ref = ref)
+```
+
+Next, make genomic windows and run irlba. runIrlba can accommodate as many genomic window matrices as desired. In this example, the number of
+requested output dimensions is low because brain_vignette.h5 has 50 cells. 
+
+```{r}
+obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 20)
+obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 20)
+obj <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5))
+```
+
+Now determine cluster membership. In this example, k_phenograph and neighbors parameters are low because brain_vignette.h5 has 50 cells.
+
+```{r}
+obj <- runCluster(obj, k_phenograph = 5)
+obj <- runUmap(obj, neighbors = 5, dist = 0.1, method = "euclidean") 
+```
+
+Before moving to the local Rstudio, it is helpful to find cluster markers and make a matrix of % mCH over indexed genes while you can still multi-thread. 100kb matrices can be used for correlation to the Liu 2021 Ecker reference for cell type ID if analyzing brain data.
+
+```{r}
+celltyperefs <- readRDS("/home/groups/ravnica/projects/amethyst/ecker_PMC8494641/GEO_mcds/liu2021_chrom100k_aggregated_refs.RData") #Here I am just loading the pre-made reference into the workspace before moving locally
+obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = names(obj@index[["CH"]]), threads = 30, type = "CH")
+clusterMarkersCH <- findClusterMarkers(obj, nmin = 5, matrix = "gene_ch") # Matrix does not have to be pre-computed, but it speeds things up downstream 
+sigmarkers <- clusterMarkersCH %>% dplyr::filter(p.adj < 0.05)  %>% dplyr::group_by(id, direction) %>% top_n(3, wt = p.adj)
+```
+
+Now save the environment and import to RStudio. 
+```{r}
+save.image("brain_vignette.RData")
+```
+
+########################################################################################################
+### PART TWO: LOCAL RSTUDIO ####
+Load your environment saved from the server. Re-define the hdf5 path and load in amethyst dependencies. This assumes everything is in downloads; change paths if necessary.
+```{r}
+load("~/Downloads/brain_vignette.RData")
+obj@h5path <- "~/Downloads/brain_vignette.h5"
+```
+
+### Visualizing the results ###
+First, plot the UMAP coordinates of the cells with the color corresponding to cluster membership.
+
+```{r}
+umapFeature(obj, colorBy = cluster_id, colors = sample(pal))
+```
+
+umapFeature uses ggplot logic, so you can adjust as needed. For example:
+
+```{r}
+umapFeature(obj, colorBy = cluster_id, colors = sample(pal)) + facet_wrap(vars(batch)) # Batch is made up to illustrate function utility
+```
+
+Are there cells that are really skewing the UMAP distribution? First view the metadata to determine appropriate thresholds, then you can filter them out with dplyr, for example:
+```{r}
+View(obj@metadata)
+obj@metadata <- obj@metadata %>% dplyr::filter(umap_x < 100 & umap_y < 100) # only do if necessary
+```
+
+To view parameters from the cellInfo file, add to the metadata:
+```{r}
+obj <- addCellInfo(obj, file = "~/Downloads/brain_cellInfo.txt") # Already added if using /home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette_workspace.RData
+```
+
+umapFeature is useful for looking at how the different parameters in the cellInfo file are distributed throughout the UMAP:
+
+```{r}
+umapFeature(obj, colorBy = log(cov)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # no coverage bias!
+umapFeature(obj, colorBy = mcg_pct) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) 
+umapFeature(obj, colorBy = log(mch_pct)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # helps distinguish neuron vs glia populations
+```
+
+Show the distribution of cluster membership between samples with sampleComp. Make sure the parameters of interest are categorical variables in the metadata. Plots can be easily modified with ggplot command logic.
+
+```{r}
+sampleComp(obj, groupBy = batch, colorBy = cluster_id, colors = pal) 
+```
+
+########################################################################################################
+### INVESTIGATING METHYLATION OVER SPECIFIC GENES ### 
+
+Now let's look at methylation levels over key marker genes in relation to the UMAP.
+Look at sigmarkers results to explore other genes.
+
+```{r}
+umapGeneM(obj, genes = c("GAD1", "SATB2", "LINGO1", "SLC17A8"), matrix = "gene_ch") 
+umapGeneM(obj, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T) # these two are pretty mutually exclusive
+
+```
+
+If matrices haven't been calculated, this function can also calculate from the h5 file, but it may take longer.
+
+```{r}
+umapGeneM(obj, genes = c("GAD1", "SATB2", "LINGO1", "SLC17A8"), type = "CH") # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+```
+
+Visualization can also be easily done with violin plots or dot plots
+
+```{r}
+vlnGeneM(obj, genes = c("SATB2", "GAD1"), groupBy = cluster_id, nrow = 2, matrix = "gene_ch")
+dotGeneM(obj, genes = c("SATB2", "GAD1"), type = "CH", groupBy = cluster_id) # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+```
+
+Since single-cell methylation data can be low coverage, it may be helpful to impute values.
+If having trouble downloading Rmagic, try devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
+
+```{r}
+obj <- impute(obj, matrix = "gene_ch") # Already added if using /home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette_workspace.RData
+```
+
+Then use the resulting matrix to visualize from imputed values
+
+```{r}
+p1 <- umapGeneM(obj, genes = c("SLC17A8"), matrix = "gene_ch")
+p2 <- umapGeneM(obj, genes = c("SLC17A8"), matrix = "gene_ch_imputed") 
+plot_grid(p1, p2)
+```
+
+Visualization of methylation over the gene body can be done with histGeneM
+
+```{r}
+histGeneM(obj, type = "CH", groupBy = cluster_id, genes = c("GAD1", "LINGO1"), bins = 40) # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+```
+
+Variation in methylation levels of key marker genes can help aid in cell type ID, but it may be more effective to compare to a reference. If using brain data you can use clusterCompare to correlate % methylation over 100kb genomic windows to a reference generated from Liu 2021 (Ecker lab). Levels to compare with are:
+"region_name"  "major_region" "sub_region"   "cell_class"   "major_type"   "sub_type" 
+
+First, generate an aggregated matrix of values over some metadata parameter.
+
+```{r}
+obj <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = cluster_id, name = "cluster_ch_100k_pct") # Already added if using /home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette_workspace.RData
+clusterCompare("cluster_ch_100k_pct", level = "major_type", type = "ch", n = 5) # Correlation very low because it is human vs. mouse. Still working on this
+```
+
+Coming up:
+- Trajectory analysis
+- DMR identification
+- Open to suggestions
+
+
+
+
+
+
+

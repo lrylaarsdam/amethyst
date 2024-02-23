@@ -18,11 +18,12 @@ createObject <- function(
   ref = ref) {
   setClass('amethyst', slots = c(
     h5path = "character",
+    genomeMatrices = "ANY",
+    irlba = "ANY",
     index = "ANY",
     metadata = "ANY",
     ref = "ANY",
-    reduction = "ANY",
-    irlba = "ANY"))
+    reduction = "ANY"))
   assay <- new(
     Class = 'amethyst',
     h5path = h5path,
@@ -140,51 +141,43 @@ fetchMarkers <- function(ref,
 #' runIrlba
 #' Dimensionality reduction
 #'
-#' @param obj
-#' @param dims
-#' @param window_size
-#' @param threads
+#' @param obj Object for which to run irlba
+#' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
+#' @param dims list of how many dimensions to output for each matrix
 #'
 #' @return
 #' @export
 #'
-#' @examples
+#' @examples obj <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
+#'
 runIrlba <- function(
-  obj,
-  dims = 50,
-  window_size = 100000,
-  threads = 1,
-  type = "both") {
+    obj,
+    genomeMatrices,
+    dims) {
 
-  if(!is.null(obj@irlba)) {
-    obj@irlba <- NULL
-  }
+  if(length(genomeMatrices) != length(dims)) {
+    print("Number of input matrices must equal the length of the dimension list")
 
-  if(type == "both" | type == "CG") {
-    cg_windows <- makeWindows({{obj}}, stepsize = window_size, type = "CG", threads = {{threads}})
-    cg_windows[is.na(cg_windows)] <- 0
-    cg_irlba <- irlba::irlba(as.matrix(t(cg_windows)), dims)
-    cg_irlba<-as.data.frame(cg_irlba$v)
-    colnames(cg_irlba)<- paste("DIM", 1:dims, sep = "")
-    rownames(cg_irlba) <- rownames(cg_windows)
-  }
+  } else {
+    if(!is.null(obj@irlba)) {
+      obj@irlba <- NULL
+    }
 
-  if(type == "both" | type == "CH") {
-    ch_windows <- makeWindows({{obj}}, stepsize = window_size, type = "CH", threads = {{threads}})
-    ch_windows[is.na(ch_windows)] <- 0
-    ch_irlba <- irlba::irlba(as.matrix(t(ch_windows)), dims)
-    ch_irlba<-as.data.frame(ch_irlba$v)
-    colnames(ch_irlba)<- paste("DIM", 1:dims, sep = "")
-    rownames(ch_irlba) <- rownames(ch_windows)
+    matrix <- list()
+
+    for (i in 1:length(genomeMatrices)) {
+      matrix[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
+      rownames <- rownames(matrix[[i]])
+      matrix[[i]][is.na(matrix[[i]])] <- 0
+      matrix[[i]] <- irlba::irlba(as.matrix(t(matrix[[i]])), dims[[i]])
+      matrix[[i]] <- as.data.frame(matrix[[i]]$v)
+      colnames(matrix[[i]]) <- paste("DIM", 1:dims[[i]], "_", genomeMatrices[i], sep = "")
+      rownames(matrix[[i]]) <- rownames
+    }
+
+    obj@irlba <- do.call(cbind, matrix)
+    output <- obj
   }
-  if (type == "both") {
-    obj@irlba <- merge(cg_irlba, ch_irlba, by = 0, suffixes = c(".cg", ".ch")) %>% column_to_rownames("Row.names")
-  } else if(type == "CG") {
-    obj@irlba <- cg_irlba
-  } else if(type == "CH") {
-    obj@irlba <- ch_irlba
-  }
-  output <- obj
 }
 
 ############################################################################################################################

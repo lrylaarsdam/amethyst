@@ -90,8 +90,10 @@ clusterCompare <- function(
     level,
     type,
     method = "pearson",
-    n = 5) {
+    n = 5,
+    aggregate = NULL) {
 
+  matrix <- obj@genomeMatrices[[matrix]]
   withref <- dplyr::bind_rows(matrix, ref[[level]][[type]]) # append the reference matrix to the experimental
   cor <- stats::cor(t(withref), method = {{method}}, use = "pairwise.complete.obs") # generate correlation matrix
   # determine top correlations
@@ -151,6 +153,7 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 #' @export
 #'
 #' @examples umapFeature(obj, colorBy = cluster_id)
+#'
 umapFeature <- function(
   obj,
   colorBy,
@@ -172,19 +175,28 @@ umapFeature <- function(
 #' @param impute Logical indicating whether to impute values using Rmagic
 #' @param blend Logical indicating whether to blend methylation levels of two or three genes
 #' @param nrow Number of rows to distribute graphs over
+#' @param matrix Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.
 #'
-#' @return
+#' @return Returns a plot of methylation over given genomic region in relation to UMAP
 #' @export
 #'
 #' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH")
 #' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", blend = TRUE, nrow = 1)
+#' @examples umapGeneM(both, genes = c("Cux1", "Lingo1"), matrix = "genemeans_cac_imputed", blend = T)
+#'
 umapGeneM <-  function(
   obj,
   genes,
-  type,
+  type = NULL,
   impute = FALSE,
+  matrix = NULL,
   blend = FALSE,
+  colors = NULL,
   nrow = round(sqrt(length(genes)))) {
+
+  if (is.null(matrix) && is.null(type)) {
+    stop("If matrix is not provided, 'type' must be specified.")
+    }
 
   if (!blend) {
 
@@ -192,32 +204,40 @@ umapGeneM <-  function(
     p <- vector("list", length(genes)) # empty plot list
     for (i in 1:length(genes)) {
       # get average methylation across a gene
-      genem <- getGeneM({{obj}}, gene = genes[i], type = {{type}})
-      genem <- genem %>% dplyr::group_by(cell_id) %>% dplyr::summarise(n = n(), pct_m = (sum(c != 0)*100/(sum(c != 0) + sum(t != 0))), .groups = "keep") %>%
-        dplyr::filter(n >= 2)
-      if (impute) {
-        imputed <- magic(genem$pct_m)
-        genem$pct_m <- imputed[["result"]]$V1
-      }
+      if (!is.null(matrix)) {
+        genem <- obj@genomeMatrices[[matrix]]
+        genem <- genem %>% dplyr::select(genes[i]) %>% rownames_to_column(var = "cell_id")
+        colnames(genem) <- c("cell_id", "pct_m")
+      } else if (is.null(matrix)) {
+        genem <- getGeneM({{obj}}, gene = genes[i], type = {{type}})
+        genem <- genem %>% dplyr::group_by(cell_id) %>% dplyr::summarise(n = n(), pct_m = (sum(c != 0)*100/(sum(c != 0) + sum(t != 0))), .groups = "keep") %>% dplyr::filter(n >= 2)
+        if (impute) {
+          imputed <- magic(genem$pct_m)
+          genem$pct_m <- imputed[["result"]]$V1
+          }
+        }
       # merge with metadata
       plot <- inner_join(genem, obj@metadata %>% rownames_to_column(var = "cell_id"), by = "cell_id")
       # plot
-      p[[i]] <- ggplot(plot, aes(x = umap_x, y = umap_y, color = pct_m)) + geom_point(size = 0.5) + theme_classic() + guides(colour = guide_legend(override.aes = list(size=3))) + scale_color_viridis_c(name = "pct.genebody") +
+      p[[i]] <- ggplot(plot, aes(x = umap_x, y = umap_y, color = pct_m)) + geom_point(size = 0.5) + theme_classic() + guides(colour = guide_legend(override.aes = list(size=3))) +
+        scale_color_viridis_c(name = "pct.genebody") +
+        {if(!is.null(colors)) scale_color_gradientn(colors = {{colors}})} +
         labs(title = paste0("%", type, " methylation across ", genes[i], " gene body")) + noAxes()
     }
     gridExtra::grid.arrange(grobs = p, nrow = nrow)
-  }
 
-  else if (blend) {
-
-    genem <- makeWindows(obj = {{obj}}, genes = {{genes}}, type = {{type}})
-    genem[is.na(genem)] <- 0
-
+    } else if (blend) {
+    if (!is.null(matrix)) {
+      genem <- obj@genomeMatrices[[matrix]]
+      genem <- genem %>% dplyr::select(genes)
+    } else if (is.null(matrix)) {
+      genem <- makeWindows(obj = {{obj}}, genes = {{genes}}, type = {{type}})
+      genem[is.na(genem)] <- 0
     if (impute) {
       genem <- magic(genem , npca = 10)
       genem <- genem[["result"]]
+      }
     }
-
     genem <- genem * 0.01
     if (length(genes) == 2) {
       names(genem) <- c("gene1", "gene2")
@@ -246,31 +266,54 @@ umapGeneM <-  function(
           zaxis=list(title=paste(genes[[3]]))))
       subplot(p1, p2, nrows = 1, widths = c(.8, 0.2))
     } else {
-      print("Error: Blending only accomodates 2 or 3 genes")
+      print("Error: Blending only accommodates 2 or 3 genes")
     }
   }
 }
 
 ############################################################################################################################
-# plot cumulative % methylation over a gene body with Violn plot
+# plot cumulative % methylation over a gene body with violin plot
 
 vlnGeneM <-  function(
   obj,
   genes,
-  type,
+  type = NULL,
+  matrix = NULL,
   groupBy,
+  colors = NULL,
   nrow = round(sqrt(length(genes)))) {
 
-  p <- vector("list", length(genes)) # empty plot list
-  for (i in 1:length(genes)) {
-    genem <- getGeneM({{obj}}, gene = genes[i], type = {{type}})
-    genem <- genem %>% dplyr::group_by(cell_id) %>% dplyr::summarise(n = n(), pct_m = (sum(c != 0)*100/(sum(c != 0) + sum(t != 0))), .groups = "keep") %>%
-      dplyr::filter(n >= 5)
-    genem <- inner_join(genem, obj@metadata %>% rownames_to_column(var = "cell_id"), by = "cell_id")
-    p[[i]] <- ggplot(genem, aes(x = {{groupBy}}, y = pct_m, fill = {{groupBy}}, color = {{groupBy}})) + geom_violin(alpha = 0.3) + geom_jitter(aes(color = {{groupBy}}), size = 0.2) + theme_classic() +
-      scale_fill_manual(values = pal) + scale_color_manual(values = pal) + ggtitle(paste0("Avg m", type, " across ", genes[i], " gene body")) + theme(legend.position="none")
+  if (is.null(matrix) && is.null(type)) {
+    stop("If matrix is not provided, 'type' must be specified.")
   }
-  gridExtra::grid.arrange(grobs = p, nrow = nrow)
+
+  if (is.null(colors)) {
+    pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2",  "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3",  "#FFA976")
+  } else if (!is.null(colors)) {
+    pal <- colors
+  }
+
+  if (!is.null(matrix)) {
+    genem <- obj@genomeMatrices[[matrix]]
+    genem <- genem %>% dplyr::select(genes)
+    genem <- merge(genem, obj@metadata, by = 0) %>% dplyr::rename("cell_id" = "Row.names")
+    genem <- pivot_longer(genem, cols = genes, names_to = "gene", values_to = "pct_m")
+
+    ggplot(genem, aes(x = {{groupBy}}, y = pct_m, fill = {{groupBy}}, color = {{groupBy}})) + geom_violin(alpha = 0.3) + geom_jitter(aes(color = {{groupBy}}), size = 0.2) + theme_classic() +
+      scale_fill_manual(values = pal) + scale_color_manual(values = pal) + facet_wrap(vars(gene))
+
+  } else if (is.null(matrix)) {
+    p <- vector("list", length(genes)) # empty plot list
+    for (i in 1:length(genes)) {
+      genem <- getGeneM({{obj}}, gene = genes[i], type = {{type}})
+      genem <- genem %>% dplyr::group_by(cell_id) %>% dplyr::summarise(n = n(), pct_m = (sum(c != 0)*100/(sum(c != 0) + sum(t != 0))), .groups = "keep") %>%
+        dplyr::filter(n >= 5)
+      genem <- inner_join(genem, obj@metadata %>% rownames_to_column(var = "cell_id"), by = "cell_id")
+      p[[i]] <- ggplot(genem, aes(x = {{groupBy}}, y = pct_m, fill = {{groupBy}}, color = {{groupBy}})) + geom_violin(alpha = 0.3) + geom_jitter(aes(color = {{groupBy}}), size = 0.2) + theme_classic() +
+        scale_fill_manual(values = pal) + scale_color_manual(values = pal) + ggtitle(paste0("Avg m", type, " across ", genes[i], " gene body")) + theme(legend.position="none")
+    }
+    gridExtra::grid.arrange(grobs = p, nrow = nrow)
+  }
 }
 
 ############################################################################################################################

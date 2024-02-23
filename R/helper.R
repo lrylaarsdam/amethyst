@@ -71,13 +71,15 @@ getGeneM <- function(obj,
 #' @examples makeWindows(obj, groupBy = cluster_id, genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")
 #' @examples makeWindows(obj, stepsize = 100000, type = "CH")
 makeWindows <- function(
-  obj,
-  groupBy = NULL, # optional metadata parameter to group cells by
-  genes = NULL, # provide only genes, bed, or step size
-  stepsize = FALSE, # provide only genes, bed, or step size
-  nmin = NULL,  # nmin is the minimum number of cytosines with data to include the cell in the analysis
-  type, # What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
-  threads = 1) {
+    obj,
+    groupBy = NULL, # optional metadata parameter to group cells by
+    genes = NULL, # provide only genes, bed, or step size
+    stepsize = FALSE, # provide only genes, bed, or step size
+    nmin = NULL,  # nmin is the minimum number of cytosines with data to include the cell in the analysis
+    type, # What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
+    metric = "percent",
+    threads = 1,
+    bed = NULL) {
 
   if (threads > 1) {
     plan(multicore, workers = threads)
@@ -91,13 +93,29 @@ makeWindows <- function(
       aggregated <- list()
       for (i in groups) {
         barcodes <- rownames(obj@metadata %>% dplyr::filter(.data[[groupBy]] == i)) # Retrieve barcodes for the cells belonging to the appropriate metadata
-        windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
-            mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
-            dplyr::filter(pct %in% c(0, 100)) %>% dplyr::group_by(window) %>% dplyr::summarise(pct_m = sum(c != 0)*100/(sum(c != 0) + sum(t != 0)), .groups = "keep")},
-            .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+        if (metric == "percent") {
+          windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+              mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>% dplyr::group_by(window) %>%
+              dplyr::summarise(value = round(sum(c != 0)*100/(sum(c != 0) + sum(t != 0)),1), .groups = "keep")},
+              .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+        } else if (metric == "ratio") {
+          windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+              dplyr::mutate(glob_m = sum(c != 0)/(sum(c != 0) + sum(t != 0))) %>% # determine global methylation status
+              mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
+              dplyr::group_by(window) %>% dplyr::summarise(value = round((sum(c != 0)/(sum(c != 0) + sum(t != 0)))/mean(glob_m), 3), .groups = "keep")}, # ratio of window to global methylation
+              .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+        } else if (metric == "score") {
+          windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+              dplyr::mutate(glob_m = sum(c != 0)/(sum(c != 0) + sum(t != 0))) %>% # determine global methylation status
+              mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
+              dplyr::group_by(window) %>% dplyr::summarise(meth = sum(c != 0)/(sum(c != 0) + sum(t != 0)), glob_m = mean(glob_m), .groups = "keep") %>%
+              dplyr::rowwise() %>% dplyr::mutate(diff = meth - glob_m) %>%
+              dplyr::mutate(value = ifelse(diff > 0, round(diff/(1-glob_m),3), round(diff/glob_m,3)))}, # ratio of window to global methylation
+              .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+        }
         windows <- bind_rows(windows)
-        windows <- windows %>% dplyr::group_by(window) %>% dplyr::summarise(pct_m = mean(pct_m)) # summarise average methylation across the group for each window
-        windows <- pivot_wider(windows, names_from = window, values_from = pct_m) # change the format so genomic windows are columns
+        windows <- windows %>% dplyr::group_by(window) %>% dplyr::summarise(value = mean(value)) # summarise average methylation across the group for each window
+        windows <- pivot_wider(windows, names_from = window, values_from = value) # change the format so genomic windows are columns
         rownames(windows) <- paste(as.character(i)) # set the row name to be the group
         aggregated[[i]] <- windows # add windows aggregated across the group to a list
       }
@@ -105,13 +123,29 @@ makeWindows <- function(
     } else {
       barcodes <- h5ls(obj@h5path)
       barcodes <- as.list(unique(barcodes %>% dplyr::filter(otype == "H5I_DATASET") %>% dplyr::pull(name))) # extract unique barcodes from the h5 file
-      windows <- future_map(barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
-          mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
-          dplyr::filter(pct %in% c(0, 100)) %>% dplyr::group_by(window) %>% dplyr::summarise(pct_m = sum(c != 0)*100/(sum(c != 0) + sum(t != 0)), .groups = "keep")},
-          .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+      if (metric == "percent") {
+        windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+            mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>% dplyr::group_by(window) %>%
+            dplyr::summarise(value = round(sum(c != 0)*100/(sum(c != 0) + sum(t != 0)),1), .groups = "keep")},
+            .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+      } else if (metric == "ratio") {
+        windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+            dplyr::mutate(glob_m = sum(c != 0)/(sum(c != 0) + sum(t != 0))) %>% # determine global methylation status
+            mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
+            dplyr::group_by(window) %>% dplyr::summarise(value = round((sum(c != 0)/(sum(c != 0) + sum(t != 0)))/mean(glob_m), 3), .groups = "keep")}, # ratio of window to global methylation
+            .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+      } else if (metric == "score") {
+        windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+            dplyr::mutate(glob_m = sum(c != 0)/(sum(c != 0) + sum(t != 0))) %>% # determine global methylation status
+            mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>%
+            dplyr::group_by(window) %>% dplyr::summarise(meth = sum(c != 0)/(sum(c != 0) + sum(t != 0)), glob_m = mean(glob_m), .groups = "keep") %>%
+            dplyr::rowwise() %>% dplyr::mutate(diff = meth - glob_m) %>%
+            dplyr::mutate(value = ifelse(diff > 0, round(diff/(1-glob_m),3), round(diff/glob_m,3)))}, # ratio of window to global methylation
+            .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+      }
       names(windows) <- barcodes
       windows <- bind_rows(windows, .id = "cell_id")
-      windows <- pivot_wider(windows, id_cols = cell_id, names_from = window, values_from = pct_m) %>% column_to_rownames(var = "cell_id") # change format so columns are genomic windows and rows are cells
+      windows <- pivot_wider(windows, id_cols = cell_id, names_from = window, values_from = value) %>% column_to_rownames(var = "cell_id") # change format so columns are genomic windows and rows are cells
     }
   }
 
@@ -126,7 +160,7 @@ makeWindows <- function(
       aggregated <- list()
       for (i in groups) {
         barcodes <- rownames(obj@metadata %>% dplyr::filter(.data[[groupBy]] == i))
-        windows <- lapply(X = ranges$gene_name, FUN = getGeneM, cells = barcodes, obj = {{obj}}, type = {{type}})
+        windows <- future_map(.x = ranges$gene_name, .f = function(x) {getGeneM(obj = {{obj}}, gene = x, type = {{type}})})
         names(windows) <- ranges$gene_name
         windows <- dplyr::bind_rows(windows, .id = "gene")
         windows <- windows %>% dplyr::group_by(gene, cell_id) %>% dplyr::summarise(n = n(), pct_m = sum(c != 0)*100/(sum(c != 0) + sum(t != 0)), .groups = "keep")
@@ -140,16 +174,42 @@ makeWindows <- function(
       }
       windows <- bind_rows(aggregated)
     } else {
-      windows <- lapply(X = ranges$gene_name, FUN = getGeneM, obj = {{obj}}, type = {{type}})
+      windows <- future_map(.x = ranges$gene_name, .f = function(x) {getGeneM(obj = {{obj}}, gene = x, type = {{type}}) %>%
+          dplyr::group_by(cell_id) %>% dplyr::summarise(pct_m = sum(c != 0)*100/(sum(c != 0) + sum(t != 0)), n = n(), .groups = "keep")}, .progress = TRUE)
       names(windows) <- ranges$gene_name
-      windows <- future_map(.x = windows, .f = function(x) {x %>% dplyr::group_by(cell_id) %>% dplyr::summarise(pct_m = sum(c != 0)*100/(sum(c != 0) + sum(t != 0)), n = n(), .groups = "keep")},
-                            .progress = TRUE)
       windows <- dplyr::bind_rows(windows, .id = "gene")
       if (!is.null(nmin)) {
         windows <- windows %>% dplyr::filter(n >= nmin)
       }
       windows <- pivot_wider(windows, id_cols = cell_id, names_from = gene, values_from = pct_m) %>% column_to_rownames(var = "cell_id")
     }
+  }
+
+  # Calculate avg windows over bed file regions
+  if(!is.null(bed)) {
+    ranges <- bed
+    colnames(ranges) <- c("chr", "start", "end")
+    ranges <- ranges %>% mutate(window = paste0(chr, "_", start, "_", end))
+
+    barcodes <- h5ls(obj@h5path)
+    barcodes <- as.list(unique(barcodes %>% dplyr::filter(otype == "H5I_DATASET") %>% dplyr::pull(name)))
+
+    for (i in barcodes) {
+      h5 <- h5read(obj@h5path, name = paste0(type, "/", i))
+      glob_m <- sum(c != 0)*100/(sum(c != 0) + sum(t != 0))
+      for (j in 1:length(ranges$window)) {
+        ## continue editing
+      }
+    }
+
+    windows <- future_map(.x = barcodes, .f = function(x) {h5read(obj@h5path, name = paste0(type, "/", x)) %>%
+        mutate(window = paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))) %>% dplyr::group_by(window) %>%
+        dplyr::summarise(value = round(sum(c != 0)*100/(sum(c != 0) + sum(t != 0)),1), .groups = "keep")},
+        .progress = TRUE) # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
+
+    names(windows) <- barcodes
+    windows <- bind_rows(windows, .id = "cell_id")
+    windows <- pivot_wider(windows, id_cols = cell_id, names_from = window, values_from = value) %>% column_to_rownames(var = "cell_id") # change format so columns are genomic windows and rows are cells
   }
 
   if (threads > 1) {
@@ -181,3 +241,76 @@ addMetadata <- function(obj,
     output <- obj
   }
 }
+
+############################################################################################################################
+#' addCellInfo
+#' Add the information contained in the cellInfo file outputs to the obj@metadata
+#' @param obj Amethyst object to add cell info metadata
+#' @param file Path of the cellInfo.txt file
+#'
+#' @return Returns the same Amethyst object but with cellInfo added
+#' @export
+#'
+#' @examples obj <- addCellInfo(obj, file = "~/Downloads/cellInfo.txt")
+addCellInfo <- function(obj,
+                        file) {
+
+  cellInfo <- read.table(file, sep = "\t", header = F)
+  colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct")
+  obj <- addMetadata(obj, metadata = cellInfo %>% column_to_rownames(var = "cell_id"))
+  output <- obj
+
+}
+
+############################################################################################################################
+#' impute
+#' Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC
+#' @param obj Amethyst object to perform imputation on
+#' @param matrix Name of the matrix contained in the genomeMatrices slot to perform imputation on
+#' @param npca Number of principle components to use
+#'
+#' @return Adds a new data frame to the genomeMatrices slot with imputed values
+#' @export
+#'
+#' @examples obj <- impute(obj, matrix = "gene_ch")
+impute <- function(obj,
+                   matrix,
+                   npca = 10) {
+  name <- matrix #store name of matrix for output
+  matrix <- obj@genomeMatrices[[matrix]]
+  num_na <- sum(is.na(matrix))
+  pct_na <- round(sum(is.na(matrix))*100/(ncol(matrix) * nrow(matrix)), 3)
+  if (num_na > 0) {
+    print(paste0("Warning: Replacing ", num_na, " NAs with zeros (", pct_na, "% of matrix) to perform imputation."))
+  }
+  matrix[is.na(matrix)] <- 0
+  matrix_imputed <- magic(matrix, npca = npca)[["result"]]
+  obj@genomeMatrices[[paste0(name, "_imputed")]] <- matrix_imputed
+  output <- obj
+}
+
+############################################################################################################################
+#' aggregateMatrix
+#'
+#' @param obj Amethyst pbject containing the matrix to be aggregated
+#' @param matrix Name of matrix contained in the genomeMatrices slot to aggregate
+#' @param groupBy Parameter in the metadata to groupBy
+#' @param name Name of output matrix to store
+#'
+#' @return
+#' @export
+#'
+#' @examples obj <- aggregateMatrix(obj, matrix = "ch_100k_pct, groupby = cluster_id, name = "cluster_ch_100k_pct")
+aggregateMatrix <- function(obj,
+                            matrix,
+                            groupBy,
+                            name) {
+  matrix <- obj@genomeMatrices[[matrix]]
+  metadata <- obj@metadata %>% dplyr::select({{groupBy}})
+  matrix <- merge(metadata, matrix, by = 0) %>% column_to_rownames(var = "Row.names")
+  matrix <- matrix %>% dplyr::group_by({{groupBy}}) %>% dplyr::summarise(across(where(is.numeric), mean, na.rm = TRUE), .groups = "keep") %>%
+    column_to_rownames(var = (as_name(ensym(groupBy))))
+  obj@genomeMatrices[[name]] <- matrix
+  output <- obj
+}
+

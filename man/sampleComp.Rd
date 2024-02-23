@@ -5,7 +5,7 @@
 \title{sampleComp
 Visualize the distribution of a metadata variable across groups of cells}
 \usage{
-sampleComp(obj, groupBy, colorBy)
+sampleComp(obj, groupBy, colorBy, colors = NULL)
 }
 \arguments{
 \item{obj}{The amethyst object to plot}

@@ -17,14 +17,24 @@ findClusterMarkers <- function(
   impute = FALSE,
   genes = names(obj@index[["CH"]]),
   nmin = NULL, # nmin is the minimum number of covered cytosines to include the cell in the analysis
-  type) {
+  type = NULL,
+  matrix = NULL) {
 
-  markers <- makeWindows(obj, genes = genes, type = {{type}}, nmin = {{nmin}})
-  if (impute) {
-    markers [is.na(markers )] <- 0
-    markers <- magic(markers, npca = 10)
-    markers <- markers[["result"]]
+  if (is.null(matrix) && is.null(type)) {
+    stop("If matrix is not provided, 'type' must be specified.")
   }
+
+  if (!is.null(matrix)) {
+    markers <- obj@genomeMatrices[[matrix]]
+  } else if(is.null(matrix)) {
+    markers <- makeWindows(obj, genes = genes, type = {{type}}, nmin = {{nmin}})
+    if (impute) {
+      markers [is.na(markers )] <- 0
+      markers <- magic(markers, npca = 10)
+      markers <- markers[["result"]]
+    }
+  }
+
   markers <- merge(obj@metadata, markers, by = 0) %>% dplyr::rename("cell_id" = "Row.names")
   markers <- markers %>% mutate(cluster_id = paste0("cluster_", cluster_id))
 
@@ -33,19 +43,22 @@ findClusterMarkers <- function(
     results[[gene]] <- list()
     for (id in unique(markers$cluster_id)) {
       tryCatch({
-        results[[gene]][[id]] <-  wilcox.test(x = markers %>% dplyr::filter(cluster_id == id) %>% pull(paste(gene)),
-                                              y = markers %>% dplyr::filter(cluster_id != id) %>% pull(paste(gene)))$p.value
-        results[[gene]][[id]] <- results[[gene]][[id]] %>% dplyr::mutate(direction = ifelse(
-          mean(markers %>% dplyr::filter(cluster_id == id) %>% pull(paste(gene))) >
-            mean(markers %>% dplyr::filter(cluster_id != id) %>% pull(paste(gene))), "increase", "decrease"))
+        results[[gene]][[id]] <-  as.data.frame(wilcox.test(x = markers %>% dplyr::filter(cluster_id == id) %>% pull(paste(gene)),
+                                              y = markers %>% dplyr::filter(cluster_id != id) %>% pull(paste(gene)))$p.value)
+        colnames(results[[gene]][[id]]) <- "p.val"
+        results[[gene]][[id]] <- results[[gene]][[id]] %>% dplyr::mutate(
+          gene = paste(gene), id = paste(id),
+          mean_1 = mean(markers %>% dplyr::filter(cluster_id == id) %>% pull(paste(gene))),
+          mean_2 = mean(markers %>% dplyr::filter(cluster_id != id) %>% pull(paste(gene))),
+          logFC = log2(mean_2/mean_1),
+          direction = ifelse(mean_1 > mean_2, "increase", "decrease"))
       }, error = function(e) {
         cat("Error processing gene:", gene, "and cluster:", id, "\n")
         results[[gene]][[id]] <- NA
       })
     }
   }
-  results <- do.call(rbind, results)
-  results <- pivot_longer(as.data.frame(results) %>% rownames_to_column("gene"), cols = starts_with("cluster"), names_to = "cluster", values_to = "p.val")
-  results <- results %>% group_by(cluster) %>% mutate(p.adj = p.adjust(p.val, method = "bonferroni"))
-
+  results <- do.call(rbind, lapply(results, function(x) do.call(rbind, x)))
+  results <- results %>% dplyr::select(-p.val, everything(), p.val)
+  results <- results %>% group_by(id) %>% mutate(p.adj = p.adjust(p.val, method = "bonferroni"))
 }

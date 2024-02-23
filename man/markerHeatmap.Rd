@@ -14,10 +14,18 @@ markerHeatmap(
 )
 }
 \arguments{
-\item{type}{}
+\item{obj}{The amethyst object to plot}
+
+\item{level}{Hierarchy of reference to plot. i.e., "cell_class" plots "Exc"  "Inh"  "NonN"}
+
+\item{impute}{Logical indicating whether to impute values using Rmagic}
+
+\item{rownames}{Logical indicating whether to show row names on the heatmap}
+
+\item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
 }
 \value{
-
+Returns a heatmap of average methylation levels of key marker genes
 }
 \description{
 markerHeatmap
