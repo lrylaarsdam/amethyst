@@ -260,7 +260,6 @@ indexAll <- function(
     threads = 10,
     save = NULL,
     method = "foreach",
-    h5_approach = "read",
     choice = "all") {
   # Create an empty list to write output
   index <- list()
@@ -278,8 +277,7 @@ indexAll <- function(
       type = "CH",
       subset = {{ subset }},
       threads = {{ threads }},
-      method = method,
-      h5_approach = h5_approach
+      method = method
     )
     cat(paste("\nGene body mCH is done indexing at ", format(Sys.time(), "%H:%M:%S"), ".\n"))
     print(str(.ch))
@@ -290,8 +288,7 @@ indexAll <- function(
       type = "CG",
       subset = {{ subset }},
       threads = {{ threads }},
-      method = method,
-      h5_approach = h5_approach
+      method = method
     )
     cat(paste("\nGene body mCG is done indexing at ", format(Sys.time(), "%H:%M:%S"), ".\n"))
     print(str(.cg))
@@ -302,8 +299,7 @@ indexAll <- function(
       type = "promoters",
       subset = {{ subset }},
       threads = {{ threads }},
-      method = method,
-      h5_approach = h5_approach
+      method = method
     )
     cat(paste("\nPromoter mCG status is done indexing at ", format(Sys.time(), "%H:%M:%S"), ".\n"))
     print(str(.p))
