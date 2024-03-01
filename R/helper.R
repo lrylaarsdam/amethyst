@@ -91,7 +91,7 @@ makeWindows <- function(
     threads = 1,
     bed = NULL) {
   if (threads > 1) {
-    plan(multicore, workers = threads)
+    future::plan(future::multicore, workers = threads)
   }
 
   # If stepsize is specified, make fixed size genomic windows
@@ -106,7 +106,7 @@ makeWindows <- function(
         if (metric == "percent") {
           # read in each barcode and calculate % methylation over 100kb genomic
           # windows for each cell
-          windows <- future_map(
+          windows <- furrr::future_map(
             .x = barcodes,
             .f = function(x) {
               h5read(obj@h5path, name = paste0(type, "/", x)) |>
@@ -127,7 +127,7 @@ makeWindows <- function(
         } else if (metric == "ratio") {
           # read in each barcode and calculate % methylation over 100kb genomic
           # windows for each cell
-          windows <- future_map(
+          windows <- furrr::future_map(
             .x = barcodes,
             .f = function(x) {
               h5read(obj@h5path, name = paste0(type, "/", x)) |>
@@ -148,7 +148,7 @@ makeWindows <- function(
             .progress = TRUE
           )
         } else if (metric == "score") {
-          windows <- future_map(
+          windows <- furrr::future_map(
             .x = barcodes,
             .f = function(x) {
               h5read(obj@h5path, name = paste0(type, "/", x)) |>
@@ -192,9 +192,9 @@ makeWindows <- function(
 
       # aggregate the data frame after windows for each group are calculated.
       # Columns will be genomic windows; rows will be the group name.
-      windows <- bind_rows(aggregated)
+      windows <- dplyr::bind_rows(aggregated)
     } else {
-      barcodes <- h5ls(obj@h5path)
+      barcodes <- rhdf5::h5ls(obj@h5path)
       # extract unique barcodes from the h5 file
       barcodes <- as.list(
         unique(
@@ -206,7 +206,7 @@ makeWindows <- function(
       if (metric == "percent") {
         # read in each barcode and calculate % methylation over 100kb genomic
         # windows for each cell
-        windows <- future_map(
+        windows <- furrr::future_map(
           .x = barcodes,
           .f = function(x) {
             h5read(obj@h5path, name = paste0(type, "/", x)) |>
@@ -219,7 +219,7 @@ makeWindows <- function(
       } else if (metric == "ratio") {
         # read in each barcode and calculate % methylation over 100kb genomic
         # windows for each cell
-        windows <- future_map(
+        windows <- furrr::future_map(
           .x = barcodes,
           .f = function(x) {
             h5read(obj@h5path, name = paste0(type, "/", x)) |>
@@ -235,7 +235,7 @@ makeWindows <- function(
       } else if (metric == "score") {
         # read in each barcode and calculate % methylation over 100kb genomic
         # windows for each cell
-        windows <- future_map(
+        windows <- furrr::future_map(
           .x = barcodes,
           .f = function(x) {
             h5read(obj@h5path, name = paste0(type, "/", x)) |>
