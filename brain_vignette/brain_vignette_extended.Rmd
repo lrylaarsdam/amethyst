@@ -52,7 +52,7 @@ Now let's get the positions in the h5 file that correspond to these genes using 
 
 ```{r}
 path <- "/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette.h5"
-index <- indexAll(hdf5 = path, subset = markerGenes, threads = 30) 
+index <- indexAll(hdf5 = path, gtf = ref, subset = markerGenes, threads = 30) 
 ```
 
 Alternatively, you could just index one type of methylation.

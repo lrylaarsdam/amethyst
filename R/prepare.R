@@ -1,6 +1,6 @@
-############################################################################################################################
-#' createObject
-#' create object of class amethyst
+
+#' @title Create object
+#' @description create object of class amethyst
 #'
 #' @param h5path Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
 #' @param index Gene coordinates in the hdf5 file.
@@ -34,9 +34,11 @@ createObject <- function(
   return(assay)
 }
 
-############################################################################################################################
-#' extractAttributes from https://www.biostars.org/p/272889/
-#' Extract information from the attributes column of a gtf file
+
+#' @title Extract attributes
+#' @description
+#' Extract information from the attributes column of a gtf file (from
+#' https://www.biostars.org/p/272889/)
 #'
 #' @param gtf_attributes
 #' @param att_of_interest
@@ -55,9 +57,9 @@ extractAttributes <- function(gtf_attributes,
     return(NA)}
 }
 
-############################################################################################################################
-#' makeRef
-#' Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.
+#' @title makeRef
+#' @description
+#'  Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.
 #'
 #' @param ref
 #' @param gtf
@@ -72,10 +74,10 @@ makeRef <- function(ref = "hg38",
                     attributes = c("gene_name", "exon_number")) {
   if (ref == 'hg38') {
     options(timeout=1000)
-    gtf <- readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz")
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz")
   } else if (ref == "mm10") {
     options(timeout=1000)
-    gtf <- readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
   } else if (gtf) {
     gtf = gtf
   } else {
@@ -84,13 +86,14 @@ makeRef <- function(ref = "hg38",
   for (i in attributes) {
     gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
   }
-  gtf <- gtf %>% dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
+  gtf <- gtf |>
+    dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
 }
 
-############################################################################################################################
-# select marker genes based on http://neomorph.salk.edu/omb/ct_table
 
-#' Title
+#' @title Fetch markers
+#' @description
+#' # select marker genes based on http://neomorph.salk.edu/omb/ct_table
 #'
 #' @param ref
 #' @param type
@@ -137,9 +140,9 @@ fetchMarkers <- function(ref,
 }
 
 
-############################################################################################################################
-#' runIrlba
-#' Dimensionality reduction
+#' @title runIrlba
+#' @description
+#'  Dimensionality reduction
 #'
 #' @param obj Object for which to run irlba
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
@@ -180,8 +183,8 @@ runIrlba <- function(
   }
 }
 
-############################################################################################################################
-#' runCluster
+#' @title Run cluster
+#' @description
 #' Cluster dimensionality reduction with Rphenograph
 #'
 #' @param obj
@@ -207,9 +210,8 @@ runCluster <- function(obj,
 }
 
 
-############################################################################################################################
-#' runUmap
-#' Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
+#' @title runUmap
+#' @description Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
 #'
 #' @param obj
 #' @param neighbors
@@ -238,5 +240,3 @@ runUmap <- function(obj,
   obj@metadata <- metadata
   output <- obj
 }
-
-

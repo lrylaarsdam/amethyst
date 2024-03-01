@@ -2,7 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{fetchMarkers}
 \alias{fetchMarkers}
-\title{Title}
+\title{Fetch markers}
 \usage{
 fetchMarkers(ref, type)
 }
@@ -10,5 +10,5 @@ fetchMarkers(ref, type)
 \item{type}{}
 }
 \description{
-Title
+# select marker genes based on http://neomorph.salk.edu/omb/ct_table
 }

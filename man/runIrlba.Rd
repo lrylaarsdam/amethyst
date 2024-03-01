@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{runIrlba}
 \alias{runIrlba}
-\title{runIrlba
-Dimensionality reduction}
+\title{runIrlba}
 \usage{
 runIrlba(obj, genomeMatrices, dims)
 }
@@ -15,7 +14,6 @@ runIrlba(obj, genomeMatrices, dims)
 \item{dims}{list of how many dimensions to output for each matrix}
 }
 \description{
-runIrlba
 Dimensionality reduction
 }
 \examples{

@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{extractAttributes}
 \alias{extractAttributes}
-\title{extractAttributes from https://www.biostars.org/p/272889/
-Extract information from the attributes column of a gtf file}
+\title{Extract attributes}
 \usage{
 extractAttributes(gtf_attributes, att_of_interest)
 }
@@ -11,6 +10,6 @@ extractAttributes(gtf_attributes, att_of_interest)
 \item{att_of_interest}{}
 }
 \description{
-extractAttributes from https://www.biostars.org/p/272889/
-Extract information from the attributes column of a gtf file
+Extract information from the attributes column of a gtf file (from
+https://www.biostars.org/p/272889/)
 }

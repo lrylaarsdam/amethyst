@@ -2,8 +2,7 @@
 % Please edit documentation in R/helper.R
 \name{addCellInfo}
 \alias{addCellInfo}
-\title{addCellInfo
-Add the information contained in the cellInfo file outputs to the obj@metadata}
+\title{Add cell info}
 \usage{
 addCellInfo(obj, file)
 }
@@ -16,7 +15,6 @@ addCellInfo(obj, file)
 Returns the same Amethyst object but with cellInfo added
 }
 \description{
-addCellInfo
 Add the information contained in the cellInfo file outputs to the obj@metadata
 }
 \examples{

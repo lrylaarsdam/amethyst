@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{runUmap}
 \alias{runUmap}
-\title{runUmap
-Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction}
+\title{runUmap}
 \usage{
 runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 }
@@ -11,6 +10,5 @@ runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 \item{method}{}
 }
 \description{
-runUmap
 Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/visualize.R
 \name{markerHeatmap}
 \alias{markerHeatmap}
-\title{markerHeatmap
-Plot the methylation levels of sample groups across many genes at once}
+\title{markerHeatmap}
 \usage{
 markerHeatmap(
   obj,
@@ -28,6 +27,5 @@ markerHeatmap(
 Returns a heatmap of average methylation levels of key marker genes
 }
 \description{
-markerHeatmap
 Plot the methylation levels of sample groups across many genes at once
 }

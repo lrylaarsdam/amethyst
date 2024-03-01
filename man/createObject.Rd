@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{createObject}
 \alias{createObject}
-\title{createObject
-create object of class amethyst}
+\title{Create object}
 \usage{
 createObject(h5path, index, metadata = NULL, ref = ref)
 }
@@ -20,7 +19,6 @@ createObject(h5path, index, metadata = NULL, ref = ref)
 Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
 }
 \description{
-createObject
 create object of class amethyst
 }
 \examples{

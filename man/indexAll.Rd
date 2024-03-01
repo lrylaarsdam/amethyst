@@ -2,11 +2,18 @@
 % Please edit documentation in R/index.R
 \name{indexAll}
 \alias{indexAll}
-\title{indexAll
-Index gene body CG methylation, gene body CH methylation, and mCG status of promoters.
-Promoters are defined by the first position of the gene body (strand-aware) +/- 1500 bp.}
+\title{indexAll}
 \usage{
-indexAll(hdf5, subset = markerGenes, threads = 10, save = NULL)
+indexAll(
+  hdf5,
+  gtf,
+  subset = markerGenes,
+  threads = 10,
+  save = NULL,
+  method = "foreach",
+  h5_approach = "read",
+  choice = "all"
+)
 }
 \arguments{
 \item{hdf5}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode.}
@@ -21,7 +28,6 @@ indexAll(hdf5, subset = markerGenes, threads = 10, save = NULL)
 Returns a list of coordinates in the hdf5 file corresponding to each gene. Organized by methylation type, gene, and cell.
 }
 \description{
-indexAll
 Index gene body CG methylation, gene body CH methylation, and mCG status of promoters.
 Promoters are defined by the first position of the gene body (strand-aware) +/- 1500 bp.
 }

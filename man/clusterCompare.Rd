@@ -2,8 +2,7 @@
 % Please edit documentation in R/visualize.R
 \name{clusterCompare}
 \alias{clusterCompare}
-\title{clusterCompare
-Correlates average percent methylation over 100kb windows aggregated by metadata to a reference matrix to aid in cell type identification.}
+\title{Cluster compare}
 \usage{
 clusterCompare(
   matrix,
@@ -32,7 +31,6 @@ clusterCompare(
 A ggplot dot plot showing the top 5 correlations of each group to the reference
 }
 \description{
-clusterCompare
 Correlates average percent methylation over 100kb windows aggregated by metadata to a reference matrix to aid in cell type identification.
 }
 \examples{

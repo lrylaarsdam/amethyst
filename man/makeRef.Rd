@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{makeRef}
 \alias{makeRef}
-\title{makeRef
-Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.}
+\title{makeRef}
 \usage{
 makeRef(ref = "hg38", gtf = NULL, attributes = c("gene_name", "exon_number"))
 }
@@ -11,6 +10,5 @@ makeRef(ref = "hg38", gtf = NULL, attributes = c("gene_name", "exon_number"))
 \item{attributes}{}
 }
 \description{
-makeRef
 Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.
 }

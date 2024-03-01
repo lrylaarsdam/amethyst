@@ -2,8 +2,7 @@
 % Please edit documentation in R/visualize.R
 \name{umapGeneM}
 \alias{umapGeneM}
-\title{umapGeneM
-Plot cumulative \% methylation over a gene body on umap}
+\title{umapGeneM}
 \usage{
 umapGeneM(
   obj,
@@ -35,7 +34,6 @@ umapGeneM(
 Returns a plot of methylation over given genomic region in relation to UMAP
 }
 \description{
-umapGeneM
 Plot cumulative \% methylation over a gene body on umap
 }
 \examples{

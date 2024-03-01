@@ -2,8 +2,7 @@
 % Please edit documentation in R/diff.R
 \name{findClusterMarkers}
 \alias{findClusterMarkers}
-\title{findClusterMarkers
-Find variably methylated features across clusters}
+\title{Find cluster markers}
 \usage{
 findClusterMarkers(
   obj,
@@ -25,7 +24,9 @@ findClusterMarkers(
 
 \item{type}{}
 }
+\value{
+A data.frame of ...
+}
 \description{
-findClusterMarkers
 Find variably methylated features across clusters
 }

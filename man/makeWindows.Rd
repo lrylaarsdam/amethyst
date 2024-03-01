@@ -2,9 +2,7 @@
 % Please edit documentation in R/helper.R
 \name{makeWindows}
 \alias{makeWindows}
-\title{makeWindows
-Calculate percent methylation across a genomic window of given size or a gene body.
-If desired, aggregate average percent methylation according to a categorical value in the metadata.}
+\title{Make windows}
 \usage{
 makeWindows(
   obj,
@@ -35,9 +33,9 @@ makeWindows(
 Returns a data frame with the genomic region or gene name as column names, cell barcode or group as row names, and values as percent methylated.
 }
 \description{
-makeWindows
-Calculate percent methylation across a genomic window of given size or a gene body.
-If desired, aggregate average percent methylation according to a categorical value in the metadata.
+Calculate percent methylation across a genomic window of given
+size or a gene body. If desired, aggregate average percent methylation
+according to a categorical value in the metadata.
 }
 \examples{
 makeWindows(obj, groupBy = cluster_id, genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")

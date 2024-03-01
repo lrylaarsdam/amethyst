@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{runCluster}
 \alias{runCluster}
-\title{runCluster
-Cluster dimensionality reduction with Rphenograph}
+\title{Run cluster}
 \usage{
 runCluster(obj, k_phenograph = 50)
 }
@@ -11,6 +10,5 @@ runCluster(obj, k_phenograph = 50)
 \item{k_phenograph}{}
 }
 \description{
-runCluster
 Cluster dimensionality reduction with Rphenograph
 }
