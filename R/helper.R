@@ -314,3 +314,75 @@ aggregateMatrix <- function(obj,
   output <- obj
 }
 
+############################################################################################################################
+makeSlidingWindows <- function(
+    obj,
+    type,
+    threads = 1) {
+
+  if (threads > 1) {
+    plan(multicore, workers = threads)
+  }
+
+  # get all cell IDs in h5 file
+  barcodes <- h5ls(obj@h5path)
+  barcodes <- as.list(unique(barcodes %>% dplyr::filter(otype == "H5I_DATASET") %>% dplyr::pull(name)))
+
+  # calculate % methylation over 500 bp windows for all cells
+  windows <- future_map(.x = barcodes, .f = function(x) {
+    data <- h5read(obj@h5path, name = paste0(type, "/", x))
+    barcode_name <- sub("\\..*$", "", x)
+    data$window <- paste0(data$chr, "_", round_any(data$pos, 500, floor), "_", round_any(data$pos, 500, ceiling))
+    setDT(data)
+    data <- data[!grepl("([^_]*_){3,}", window)] # removes non-major chromosomes
+    data <- data[, c("chr", "start", "end") := tstrsplit(window, "_", fixed = TRUE)]
+    data <- data %>% dplyr::group_by(window, chr, start, end) %>%
+      dplyr::summarise(!!barcode_name := round(sum(c != 0)*100/(sum(c != 0) + sum(t != 0)),1), .groups = "keep")
+    return(data)
+
+  }, .progress = TRUE)
+
+  windows <- reduce(windows, full_join, by = c("window", "chr", "start", "end"))
+  windows$start <- as.integer(windows$start)
+  windows$end <- as.integer(windows$end)
+
+  # get all possible 500 bp positions so you don't accidentally average across missing values
+  bed <- read.table("/home/groups/ravnica/projects/amethyst/hg38_500bp_intervals.bed", sep = "\t")
+  colnames(bed) <- c("chr", "start", "end")
+  bed <- bed %>% dplyr::mutate(window = paste0(chr, "_", start, "_", end))
+
+  windows <- left_join(bed, windows, by = c("window", "chr", "start", "end"))
+  windows <- windows %>% dplyr::arrange(chr, start, end)
+
+  # Calculate the rolling mean for each column
+  smoothed <- windows
+  setDT(smoothed)
+
+  smooth_start <- smoothed[, lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[1], align = "center", fill = NA)), .SDcols ="start"]
+  smooth_end <- smoothed[, lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[3], align = "center", fill = NA)), .SDcols ="end"]
+  averages <- smoothed[, lapply(.SD, function(x) round(frollmean(x, n = 3, align = "center", fill = NA, na.rm = TRUE), 2)), .SDcols = -c("window", "chr", "start", "end")]
+
+  # Add the averages as new columns to your original data.table
+  smoothed <- smoothed[, .SD, .SDcols = 1:4]
+  smoothed[, paste0("smooth_start") := smooth_start]
+  smoothed[, paste0("smooth_end") := smooth_end]
+  smoothed$smooth_window <- paste0(smoothed$chr, "_", smoothed$smooth_start, "_", smoothed$smooth_end)
+  smoothed[, flag := ifelse(shift(chr, 1) != shift(chr, -2), "FLAG", "OK")] # remove rows over the chromosome junctions
+  smoothed[, names(averages) := averages]
+  smoothed <- smoothed[flag == "OK"]
+  smoothed <- smoothed[, !("flag") , with = FALSE]
+
+  # If aggregating by group
+  groups <- as.list(unique(obj@metadata[["cluster_id"]]))
+  aggregated <- list()
+  for (i in groups) {
+    aggregated[[i]] <- rowMeans(as.data.frame(smoothed)[rownames(obj@metadata[obj@metadata$cluster_id == i , ])], na.rm = TRUE)
+  }
+  aggregated <- do.call(data.frame, aggregated)
+  colnames(aggregated) <- groups
+  aggregated <- cbind(as.data.frame(smoothed)[1:7], aggregated)
+  output <- aggregated
+
+}
+
+

@@ -421,3 +421,55 @@ histGeneM <- function(
   gridExtra::grid.arrange(grobs = p, nrow = nrow)
 }
 
+############################################################################################################################
+#' Title
+#'
+#' @param obj Object containing the matrix to plot
+#' @param genes Gene list to plot
+#' @param matrix Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output
+#' @param colors Optional list of colors to include
+#' @param trackOverhang Number of base pairs to extend beyond the gene
+#' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
+#'
+#' @return
+#' @export
+#'
+#' @examples tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
+tileGeneM <- function(obj,
+                      genes,
+                      matrix,
+                      colors = NULL,
+                      trackOverhang = 5000,
+                      arrowOverhang = 3000,
+                      nrow = length(genes),
+                      legend = TRUE) {
+  # make empty plot list
+  p <- vector("list", length(genes)) # empty plot list
+  for (i in 1:length(genes)) {
+
+    ref <- obj@ref %>% dplyr::filter(gene_name == genes[i])
+    aggregated <- obj@genomeMatrices[[matrix]]
+
+    if (!is.null(colors)) {
+      colors <- colors
+    } else {
+      colors <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+    }
+
+    toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
+    ngroups <- ncol(toplot) - 7
+    trackHeight <- ngroups * .07
+    toplot <- pivot_longer(toplot, cols = c(8:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") %>% rowwise() %>% dplyr::mutate(middle = mean(c(start, end)))
+
+    p[[i]] <- ggplot() +
+      geom_tile(data = toplot, aes(x = middle, y = cluster_id, fill = pct_mCG), width = 1500) +
+      geom_rect(fill = "pink", data = ref %>% filter(type == "gene") %>% dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
+                aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
+      geom_rect(fill = "black", data = ref %>% filter(type == "exon"), aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
+      geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight, "cm"))) + xlab(genes[i]) +
+      geom_rect(fill = "black", data = ref %>% filter(type == "gene"), aes(xmin = start, xmax = end, ymin = (-(trackHeight/2) -(trackHeight/20)), ymax = (-(trackHeight/2) + (trackHeight/20)))) +
+      {if(!legend)theme(legend.position = "none")} + scale_fill_gradientn(colors = colors) + theme(panel.background = element_blank(), axis.ticks = element_blank()) + ylab("Cluster ID")
+  }
+  gridExtra::grid.arrange(grobs = p, nrow = nrow)
+}
+
