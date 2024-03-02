@@ -1,13 +1,17 @@
 ### PART ONE: RECOMMENDED TO RUN ON THE CLUSTER ###
 ########################################################################################################
 ### LOADING DEPENDENCIES AND FUNCTIONS ###
-First, you need to install and load the dependencies and functions. I am working on assembling a package, but for now, I have compiled the necessary info into a single script called amethyst_singlescript.R. You can open this script with the file.edit command followed by the path to the document.
+If you are working on Adey lab servers, consider changing your library path so you don't have to install all the dependencies:
 
 ```{r}
-file.edit("/home/groups/ravnica/projects/amethyst/amethyst_singlescript.R") # If on the server, copy and paste the contents of the file into R and run. May have to address package loading separate from function loading.
+.libPaths('/home/groups/ravnica/env/R_libs/R-4.2.2_amethyst')
 ```
 
-Run the whole script (Command + A -> Run icon at the top) to load everything.
+First, you need to install and load the dependencies and functions. I am working on assembling a package, but for now, I have compiled the necessary info into a single script called amethyst_singlescript.R. You can load the functions and dependencies using the source() function.
+
+```{r}
+source("/home/groups/ravnica/projects/amethyst/amethyst_singlescript.R")
+```
 
 Or to just load the dependencies, if amethyst functions are already saved in your workspace:
 
@@ -32,6 +36,29 @@ options(scipen = 999)
 options(future.globals.maxSize = (20000*1024^2)) # 20 GB; adjust if local
 ```
 
+########################################################################################################
+### LOADING PRACTICE DATA ###
+
+This vignette comes with a toy dataset of 50 cells derived from human brain cortex. Specify the desired path to store the file. It is 12 GB, since it is high coverage and includes both CG and CH methylation data.
+
+```{r}
+# This is the path to the vignette h5 file if using Adey Lab servers
+path <- "/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette.h5" 
+
+# To download from AWS. Modify the desired path in the second command if you don't want it in the working directory.
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette.h5", "brain_vignette.h5", method = "curl") 
+```
+
+Alternatively, many of the commands can be run using just the pre-assembled vignette workspace without the large h5 file. If you download the workspace, all the downstream commands have been run, so you can just explore what is helpful.
+
+```{r}
+# This is the path to the vignette workspace if using Adey Lab servers
+load("/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette_workspace.RData") 
+
+# Or you can download from AWS. Modify the desired path in the second command if you don't want it in the working directory.
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "brain_vignette_workspace.RData", method = "curl") 
+load("./brain_vignette_workspace.RData")
+```
 
 ########################################################################################################
 ### INDEXING ### (This is only necessary if you want to look at gene-specific methylation information)
@@ -49,9 +76,8 @@ markerGenes <- fetchMarkers(ref = "hg38", type = "brain") # pbmc will be added e
 ```
 
 Now let's get the positions in the h5 file that correspond to these genes using the index function.
-
+Modify the path to the h5 file if needed.
 ```{r}
-path <- "/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette.h5"
 index <- indexAll(hdf5 = path, subset = markerGenes, threads = 30) 
 ```
 
@@ -104,10 +130,12 @@ Before moving to the local Rstudio, it is helpful to find cluster markers and ma
 celltyperefs <- readRDS("/home/groups/ravnica/projects/amethyst/ecker_PMC8494641/GEO_mcds/liu2021_chrom100k_aggregated_refs.RData") #Here I am just loading the pre-made reference into the workspace before moving locally
 obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = names(obj@index[["CH"]]), threads = 30, type = "CH")
 clusterMarkersCH <- findClusterMarkers(obj, nmin = 5, matrix = "gene_ch") # Matrix does not have to be pre-computed, but it speeds things up downstream 
+obj@genomeMatrices[["cluster_cg_500_slidingwindows"]] <- makeSlidingWindows(obj, type = "CG", threads = 10) # Same here; this is for gene visualization with tileGeneM
 sigmarkers <- clusterMarkersCH %>% dplyr::filter(p.adj < 0.05)  %>% dplyr::group_by(id, direction) %>% top_n(3, wt = p.adj)
 ```
 
-Now save the environment and import to RStudio. 
+Now save the environment and import to RStudio, if you aren't already using it.
+
 ```{r}
 save.image("brain_vignette.RData")
 ```
@@ -198,10 +226,11 @@ p2 <- umapGeneM(obj, genes = c("SLC17A8"), matrix = "gene_ch_imputed")
 plot_grid(p1, p2)
 ```
 
-Visualization of methylation over the gene body can be done with histGeneM
+Visualization of methylation over the gene body can be done with histGeneM or tileGeneM
 
 ```{r}
 histGeneM(obj, type = "CH", groupBy = cluster_id, genes = c("GAD1", "LINGO1"), bins = 40) # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+tileGeneM(obj, genes = c("C1QA"), matrix = "cluster_cg_500_slidingwindows") 
 ```
 
 Variation in methylation levels of key marker genes can help aid in cell type ID, but it may be more effective to compare to a reference. If using brain data you can use clusterCompare to correlate % methylation over 100kb genomic windows to a reference generated from Liu 2021 (Ecker lab). Levels to compare with are:
