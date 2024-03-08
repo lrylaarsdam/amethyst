@@ -4,6 +4,7 @@
 #' @param ranges Ranges data.table
 #' @param h5 A h5 file data.table
 #' @returns An entry for the index list
+#' @export
 findIndex <- function(curr_gene, ranges, h5) {
   rel_entries <- which(ranges$gene_name == curr_gene)
   rel_chr <- ranges$seqid[rel_entries]
@@ -45,12 +46,12 @@ findRanges <- function(gtf, promoter, subset = NULL) {
   # if indexing promoter positions, determine first base pair position of the
   # gene (sense-aware) and get coordinates of the surrounding 3kb.
   if (promoter) {
-    gtf_relevant <- gtf_dt[, tss := start][strand == "+", tss := end]
+    gtf_relevant <- gtf_dt[, tss := start][strand == "-", tss := end]
     gtf_relevant <- gtf_dt[, ":="(promoter_start = tss - 1500, promoter_end = tss + 1500)]
     gtf_relevant <- unique(gtf_dt, by = c("seqid", "start", "end"))
     gtf_relevant <- gtf_dt[seqid != "chrM", .(seqid, promoter_start, promoter_end, gene_name, location)]
     ranges <- setorderv(
-      gtf_dt,
+      gtf_relevant,
       c("seqid", "promoter_start"),
       c(1, 1)
     )
