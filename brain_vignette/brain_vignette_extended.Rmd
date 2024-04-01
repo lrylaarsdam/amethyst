@@ -7,7 +7,7 @@ If you are working on Adey lab servers, consider changing your library path so y
 .libPaths('/home/groups/ravnica/env/R_libs/R-4.2.2_amethyst')
 ```
 
-First, you need to install and load the dependencies and functions. I am working on assembling a package, but for now, I have compiled the necessary info into a single script called amethyst_singlescript.R. You can load the functions and dependencies using the source() function.
+First, you need to install and load the dependencies and functions. I am working on assembling a package, but for now, I have compiled the necessary info into a single script on Adey lab servers called amethyst_singlescript.R. You can load the functions and dependencies using the source() function. If you are using Github, you can load with devtools or run the contents of the files in the R folder in your console.
 
 ```{r}
 source("/home/groups/ravnica/projects/amethyst/amethyst_singlescript.R")
