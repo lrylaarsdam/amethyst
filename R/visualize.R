@@ -7,15 +7,15 @@
 #' @param colorBy What column in the metadata to color the bar chart by.
 #' @return A bar graph showing the distribution of categorical metadata in user-defined groups of cells
 #' @export
-#' @examples sampleComp(obj, groupBy = sample, colorBy = cluster_id)
+#' @examples sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
 sampleComp <- function(
   obj,
   groupBy,
   colorBy,
   colors = NULL) {
   # Use ggplot2 to generate bar plot with the groupBy variable on the x axis and the fill determined by colorBy.
-  ggplot2::ggplot(obj@metadata, aes(x = {{groupBy}})) +
-    ggplot2::geom_bar(aes(fill = {{colorBy}}), position = "fill") +
+  ggplot2::ggplot(obj@metadata, aes(x = .data[[groupBy]])) +
+    ggplot2::geom_bar(aes(fill = .data[[colorBy]]), position = "fill") +
     {if (!is.null(colors)) ggplot2::scale_fill_manual(values = {{ colors }})} +
     ggplot2::theme_classic() +
     ggplot2::labs(x = "sample identity", y = "percentage", title = "sample composition") +
@@ -33,7 +33,7 @@ sampleComp <- function(
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
 #' @return Returns a heatmap of average methylation levels of key marker genes
 #' @export
-#' @examples
+#' @examples markerHeatmap(obj = obj, level = "CellClass", impute = FALSE, rownames = FALSE, type = "CH")
 markerHeatmap <- function(
   obj,
   level = "CellClass",
@@ -113,8 +113,8 @@ clusterCompare <- function(
 
 ############################################################################################################################
 #' @title noAxes
-#'
 #' @description Add to a ggplot object to remove axes
+#'
 #' Developed by the Satija lab https://github.com/satijalab/seurat/blob/master/R/visualization.R
 noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
   blank <- element_blank()
@@ -159,13 +159,13 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 #' @param pointSize Optional adjustment of point size
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
-#' @examples umapFeature(obj, colorBy = cluster_id)
+#' @examples umapFeature(obj = obj, colorBy = "cluster_id")
 umapFeature <- function(
   obj,
   colorBy,
   colors = NULL,
   pointSize = 0.5) {
-  p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = {{colorBy}})) +
+  p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = .data[[colorBy]])) +
     ggplot2::geom_point(size = pointSize) +
     {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
     ggplot2::theme_classic() +
@@ -183,15 +183,13 @@ umapFeature <- function(
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
 #' @param blend Logical indicating whether to blend methylation levels of two or three genes
 #' @param nrow Number of rows to distribute graphs over
-#' @param metric
-#' @param colors
+#' @param metric If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"
+#' @param colors Optional color gradient to include
 #' @param matrix Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.
 #' @return Returns a plot of methylation over given genomic region in relation to UMAP
 #' @export
-#' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH")
-#' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", blend = TRUE, nrow = 1)
-#' @examples umapGeneM(both, genes = c("Cux1", "Lingo1"), matrix = "genemeans_cac_imputed", blend = T)
-#'
+#' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", metric = "percent", colors = c("black", "turquoise", "gold", "red"), blend = F)
+#' @examples umapGeneM(both, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, nrow = 1)
 umapGeneM <-  function(
     obj,
     genes,
@@ -294,14 +292,15 @@ umapGeneM <-  function(
 ############################################################################################################################
 #' @title vlnGeneM
 #' @description Generates a violin plot of percent methylation over a gene body
-#' @param obj
-#' @param genes
-#' @param type
-#' @param matrix
-#' @param groupBy
-#' @param colors
-#' @param nrow
-#' @return
+#'
+#' @param obj The amethyst object to plot
+#' @param genes Genes to plot
+#' @param type Type of methylation - e.g. "CH" or "CG" - to calculate if matrix is not provided
+#' @param matrix Optional name of a pre-calculated matrix of values contained in the genomeMatrices slot to use
+#' @param groupBy Parameter to group by on the x axis
+#' @param colors Optional color palette
+#' @param nrow Number of rows to plot if visualizing many genes
+#' @return Returns ggplot2 geom_violin plots of methylation levels faceted by the requested genes
 #' @export
 #' @examples vlnGeneM(obj, genes = c("SATB2", "GAD1"), matrix = "test_gene_ch", groupBy = "cluster_id")
 vlnGeneM <-  function(
@@ -351,28 +350,38 @@ vlnGeneM <-  function(
 #' @description Generates a dot plot of percent methylation over a gene body
 #'
 #' @param obj The amethyst object to plot
-#' @param genes  List of genes to plot % methylation
+#' @param genes  List of genes to plot methylation on the x axis
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
-#' @param groupBy What column in the metadata to group cells by
-#' @return
+#' @param matrix Optional name of a pre-calculated matrix of values contained in the genomeMatrices slot to use
+#' @param metric If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"
+#' @param groupBy A categorical variable contained in the metadata to group cells by on the y axis
+#'
+#' @return Returns a ggplot object displaying average methylation values for each gene by the grouping variable
 #' @export
-#' @examples
+#' @examples dotGeneM(obj = obj, genes = c("SATB2", "GAD1"), type = "gene_ch", groupBy = "cluster_id")
 dotGeneM <-  function(
   obj,
   genes,
-  type,
-  groupBy) {
+  groupBy,
+  matrix = NULL,
+  type = NULL,
+  metric = NULL) {
 
-  genem <- makeWindows({{obj}}, gene = {{genes}}, type = {{type}}, nmin = 3)
-  genem <- merge(genem, obj@metadata, by = 0) |> tibble::column_to_rownames(var = "Row.names")
-  genem <- tidyr::pivot_longer(genem, cols = genes, names_to = "gene", values_to = "pct_m")
-  genem <- genem %>% dplyr::group_by(gene, {{groupBy}}) %>%
-    dplyr::summarise(pct_nonzero = sum(pct_m != 0, na.rm = T) * 100/(n()), n = n(), avg_m = mean(pct_m, na.rm = TRUE), .groups = "keep")
+  if (!is.null(matrix)) {
+    genem <- obj@genomeMatrices[[matrix]]
+    genem <- genem[genes,] |> tibble::rownames_to_column(var = "gene")
+  }
+  if (is.null(matrix)) {
+    genem <- makeWindows({{obj}}, gene = {{genes}}, type = {{type}}, metric = {{metric}}) |> tibble::rownames_to_column(var = "gene")
+  }
+  genem <- tidyr::pivot_longer(genem, cols = c(2:ncol(genem)), names_to = "cell_id", values_to = "pctm")
+  genem <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
+  genem <- genem |> dplyr::group_by(.data[[groupBy]], gene) |> dplyr::summarise(pctm = mean(pctm))
 
-  ggplot2::ggplot(genem, ggplot2::aes(x = gene, y = {{groupBy}})) +
-    ggplot2::geom_point(aes(size = n, color = avg_m)) +
+  ggplot2::ggplot(genem, ggplot2::aes(x = gene, y = .data[[groupBy]])) +
+    ggplot2::geom_point(aes(size = pctm, color = pctm)) +
     ggplot2::theme_classic() +
-    ggplot2::scale_color_viridis_c(name = paste0("avg_m", type)) +
+    ggplot2::scale_color_viridis_c(name = paste0("pctm", type)) +
     ggplot2::theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 }
@@ -380,22 +389,22 @@ dotGeneM <-  function(
 ############################################################################################################################
 #' @title histGeneM
 #' @description Plot methylation levels over a gene body in histogram format
-#' @param obj
-#' @param type
-#' @param groupBy
-#' @param genes
-#' @param bins
-#' @param colors
-#' @param smooth
-#' @param track
-#' @param promoter
-#' @param track.color
-#' @param alpha
-#' @param nrow
-#' @param legend
-#' @return
+#' @param obj Amethyst object to plot
+#' @param type Type of methylation to plot - either "CG", "CG", or "both"
+#' @param groupBy A categorical variable contained in the metadata to facet the plot by
+#' @param genes Which genes to plot methylation over
+#' @param bins Number of bins to divide the histogram by
+#' @param colors Optional color palette to plot
+#' @param smooth Boolean indicating whether to plot a smoothed average line of histogram values
+#' @param track Boolean indicating whether to plot a gene track below the histogram
+#' @param promoter Boolean indicating whether to plot promoter CG levels (appears as a red block)
+#' @param track.color Option to change the color in which the gene track is plotted
+#' @param alpha Opacity of the histogram
+#' @param nrow Number of rows to divide the output across
+#' @param legend Boolean indicating whether to plot the groupBy variable legend
+#' @return Returns a ggplot histogram showing methylation levels over a gene body
 #' @export
-#' @examples
+#' @examples histGeneM(obj = obj, type = "both", groupBy = cluster_id, genes = "SATB2")
 histGeneM <- function(
   obj,
   type, # "CG" or "CH" methylation, or "both"
@@ -510,7 +519,7 @@ histGeneM <- function(
 #' @param colors Optional list of colors to include
 #' @param trackOverhang Number of base pairs to extend beyond the gene
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
-#' @return
+#' @return A ggplot geom_tile object with colors indicating % methylation over 500 bp windows and the gene of interest beneath
 #' @export
 #' @examples tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
 tileGeneM <- function(obj,

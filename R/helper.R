@@ -7,7 +7,7 @@
 #' @param cells Optional parameter to retrieve indexes for a subset of cells
 #' @return Returns a data frame listing the start and count for each barcode with reads covering the requested gene
 #' @export
-#' @examples getGeneM(obj, gene = "RBFOX3", type = "CH")
+#' @examples getGeneM(obj = obj, gene = "RBFOX3", type = "CH", cells = c("ATTGAGGATACCAATTCCATCACGAGCG", "ATTGAGGATAACGCTTCGTCCGCCGATC"))
 getGeneM <- function(obj,
                      gene,
                      type,
@@ -56,22 +56,20 @@ getGeneM <- function(obj,
 
 ############################################################################################################################
 #' @title makeWindows
-#' @description Calculate percent methylation across a genomic window of given size or a gene body.
+#' @description Calculate methylation levels across a fixed genomic window or gene body.
 #'
-#' @description If desired, aggregate average percent methylation according to a categorical value in the metadata.
-#'
-#' @param obj Object for which to calculate percent methylation windows
-#' @param groupBy Optional metadata parameter to group cells by. If included, the function will calculate mean percent methylation of a given window over the group.
-#' @param genes If specified, the % methylation will be calculated over the indicated gene bodies.
-#' @param stepsize If specified, the % methylation will be calculated over genomic windows of the indicated size.
-#' @param metric
-#' @param threads
+#' @param obj Object for which to calculate methylation windows
+#' @param groupBy Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group
+#' @param genes Optional genes to include. Do not specify both genes and stepsize
+#' @param stepsize If specified, the methylation levels will be calculated over genomic windows of the indicated size
+#' @param metric Calculate either percent, score, or ratio
+#' @param threads Enables multithreading
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
 #'
-#' @return Returns a data frame with the genomic region or gene name as column names, cell barcode or group as row names, and values as percent methylated.
+#' @return Returns a data frame of the calculated methylation windows with the genomic region or gene name as rows and cell barcode or group as columns
 #' @export
-#' @examples makeWindows(obj, groupBy = "cluster_id", genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")
-#' @examples makeWindows(obj, stepsize = 100000, type = "CH")
+#' @examples makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
+#' @examples makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
 makeWindows <- function(
     obj,
     type,
@@ -187,12 +185,13 @@ makeWindows <- function(
 
 ############################################################################################################################
 #' @title addMetadata
-#' @description Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs.
-#' @param obj Object to add metadata to.
-#' @param metadata Data frame, with row names as cell IDs, containing the new metadata to be added.
-#' @return Updates obj to contain the new metadata concatenated to the old metadata.
+#' @description Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs
+#'
+#' @param obj Object to add metadata to
+#' @param metadata Data frame, with row names as cell IDs, containing the new metadata to be added
+#' @return Updates obj to contain the new metadata concatenated to the old metadata
 #' @export
-#' @examples obj <- addMetadata(obj, metadata = cellInfo)
+#' @examples obj <- addMetadata(obj = obj, metadata = annotations)
 addMetadata <- function(obj,
                         metadata) {
   if (length(intersect(rownames(obj@metadata), rownames(metadata))) == 0) {
@@ -211,12 +210,13 @@ addMetadata <- function(obj,
 
 ############################################################################################################################
 #' @title addCellInfo
-#' @description Add the information contained in the cellInfo file outputs to the obj@metadata
+#' @description Add the information contained in the cellInfo file outputs to the obj@metadata slot
+#'
 #' @param obj Amethyst object to add cell info metadata
 #' @param file Path of the cellInfo.txt file
-#' @return Returns the same Amethyst object but with cellInfo added
+#' @return Returns the same amethyst object with information contained in the cellInfo file added to the obj@metadata slot
 #' @export
-#' @examples obj <- addCellInfo(obj, file = "~/Downloads/cellInfo.txt")
+#' @examples obj <- addCellInfo(obj = obj, file = "~/Downloads/cellInfo.txt")
 addCellInfo <- function(obj,
                         file) {
 
@@ -235,6 +235,7 @@ addCellInfo <- function(obj,
 ############################################################################################################################
 #' @title impute
 #' @description Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC
+#'
 #' @param obj Amethyst object to perform imputation on
 #' @param matrix Name of the matrix contained in the genomeMatrices slot to perform imputation on
 #' @param npca Number of principle components to use
@@ -252,8 +253,8 @@ impute <- function(obj,
     print(paste0("Warning: Replacing ", num_na, " NAs with zeros (", pct_na, "% of matrix) to perform imputation."))
   }
   matrix[is.na(matrix)] <- 0
-  matrix_imputed <- Rmagic::magic(matrix, npca = npca)[["result"]]
-  obj@genomeMatrices[[paste0(name, "_imputed")]] <- matrix_imputed
+  matrix_imputed <- Rmagic::magic(t(matrix), npca = npca)[["result"]]
+  obj@genomeMatrices[[paste0(name, "_imputed")]] <- as.data.frame(t(matrix_imputed))
   output <- obj
 }
 
@@ -263,8 +264,8 @@ impute <- function(obj,
 #'
 #' @param obj Amethyst object containing the matrix to be aggregated
 #' @param matrix Name of matrix contained in the genomeMatrices slot to aggregate
-#' @param groupBy Parameter in the metadata to groupBy
-#' @return
+#' @param groupBy Parameter in the metadata to aggregate over
+#' @return Returns a matrix containing the mean value per group
 #' @export
 #' @examples obj <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = cluster_id, name = "cluster_ch_100k_pct")
 aggregateMatrix <- function(obj,
@@ -301,6 +302,16 @@ aggregateMatrix <- function(obj,
 }
 
 ############################################################################################################################
+#' @title makeSlidingWindows
+#' @description Calculate mean percent methylation over 1500 base pair genomic windows shifted every 500 bp and aggregate by cluster.
+#' Intended to generate input for the tileGeneM function.
+#'
+#' @param obj Amethyst object containing the path to the h5 file over which to calculate 500 bp windows
+#' @param type Type of methylation to calculate; e.g. "CG" or "CH"
+#' @param threads Enables multithreading
+#' @return Returns a data frame with % methylation over 1500 base pair genomic windows shifted every 500 bp aggregated by cluster
+#' @export
+#' @examples cluster_cg_500bp_windows <- makeSlidingWindows(obj = obj, type = "CG", threads = 20)
 makeSlidingWindows <- function(
     obj,
     type,
@@ -373,6 +384,18 @@ makeSlidingWindows <- function(
 }
 
 ############################################################################################################################
+#' @title makeFuzzyGeneWindows
+#' @description Rapidly calculate % methylation over all genes by averaging 500 bp window values.
+#' Slightly less accurate than the alternative indexing approach for short genes.
+#'
+#' @param obj Amethyst object for which to calculate % methylation over all genes
+#' @param type Type of methylation to calculate; e.g. "CH".
+#' "CG" is an option but may be less biologically relevant
+#' @param threads Enables multithreading
+#' @return Returns a matrix just like the output of makeWindows with rows as genes, columns as cells, and values as % methylation
+#' @export
+#'
+#' @examples gene_ch <- makeFuzzyGeneWindows(obj = obj, type = "CH", threads = 20)
 makeFuzzyGeneWindows <- function(
     obj,
     type,

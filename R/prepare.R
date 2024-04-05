@@ -1,14 +1,14 @@
 ############################################################################################################################
 #' @title createObject
-#' @description create object of class amethyst
+#' @description Create object of class amethyst
 #'
-#' @param h5path Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
-#' @param index Gene coordinates in the hdf5 file.
-#' @param metadata Optional cell metadata. If included, make sure row names are cell IDs.
+#' @param h5path Path to the hdf5 file containing base-level read information organized by methylation type and barcode
+#' @param index Corresponding gene coordinates in the hdf5 file
+#' @param metadata Optional cell metadata. If included, make sure row names are cell IDs
 #' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
 #' @return Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
 #' @export
-#' @examples obj <- createObject("~/Downloads/test.h5", index = index, ref = ref)
+#' @examples obj <- createObject(h5path = "~/Downloads/test.h5")
 createObject <- function(
     h5path,
     index = NULL,
@@ -39,11 +39,11 @@ createObject <- function(
 #' @description Extract information from the attributes column of a gtf file.
 #' This helper function was taken from https://www.biostars.org/p/272889/
 #'
-#' @param gtf_attributes
-#' @param att_of_interest
-#' @return
+#' @param gtf_attributes A string containing the attributes column from a GTF file
+#' @param att_of_interest Name of the attribute containing the desired information
+#' @return Returns the value associated with the specified attribute key from the GTF attributes string
 #' @export
-#' @examples
+#' @examples gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
 extractAttributes <- function(gtf_attributes,
                               att_of_interest){
   att <- strsplit(gtf_attributes, "; ")
@@ -59,13 +59,13 @@ extractAttributes <- function(gtf_attributes,
 #' @description Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded.
 #' Please provide the gtf if analyzing other species.
 #'
-#' @param ref
-#' @param gtf
-#' @param attributes
-#' @return
+#' @param ref Reference genome, i.e. "hg38" or "mm10"
+#' @param gtf If not using hg38 or mm10, please provide the gtf.gz file path
+#' @param attributes Information to extract from the gtf file. Must be a column name
+#' @return Returns an annotated reference of gene locations
 #' @export
-#' @examples
-makeRef <- function(ref = "hg38",
+#' @examples ref <- makeRef(ref = "hg38")
+makeRef <- function(ref,
                     gtf = NULL,
                     attributes = c("gene_name", "exon_number")) {
   if (ref == "hg38") {
@@ -75,7 +75,7 @@ makeRef <- function(ref = "hg38",
     options(timeout = 1000)
     gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
   } else if (gtf) {
-    gtf <- gtf
+    gtf <- rtracklayer::readGFF(gtf)
   } else {
     print("Ref was different from default (hg38) but not provided. Please provide unzipped gtf reference annotation file.")
   }
@@ -88,14 +88,14 @@ makeRef <- function(ref = "hg38",
 
 ############################################################################################################################
 #' @title fetchMarkers
-#' @description select marker genes
-#'
+#' @description Fetch a pre-selected list of key marker genes
 #' Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
-#' @param ref
-#' @param type
-#' @return
+#'
+#' @param ref If using "hg38" or "mm10"
+#' @param type Tissue type of interest. For now, "brain" and "pbcm" are options.
+#' @return Returns a character vector of key marker genes.
 #' @export
-#' @examples
+#' @examples markerGenes <- fetchMarkers(ref = "hg38", type = "brain")
 fetchMarkers <- function(ref,
                          type) {
   if (type == "brain") {
@@ -141,7 +141,7 @@ fetchMarkers <- function(ref,
 #' @param obj Object for which to run irlba
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
 #' @param dims list of how many dimensions to output for each matrix
-#' @return
+#' @return Returns a matrix of appended irlba dimensions as columns and cells as rows
 #' @export
 #' @examples obj <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
 runIrlba <- function(
@@ -177,13 +177,13 @@ runIrlba <- function(
 
 ############################################################################################################################
 #' @title runCluster
-#' @description Cluster dimensionality reduction with Rphenograph
+#' @description Determine cluster membership with Rphenograph https://github.com/JinmiaoChenLab/Rphenograph
 #'
-#' @param obj
-#' @param k_phenograph
-#' @return
+#' @param obj Amethyst object to perform clustering on
+#' @param k_phenograph integer; number of nearest neighbors
+#' @return Adds cluster membership to the metadata file of the amethyst object
 #' @export
-#' @examples
+#' @examples obj <- runCluster(obj = obj, k_phenograph = 30)
 runCluster <- function(obj,
                        k_phenograph = 50) {
 
@@ -204,13 +204,13 @@ runCluster <- function(obj,
 #' @title runUmap
 #' @description Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
 #'
-#' @param obj
-#' @param neighbors
-#' @param dist
-#' @param method
-#' @return
+#' @param obj Amethyst object for which to determine umap coordinates
+#' @param neighbors Number of closest points to factor into projection calculations. A higher number will capture more global structure
+#' @param dist Distance between point pairs
+#' @param method Distance metric to utilize. Default is euclidean
+#' @return Adds umap_x and umap_y coordinates to the metadata file of the object
 #' @export
-#' @examples
+#' @examples obj <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 runUmap <- function(obj,
                     neighbors = 30,
                     dist = 0.1,

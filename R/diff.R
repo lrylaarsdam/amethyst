@@ -2,26 +2,15 @@
 #' @description Find variably methylated features across clusters
 #'
 #' @param obj The amethyst object to analyze. Clustering should be done prior to this step.
-#' @param impute Optional parameter to address coverage issues. If TRUE, Rmagic will be used to impute values based on available data.
-#' @param genes Which genes to test. Genes must either be indexed or contained within a specified matrix of pre-computed values.
+#' @param matrix Name of the pre-computed methylation values stored genomeMatrices slot for which to calculate variably methylated features
 #' @returns A data.frame containing the p.value of methylation levels over each gene in each cluster relative to all other clusters
 #' @export
-#' @examples
+#' @examples clusterMarkers <- findClusterMarkers(obj = obj, matrix = "gene_ch")
 findClusterMarkers <- function(
     obj,
-    type = NULL,
-    matrix = NULL) {
+    matrix) {
 
-  if (is.null(matrix) && is.null(type)) {
-    stop("If matrix is not provided, 'type' must be specified.")
-  }
-
-  if (!is.null(matrix)) {
-    genematrix <- as.matrix(obj@genomeMatrices[[matrix]])
-
-  } else if (is.null(matrix)) {
-    genematrix <- makeWindows(obj, genes = genes, type = {{type}})
-  }
+  genematrix <- as.matrix(obj@genomeMatrices[[matrix]])
 
   genes <- names(obj@index[[type]])
   membership <- obj@metadata |> dplyr::select("cluster_id")
