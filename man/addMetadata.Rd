@@ -2,23 +2,21 @@
 % Please edit documentation in R/helper.R
 \name{addMetadata}
 \alias{addMetadata}
-\title{addMetadata
-Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs.}
+\title{addMetadata}
 \usage{
 addMetadata(obj, metadata)
 }
 \arguments{
-\item{obj}{Object to add metadata to.}
+\item{obj}{Object to add metadata to}
 
-\item{metadata}{Data frame, with row names as cell IDs, containing the new metadata to be added.}
+\item{metadata}{Data frame, with row names as cell IDs, containing the new metadata to be added}
 }
 \value{
-Updates obj to contain the new metadata concatenated to the old metadata.
+Updates obj to contain the new metadata concatenated to the old metadata
 }
 \description{
-addMetadata
-Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs.
+Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs
 }
 \examples{
-obj <- addMetadata(obj, metadata = cellInfo)
+obj <- addMetadata(obj = obj, metadata = annotations)
 }

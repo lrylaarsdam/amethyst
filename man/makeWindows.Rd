@@ -2,44 +2,40 @@
 % Please edit documentation in R/helper.R
 \name{makeWindows}
 \alias{makeWindows}
-\title{makeWindows
-Calculate percent methylation across a genomic window of given size or a gene body.
-If desired, aggregate average percent methylation according to a categorical value in the metadata.}
+\title{makeWindows}
 \usage{
 makeWindows(
   obj,
-  groupBy = NULL,
-  genes = NULL,
-  stepsize = FALSE,
-  nmin = NULL,
   type,
   metric = "percent",
-  threads = 1,
-  bed = NULL
+  groupBy = NULL,
+  genes = NULL,
+  stepsize = NULL,
+  threads = 1
 )
 }
 \arguments{
-\item{obj}{Object for which to calculate percent methylation windows}
-
-\item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean percent methylation of a given window over the group.}
-
-\item{genes}{If specified, the \% methylation will be calculated over the indicated gene bodies.}
-
-\item{stepsize}{If specified, the \% methylation will be calculated over genomic windows of the indicated size.}
-
-\item{nmin}{Optional. Minimum number of cytosines recorded in the window/gene to be included in the output.}
+\item{obj}{Object for which to calculate methylation windows}
 
 \item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
+
+\item{metric}{Calculate either percent, score, or ratio}
+
+\item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group}
+
+\item{genes}{Optional genes to include. Do not specify both genes and stepsize}
+
+\item{stepsize}{If specified, the methylation levels will be calculated over genomic windows of the indicated size}
+
+\item{threads}{Enables multithreading}
 }
 \value{
-Returns a data frame with the genomic region or gene name as column names, cell barcode or group as row names, and values as percent methylated.
+Returns a data frame of the calculated methylation windows with the genomic region or gene name as rows and cell barcode or group as columns
 }
 \description{
-makeWindows
-Calculate percent methylation across a genomic window of given size or a gene body.
-If desired, aggregate average percent methylation according to a categorical value in the metadata.
+Calculate methylation levels across a fixed genomic window or gene body.
 }
 \examples{
-makeWindows(obj, groupBy = cluster_id, genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")
-makeWindows(obj, stepsize = 100000, type = "CH")
+makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
+makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
 }

@@ -2,8 +2,7 @@
 % Please edit documentation in R/visualize.R
 \name{sampleComp}
 \alias{sampleComp}
-\title{sampleComp
-Visualize the distribution of a metadata variable across groups of cells}
+\title{sampleComp}
 \usage{
 sampleComp(obj, groupBy, colorBy, colors = NULL)
 }
@@ -18,9 +17,8 @@ sampleComp(obj, groupBy, colorBy, colors = NULL)
 A bar graph showing the distribution of categorical metadata in user-defined groups of cells
 }
 \description{
-sampleComp
 Visualize the distribution of a metadata variable across groups of cells
 }
 \examples{
-sampleComp(obj, groupBy = sample, colorBy = cluster_id)
+sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
 }

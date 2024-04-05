@@ -2,36 +2,48 @@
 % Please edit documentation in R/index.R
 \name{indexGenes}
 \alias{indexGenes}
-\title{indexGenes
-If the whole hdf5 file had to be searched for relevant reads every time gene-specific methylation information was needed,
-most functions would take minutes to hours to run. The indexing process catalogs the coordinates for each specified gene in
-every cell beforehand so the relevant subset can quickly be retrieved for downstream processes. mCG, mCH, and the mCG status
-of the promoter must be indexed separately. Providing a gene subset is recommended due to memory and time constraints.}
+\title{Index genes}
 \usage{
-indexGenes(hdf5, gtf = ref, type, threads = 10, subset = markerGenes)
+indexGenes(hdf5, gtf, type, threads = 1, subset = NULL)
 }
 \arguments{
-\item{hdf5}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode.}
+\item{hdf5}{Path to the hdf5 file containing base-level read information
+organized by methylation type and barcode.}
 
-\item{gtf}{Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.}
+\item{gtf}{Genome annotation file with chromosome, start, and end position
+information for genes of interest. See the "makeRef" function.}
 
-\item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
+\item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene
+body mCG, or promoter mCG. Must be passed as one of "CG", "CH", or "promoter".
+The latter will do CG over TSS +/- 1500 bp}
 
-\item{threads}{Optional threads parameter to use if parallelizing. Highly recommended as even small datasets will take a long time to index.}
+\item{threads}{Optional threads parameter to use if parallelizing. Highly
+recommended as even small datasets will take a long time to index.
+Defaults to 10.}
 
-\item{subset}{List of genes to index. Optional but recommended.See the "fetchMarkers" function.}
+\item{subset}{List of genes to index. Optional but recommended.See the
+\code{fetchMarkers} function.}
 }
 \value{
-Returns a list of dataframes named by gene. The dataframes contain the coordinates in the hdf5 file corresponding to the gene's genomic
-location for each cell.
+A list of data frames named by gene. The data frames contain the
+coordinates in the hdf5 file corresponding to the gene's genomic location for
+each cell.
 }
 \description{
-indexGenes
-If the whole hdf5 file had to be searched for relevant reads every time gene-specific methylation information was needed,
-most functions would take minutes to hours to run. The indexing process catalogs the coordinates for each specified gene in
-every cell beforehand so the relevant subset can quickly be retrieved for downstream processes. mCG, mCH, and the mCG status
-of the promoter must be indexed separately. Providing a gene subset is recommended due to memory and time constraints.
+If the whole hdf5 file had to be searched for relevant reads
+every time gene-specific methylation information was needed, most functions
+would take minutes to hours to run. The indexing process catalogs the
+coordinates for each specified gene in every cell beforehand so the relevant
+subset can quickly be retrieved for downstream processes. mCG, mCH, and the
+mCG status of the promoter must be indexed separately. Providing a gene
+subset is recommended due to memory and time constraints.
 }
 \examples{
-index[["CH"]] <- indexGenes(hdf5 = "~/Downloads/test.h5", gtf = ref, type = "CH", threads = 10, subset = c("SATB2", "TBR1", "FOXG1"))
+index[["CH"]] <- indexGenes(
+  hdf5 = "~/Downloads/test.h5",
+  gtf = ref,
+  type = "CH",
+  threads = 10,
+  subset = c("SATB2", "TBR1", "FOXG1")
+)
 }

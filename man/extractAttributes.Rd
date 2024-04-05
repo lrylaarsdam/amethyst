@@ -2,15 +2,22 @@
 % Please edit documentation in R/prepare.R
 \name{extractAttributes}
 \alias{extractAttributes}
-\title{extractAttributes from https://www.biostars.org/p/272889/
-Extract information from the attributes column of a gtf file}
+\title{extractAttributes}
 \usage{
 extractAttributes(gtf_attributes, att_of_interest)
 }
 \arguments{
-\item{att_of_interest}{}
+\item{gtf_attributes}{A string containing the attributes column from a GTF file}
+
+\item{att_of_interest}{Name of the attribute containing the desired information}
+}
+\value{
+Returns the value associated with the specified attribute key from the GTF attributes string
 }
 \description{
-extractAttributes from https://www.biostars.org/p/272889/
-Extract information from the attributes column of a gtf file
+Extract information from the attributes column of a gtf file.
+This helper function was taken from https://www.biostars.org/p/272889/
+}
+\examples{
+gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
 }

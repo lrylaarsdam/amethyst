@@ -2,13 +2,22 @@
 % Please edit documentation in R/prepare.R
 \name{fetchMarkers}
 \alias{fetchMarkers}
-\title{Title}
+\title{fetchMarkers}
 \usage{
 fetchMarkers(ref, type)
 }
 \arguments{
-\item{type}{}
+\item{ref}{If using "hg38" or "mm10"}
+
+\item{type}{Tissue type of interest. For now, "brain" and "pbcm" are options.}
+}
+\value{
+Returns a character vector of key marker genes.
 }
 \description{
-Title
+Fetch a pre-selected list of key marker genes
+Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
+}
+\examples{
+markerGenes <- fetchMarkers(ref = "hg38", type = "brain")
 }

@@ -2,15 +2,25 @@
 % Please edit documentation in R/prepare.R
 \name{runUmap}
 \alias{runUmap}
-\title{runUmap
-Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction}
+\title{runUmap}
 \usage{
 runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 }
 \arguments{
-\item{method}{}
+\item{obj}{Amethyst object for which to determine umap coordinates}
+
+\item{neighbors}{Number of closest points to factor into projection calculations. A higher number will capture more global structure}
+
+\item{dist}{Distance between point pairs}
+
+\item{method}{Distance metric to utilize. Default is euclidean}
+}
+\value{
+Adds umap_x and umap_y coordinates to the metadata file of the object
 }
 \description{
-runUmap
 Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
+}
+\examples{
+obj <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 }

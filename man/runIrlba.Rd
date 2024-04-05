@@ -2,8 +2,7 @@
 % Please edit documentation in R/prepare.R
 \name{runIrlba}
 \alias{runIrlba}
-\title{runIrlba
-Dimensionality reduction}
+\title{runIrlba}
 \usage{
 runIrlba(obj, genomeMatrices, dims)
 }
@@ -14,11 +13,12 @@ runIrlba(obj, genomeMatrices, dims)
 
 \item{dims}{list of how many dimensions to output for each matrix}
 }
+\value{
+Returns a matrix of appended irlba dimensions as columns and cells as rows
+}
 \description{
-runIrlba
-Dimensionality reduction
+Perform dimensionality reduction based on methylation levels over a matrix stored in the @genomeMatrices slot
 }
 \examples{
 obj <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
-
 }

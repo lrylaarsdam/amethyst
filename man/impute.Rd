@@ -2,8 +2,7 @@
 % Please edit documentation in R/helper.R
 \name{impute}
 \alias{impute}
-\title{impute
-Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC}
+\title{impute}
 \usage{
 impute(obj, matrix, npca = 10)
 }
@@ -18,7 +17,6 @@ impute(obj, matrix, npca = 10)
 Adds a new data frame to the genomeMatrices slot with imputed values
 }
 \description{
-impute
 Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC
 }
 \examples{

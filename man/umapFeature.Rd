@@ -2,8 +2,7 @@
 % Please edit documentation in R/visualize.R
 \name{umapFeature}
 \alias{umapFeature}
-\title{umapFeature
-Plot any feature in the metadata in UMAP space}
+\title{umapFeature}
 \usage{
 umapFeature(obj, colorBy, colors = NULL, pointSize = 0.5)
 }
@@ -20,10 +19,8 @@ umapFeature(obj, colorBy, colors = NULL, pointSize = 0.5)
 Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 }
 \description{
-umapFeature
 Plot any feature in the metadata in UMAP space
 }
 \examples{
-umapFeature(obj, colorBy = cluster_id)
-
+umapFeature(obj = obj, colorBy = "cluster_id")
 }

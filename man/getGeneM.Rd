@@ -2,8 +2,7 @@
 % Please edit documentation in R/helper.R
 \name{getGeneM}
 \alias{getGeneM}
-\title{getGeneM
-Helper function to retrieve the relevant portion of the hdf5 file for a given gene}
+\title{geneGeneM}
 \usage{
 getGeneM(obj, gene, type, cells = NULL)
 }
@@ -20,9 +19,8 @@ getGeneM(obj, gene, type, cells = NULL)
 Returns a data frame listing the start and count for each barcode with reads covering the requested gene
 }
 \description{
-getGeneM
 Helper function to retrieve the relevant portion of the hdf5 file for a given gene
 }
 \examples{
-getGeneM(obj, gene = "RBFOX3", type = "CH")
+getGeneM(obj = obj, gene = "RBFOX3", type = "CH", cells = c("ATTGAGGATACCAATTCCATCACGAGCG", "ATTGAGGATAACGCTTCGTCCGCCGATC"))
 }

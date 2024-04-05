@@ -4,17 +4,21 @@
 \alias{aggregateMatrix}
 \title{aggregateMatrix}
 \usage{
-aggregateMatrix(obj, matrix, groupBy, name)
+aggregateMatrix(obj, matrix, groupBy)
 }
 \arguments{
-\item{obj}{Amethyst pbject containing the matrix to be aggregated}
+\item{obj}{Amethyst object containing the matrix to be aggregated}
 
 \item{matrix}{Name of matrix contained in the genomeMatrices slot to aggregate}
 
-\item{groupBy}{Parameter in the metadata to groupBy}
-
-\item{name}{Name of output matrix to store}
+\item{groupBy}{Parameter in the metadata to aggregate over}
+}
+\value{
+Returns a matrix containing the mean value per group
 }
 \description{
-aggregateMatrix
+Aggregate genomic window matrices by a categorical variable contained in the metadata
+}
+\examples{
+obj <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = cluster_id, name = "cluster_ch_100k_pct")
 }

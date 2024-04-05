@@ -2,15 +2,21 @@
 % Please edit documentation in R/prepare.R
 \name{runCluster}
 \alias{runCluster}
-\title{runCluster
-Cluster dimensionality reduction with Rphenograph}
+\title{runCluster}
 \usage{
 runCluster(obj, k_phenograph = 50)
 }
 \arguments{
-\item{k_phenograph}{}
+\item{obj}{Amethyst object to perform clustering on}
+
+\item{k_phenograph}{integer; number of nearest neighbors}
+}
+\value{
+Adds cluster membership to the metadata file of the amethyst object
 }
 \description{
-runCluster
-Cluster dimensionality reduction with Rphenograph
+Determine cluster membership with Rphenograph https://github.com/JinmiaoChenLab/Rphenograph
+}
+\examples{
+obj <- runCluster(obj = obj, k_phenograph = 30)
 }

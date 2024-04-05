@@ -2,14 +2,13 @@
 % Please edit documentation in R/visualize.R
 \name{umapGeneM}
 \alias{umapGeneM}
-\title{umapGeneM
-Plot cumulative \% methylation over a gene body on umap}
+\title{umapGeneM}
 \usage{
 umapGeneM(
   obj,
   genes,
   type = NULL,
-  impute = FALSE,
+  metric = "percent",
   matrix = NULL,
   blend = FALSE,
   colors = NULL,
@@ -23,11 +22,13 @@ umapGeneM(
 
 \item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
 
-\item{impute}{Logical indicating whether to impute values using Rmagic}
+\item{metric}{If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"}
 
 \item{matrix}{Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.}
 
 \item{blend}{Logical indicating whether to blend methylation levels of two or three genes}
+
+\item{colors}{Optional color gradient to include}
 
 \item{nrow}{Number of rows to distribute graphs over}
 }
@@ -35,12 +36,9 @@ umapGeneM(
 Returns a plot of methylation over given genomic region in relation to UMAP
 }
 \description{
-umapGeneM
 Plot cumulative \% methylation over a gene body on umap
 }
 \examples{
-umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH")
-umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", blend = TRUE, nrow = 1)
-umapGeneM(both, genes = c("Cux1", "Lingo1"), matrix = "genemeans_cac_imputed", blend = T)
-
+umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", metric = "percent", colors = c("black", "turquoise", "gold", "red"), blend = F)
+umapGeneM(both, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, nrow = 1)
 }

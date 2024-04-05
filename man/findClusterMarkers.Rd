@@ -2,30 +2,21 @@
 % Please edit documentation in R/diff.R
 \name{findClusterMarkers}
 \alias{findClusterMarkers}
-\title{findClusterMarkers
-Find variably methylated features across clusters}
+\title{Find cluster markers}
 \usage{
-findClusterMarkers(
-  obj,
-  impute = FALSE,
-  genes = names(obj@index[["CH"]]),
-  nmin = NULL,
-  type = NULL,
-  matrix = NULL
-)
+findClusterMarkers(obj, matrix)
 }
 \arguments{
 \item{obj}{The amethyst object to analyze. Clustering should be done prior to this step.}
 
-\item{impute}{Optional parameter to address coverage issues. If TRUE, Rmagic will be used to impute values based on available data.}
-
-\item{genes}{Which genes to test. Genes must be indexed.}
-
-\item{nmin}{Optional minimum threshold}
-
-\item{type}{}
+\item{matrix}{Name of the pre-computed methylation values stored genomeMatrices slot for which to calculate variably methylated features}
+}
+\value{
+A data.frame containing the p.value of methylation levels over each gene in each cluster relative to all other clusters
 }
 \description{
-findClusterMarkers
 Find variably methylated features across clusters
+}
+\examples{
+clusterMarkers <- findClusterMarkers(obj = obj, matrix = "gene_ch")
 }

@@ -3,7 +3,7 @@
 \name{markerHeatmap}
 \alias{markerHeatmap}
 \title{markerHeatmap
-Plot the methylation levels of sample groups across many genes at once}
+NEEDS UPDATING}
 \usage{
 markerHeatmap(
   obj,
@@ -28,6 +28,8 @@ markerHeatmap(
 Returns a heatmap of average methylation levels of key marker genes
 }
 \description{
-markerHeatmap
 Plot the methylation levels of sample groups across many genes at once
+}
+\examples{
+markerHeatmap(obj = obj, level = "CellClass", impute = FALSE, rownames = FALSE, type = "CH")
 }

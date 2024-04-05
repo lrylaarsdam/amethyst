@@ -2,15 +2,24 @@
 % Please edit documentation in R/prepare.R
 \name{makeRef}
 \alias{makeRef}
-\title{makeRef
-Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.}
+\title{makeRef}
 \usage{
-makeRef(ref = "hg38", gtf = NULL, attributes = c("gene_name", "exon_number"))
+makeRef(ref, gtf = NULL, attributes = c("gene_name", "exon_number"))
 }
 \arguments{
-\item{attributes}{}
+\item{ref}{Reference genome, i.e. "hg38" or "mm10"}
+
+\item{gtf}{If not using hg38 or mm10, please provide the gtf.gz file path}
+
+\item{attributes}{Information to extract from the gtf file. Must be a column name}
+}
+\value{
+Returns an annotated reference of gene locations
 }
 \description{
-makeRef
-Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.
+Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded.
+Please provide the gtf if analyzing other species.
+}
+\examples{
+ref <- makeRef(ref = "hg38")
 }
