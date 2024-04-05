@@ -1,49 +1,48 @@
 ############################################################################################################################
-#' createObject
-#' create object of class amethyst
+#' @title createObject
+#' @description create object of class amethyst
 #'
 #' @param h5path Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
 #' @param index Gene coordinates in the hdf5 file.
 #' @param metadata Optional cell metadata. If included, make sure row names are cell IDs.
 #' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
-#'
 #' @return Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
 #' @export
-#'
 #' @examples obj <- createObject("~/Downloads/test.h5", index = index, ref = ref)
 createObject <- function(
-  h5path,
-  index,
-  metadata = NULL,
-  ref = ref) {
-  setClass('amethyst', slots = c(
+    h5path,
+    index = NULL,
+    ref = NULL,
+    metadata = NULL) {
+  setClass("amethyst", slots = c(
     h5path = "character",
     genomeMatrices = "ANY",
     irlba = "ANY",
     index = "ANY",
     metadata = "ANY",
     ref = "ANY",
-    reduction = "ANY"))
+    reduction = "ANY"
+  ))
   assay <- new(
-    Class = 'amethyst',
+    Class = "amethyst",
     h5path = h5path,
     index = index,
-    metadata = if (!is.null(metadata)) metadata else NULL,
+    metadata = metadata,
     ref = ref
   )
-  return(assay)
+
+  assay
 }
 
 ############################################################################################################################
-#' extractAttributes from https://www.biostars.org/p/272889/
-#' Extract information from the attributes column of a gtf file
+#' @title extractAttributes
+#' @description Extract information from the attributes column of a gtf file.
+#' This helper function was taken from https://www.biostars.org/p/272889/
 #'
 #' @param gtf_attributes
 #' @param att_of_interest
-#'
 #' @return
 #' @export
-#'
 #' @examples
 extractAttributes <- function(gtf_attributes,
                               att_of_interest){
@@ -56,48 +55,46 @@ extractAttributes <- function(gtf_attributes,
 }
 
 ############################################################################################################################
-#' makeRef
-#' Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded. Please provide the gtf if analyzing other species.
+#' @title makeRef
+#' @description Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded.
+#' Please provide the gtf if analyzing other species.
 #'
 #' @param ref
 #' @param gtf
 #' @param attributes
-#'
 #' @return
 #' @export
-#'
 #' @examples
 makeRef <- function(ref = "hg38",
                     gtf = NULL,
                     attributes = c("gene_name", "exon_number")) {
-  if (ref == 'hg38') {
-    options(timeout=1000)
-    gtf <- readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz")
+  if (ref == "hg38") {
+    options(timeout = 1000)
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz")
   } else if (ref == "mm10") {
-    options(timeout=1000)
-    gtf <- readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
+    options(timeout = 1000)
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
   } else if (gtf) {
-    gtf = gtf
+    gtf <- gtf
   } else {
     print("Ref was different from default (hg38) but not provided. Please provide unzipped gtf reference annotation file.")
   }
   for (i in attributes) {
     gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
   }
-  gtf <- gtf %>% dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
+  gtf <- gtf |>
+    dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
 }
 
 ############################################################################################################################
-# select marker genes based on http://neomorph.salk.edu/omb/ct_table
-
-#' Title
+#' @title fetchMarkers
+#' @description select marker genes
 #'
+#' Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
 #' @param ref
 #' @param type
-#'
 #' @return
 #' @export
-#'
 #' @examples
 fetchMarkers <- function(ref,
                          type) {
@@ -138,28 +135,25 @@ fetchMarkers <- function(ref,
 
 
 ############################################################################################################################
-#' runIrlba
-#' Dimensionality reduction
+#' @title runIrlba
+#' @description Perform dimensionality reduction based on methylation levels over a matrix stored in the @genomeMatrices slot
 #'
 #' @param obj Object for which to run irlba
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
 #' @param dims list of how many dimensions to output for each matrix
-#'
 #' @return
 #' @export
-#'
 #' @examples obj <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
-#'
 runIrlba <- function(
     obj,
     genomeMatrices,
     dims) {
 
-  if(length(genomeMatrices) != length(dims)) {
-    print("Number of input matrices must equal the length of the dimension list")
+  if (length(genomeMatrices) != length(dims)) {
+    stop("Number of input matrices must equal the length of the dimension list")
 
   } else {
-    if(!is.null(obj@irlba)) {
+    if (!is.null(obj@irlba)) {
       obj@irlba <- NULL
     }
 
@@ -167,12 +161,13 @@ runIrlba <- function(
 
     for (i in 1:length(genomeMatrices)) {
       matrix[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
-      rownames <- rownames(matrix[[i]])
+      windows <- rownames(matrix[[i]])
+      cells <- colnames(matrix[[i]])
       matrix[[i]][is.na(matrix[[i]])] <- 0
-      matrix[[i]] <- irlba::irlba(as.matrix(t(matrix[[i]])), dims[[i]])
+      matrix[[i]] <- irlba::irlba(as.matrix(matrix[[i]]), dims[[i]])
       matrix[[i]] <- as.data.frame(matrix[[i]]$v)
       colnames(matrix[[i]]) <- paste("DIM", 1:dims[[i]], "_", genomeMatrices[i], sep = "")
-      rownames(matrix[[i]]) <- rownames
+      rownames(matrix[[i]]) <- cells
     }
 
     obj@irlba <- do.call(cbind, matrix)
@@ -181,21 +176,19 @@ runIrlba <- function(
 }
 
 ############################################################################################################################
-#' runCluster
-#' Cluster dimensionality reduction with Rphenograph
+#' @title runCluster
+#' @description Cluster dimensionality reduction with Rphenograph
 #'
 #' @param obj
 #' @param k_phenograph
-#'
 #' @return
 #' @export
-#'
 #' @examples
 runCluster <- function(obj,
                        k_phenograph = 50) {
 
-  clusters <- Rphenograph(obj@irlba,k = k_phenograph)
-  clusters <- do.call(rbind, Map(data.frame, cell_id=row.names(obj@irlba), cluster_id=paste(membership(clusters[[2]]))))
+  clusters <- Rphenograph::Rphenograph(obj@irlba, k = k_phenograph)
+  clusters <- do.call(rbind, Map(data.frame, cell_id = row.names(obj@irlba), cluster_id = paste(membership(clusters[[2]]))))
 
   if (is.null(obj@metadata)) {
     obj@metadata <- clusters
@@ -208,32 +201,35 @@ runCluster <- function(obj,
 
 
 ############################################################################################################################
-#' runUmap
-#' Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
+#' @title runUmap
+#' @description Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
 #'
 #' @param obj
 #' @param neighbors
 #' @param dist
 #' @param method
-#'
 #' @return
 #' @export
-#'
 #' @examples
 runUmap <- function(obj,
                     neighbors = 30,
                     dist = 0.1,
                     method = "euclidean") {
 
-  umap_dims <- as.data.frame(umap(as.data.frame(obj@irlba), method = "naive", dims = 2, n_components = 2, neigh = neighbors, mdist = dist, metric = method)$layout)
+  umap_dims <- as.data.frame(umap::umap(as.data.frame(obj@irlba), method = "naive", dims = 2, n_components = 2, neigh = neighbors, mdist = dist, metric = method)$layout)
   obj@reduction <- "umap"
 
   # Add to metadata
-  if(is.null(obj@metadata[["umap_x"]])) {
-    metadata <- merge(umap_dims, obj@metadata, by = 0) %>% column_to_rownames(var = "Row.names") %>% dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>% dplyr::select(-"cell_id")
-   } else {
-     metadata <- merge(umap_dims, obj@metadata %>% dplyr::select(-c(umap_x, umap_y)), by = 0) %>%
-       column_to_rownames(var = "Row.names") %>% dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>% dplyr::select(-"cell_id")
+  if (is.null(obj@metadata[["umap_x"]])) {
+    metadata <- merge(umap_dims, obj@metadata, by = 0) %>%
+      tibble::column_to_rownames(var = "Row.names") %>%
+      dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>%
+      dplyr::select(-"cell_id")
+  } else {
+    metadata <- merge(umap_dims, obj@metadata %>% dplyr::select(-c(umap_x, umap_y)), by = 0) %>%
+      tibble::column_to_rownames(var = "Row.names") %>%
+      dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>%
+      dplyr::select(-"cell_id")
   }
   obj@metadata <- metadata
   output <- obj
