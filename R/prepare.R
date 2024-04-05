@@ -9,30 +9,23 @@
 #' @return Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
 #' @export
 #' @examples obj <- createObject(h5path = "~/Downloads/test.h5")
-createObject <- function(
-    h5path,
-    index = NULL,
-    ref = NULL,
-    metadata = NULL) {
-  setClass("amethyst", slots = c(
-    h5path = "character",
-    genomeMatrices = "ANY",
-    irlba = "ANY",
-    index = "ANY",
-    metadata = "ANY",
-    ref = "ANY",
-    reduction = "ANY"
-  ))
-  assay <- new(
-    Class = "amethyst",
-    h5path = h5path,
-    index = index,
-    metadata = metadata,
-    ref = ref
-  )
-
-  assay
+createObject <- function(h5path,
+                         index = NULL,
+                         ref = NULL,
+                         metadata = NULL) {
+  new(Class = "amethyst",
+      h5path = h5path)
 }
+
+setClass("amethyst", slots = c(
+  h5path = "character",
+  genomeMatrices = "ANY",
+  irlba = "ANY",
+  index = "ANY",
+  metadata = "ANY",
+  ref = "ANY",
+  reduction = "ANY"
+))
 
 ############################################################################################################################
 #' @title extractAttributes
