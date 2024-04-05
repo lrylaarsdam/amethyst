@@ -101,7 +101,7 @@ makeWindows <- function(
   if (!is.null(stepsize)) {
     windows <- future_map(barcodes, function(bar) {
       h5 <- data.table::data.table(rhdf5::h5read(obj@h5path, name = paste0({{type}}, "/", bar)))
-      h5 <- h5[, window := paste0(chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling))]
+      h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
       meth_cell <- h5[, round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 4)] # determine global methylation level
       meth_window <- h5[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 3)), by = window]
 
@@ -339,7 +339,7 @@ makeSlidingWindows <- function(
     barcode_name <- sub("\\..*$", "", x)
     data <- h5read(obj@h5path, name = paste0(type, "/", x))
     setDT(data)
-    data[, window := paste0(chr, "_", round_any(pos, 500, floor), "_", round_any(pos, 500, ceiling))]
+    data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
     result <- data[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1)), by = window]
     setnames(result, "value", barcode_name)
     result <- left_join(bed, result, by = c("window"))
@@ -422,7 +422,7 @@ makeFuzzyGeneWindows <- function(
   windows <- future_map(.x = barcodes, .f = function(x) {
     barcode_name <- sub("\\..*$", "", x)
     data <- data.table::data.table(rhdf5::h5read(obj@h5path, name = paste0(type, "/", x)))
-    data[, window := paste0(chr, "_", round_any(pos, 500, floor), "_", round_any(pos, 500, ceiling))]
+    data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
     result <- data[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1)), by = window]
     setnames(result, "value", barcode_name)
     result <- left_join(bed, result, by = c("window"))
