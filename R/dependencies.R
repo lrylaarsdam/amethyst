@@ -11,6 +11,7 @@
 #' @import patchwork
 #' @importFrom pheatmap pheatmap
 #' @importFrom plotly layout plot_ly subplot
+#' @importFrom plyr round_any
 #' @importFrom purrr map
 #' @importFrom Rmagic magic
 #' @importFrom Rphenograph Rphenograph
