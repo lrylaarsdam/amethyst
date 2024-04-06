@@ -1,42 +1,18 @@
 ### PART ONE: RECOMMENDED TO RUN ON THE CLUSTER ###
 ########################################################################################################
-### LOADING DEPENDENCIES AND FUNCTIONS ###
-If you are working on Adey lab servers, consider changing your library path so you don't have to install all the dependencies:
+### PACKAGE INSTALLATION ###
+If you are working on Adey lab servers, consider adding a pre-assembled library with dependencies to your path:
 
 ```{r}
 .libPaths('/home/groups/ravnica/env/R_libs/R-4.2.2_amethyst')
 ```
 
-First, you need to install and load the dependencies and functions. 
-I am working on assembling a package, but for now, I have compiled the necessary info into a single script on Adey lab servers called amethyst_singlescript.R. 
-You can load the functions and dependencies using the source() function. 
-If you are using Github, you can load with devtools or run the contents of the files in the R folder in your console.
+First, load the package using devtools. 
+You may need to use credentials::set_github_pat("[insert personal access token]") to establish permissions until the repo is public.
 
 ```{r}
-source("/home/groups/ravnica/projects/amethyst/amethyst_singlescript.R")
-```
-
-Or to just load the dependencies, if amethyst functions are already saved in your workspace:
-
-```{r}
-packages <- c("rhdf5", "rtracklayer", "ggnewscale", "Rphenograph", "irlba",
-              "Rcpp", "umap", "ggplot2", "pheatmap", "gridExtra", "grid",
-              "patchwork", "lattice", "cowplot", "plotly", "janitor",
-              "data.table", "readr", "tidyverse", "tibble", "plyr",
-              "tidyr", "Rmagic", "future", "furrr", "purrr", "dplyr")
-
-# Load packages with tryCatch
-for (pkg in packages) {
-  tryCatch(library(pkg, character.only = TRUE),
-           error = function(e) {
-             message(paste("Error loading package", pkg, ":", conditionMessage(e)))
-           }
-  )
-}
-
-pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2",  "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3",  "#FFA976")
-options(scipen = 999)
-options(future.globals.maxSize = (20000*1024^2)) # 20 GB; adjust if local
+devtools::install_github("lrylaarsdam/amethyst")
+library(amethyst)
 ```
 
 ########################################################################################################
@@ -50,9 +26,10 @@ path <- "/home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignett
 
 # To download from AWS. Modify the desired path in the second command if you don't want it in the working directory.
 download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette.h5", "brain_vignette.h5", method = "curl") 
+path <- "./brain_vignette.h5"
 ```
 
-Alternatively, many of the commands can be run using just the pre-assembled vignette workspace without the large h5 file. If you download the workspace, all the downstream commands have been run, so you can just explore what is helpful.
+Alternatively, many of the commands can be run using just the pre-assembled vignette workspace without the large h5 file. If you download the workspace, all the downstream commands have been run, so you can just explore what is helpful. This is recommended if you don't have cluster access.
 
 ```{r}
 # This is the path to the vignette workspace if using Adey Lab servers
@@ -64,11 +41,37 @@ load("./brain_vignette_workspace.RData")
 ```
 
 ########################################################################################################
-### INDEXING ### (This is only necessary if you want to look at gene-specific methylation information)
-There are some other tools we need still. First, let's fetch the reference annotation file. This contains the start/end position of each gene in the genome. We need the annotation file because we want to index which components of the base .h5 file correspond to which gene. That way it can be read from a lot faster.
+### ASSEMBLING THE AMETHYST OBJECT ###
+
+Now construct an amethyst object, which stores the path to the h5 file as well as a lot of other information that will be calculated downstream
+
+```{r}
+obj <- createObject(h5path = path)
+```
+
+Next, perform dimensionality reduction by making genomic windows of methylation values and running irlba. runIrlba can accommodate as many genomic window matrices as desired. 
+Note: In this example, the number of requested output dimensions is low because brain_vignette.h5 has 50 cells. 
+
+```{r}
+obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 10)
+obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 10)
+obj <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5))
+```
+
+Now determine cluster membership. In this example, k_phenograph and neighbors parameters are low because brain_vignette.h5 has 50 cells.
+
+```{r}
+obj <- runCluster(obj, k_phenograph = 5) # consider increasing k_phenograph to 50 for larger datasets
+obj <- runUmap(obj, neighbors = 5, dist = 0.1, method = "euclidean") 
+```
+
+########################################################################################################
+### INDEXING ### 
+This is only necessary if you want to look at gene-specific methylation information
+First, fetch the reference annotation file. This contains the start/end position of each gene in the genome. We need the annotation file because we want to index which components of the base .h5 file correspond to which gene. That way it can be read from a lot faster.
  
 ```{r}
-ref <- makeRef(ref = "hg38") # mm10 is also an option
+obj@ref <- makeRef(ref = "hg38") # mm10 is also an option
 ```
 
 We want hg38 in this case because our example data is from human brain. 
@@ -76,56 +79,18 @@ Indexing all the genes can take a long time, so a pre-determined list of marker 
 
 ```{r}
 markerGenes <- fetchMarkers(ref = "hg38", type = "brain") # pbmc will be added eventually
+markerGenes <- c("SATB2", "GAD1") # just do a small subset for this tutorial
 ```
 
 Now let's get the positions in the h5 file that correspond to these genes using the index function.
 Modify the path to the h5 file if needed.
 ```{r}
-index <- indexAll(hdf5 = path, subset = markerGenes, threads = 30) 
-```
-
-Alternatively, you could just index one type of methylation.
-
-```{r}
 index <- list() # make an empty list
-index[["CH"]] <- indexGenes(hdf5 = path, type = "CH", subset = markerGenes, threads = 30)
-index[["promoters"]] <- indexGenes(hdf5 = path, type = "promoters", subset = markerGenes, threads = 30) #CG
-index[["CAC"]] <- indexGenes(hdf5 = path, type = "CAC", subset = markerGenes, threads = 30)
-```
-... or any other type, as long as it is included as a group in the h5 file. (CAC is not, in this particular example.)
-
-In the future, indexes can easily be added with the addIndex function. 
-*Note: there is a bug in addIndex right now. In the meantime, do:
-
-```{r}
-add <- c("PACS1", "TBR1")
-obj@index[["CH"]] <- c(obj@index[["CH"]], indexGenes(hdf5 = path, type = "CH", subset = add, threads = 1))
+index[["CH"]] <- indexGenes(hdf5 = path, gtf = ref, type = "CH", subset = markerGenes, threads = 1)
+index[["promoters"]] <- indexGenes(hdf5 = path, gtf = ref, type = "promoters", subset = markerGenes, threads = 1) # promoter indexing finds CG base level information +/- 1500 bp around the first position of the gene (strand-aware)
 ```
 
-########################################################################################################
-### ASSEMBLING THE AMETHYST OBJECT ###
-Now that we have all the components, let's construct the amethyst object. This helps organize the different components in one place.
-*Note: If indexing was not done, just define index and ref as empty fields so the object can be created.
-
-```{r}
-obj <- createObject(h5path = path, index = index, ref = ref)
-```
-
-Next, make genomic windows and run irlba. runIrlba can accommodate as many genomic window matrices as desired. In this example, the number of
-requested output dimensions is low because brain_vignette.h5 has 50 cells. 
-
-```{r}
-obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 20)
-obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 20)
-obj <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5))
-```
-
-Now determine cluster membership. In this example, k_phenograph and neighbors parameters are low because brain_vignette.h5 has 50 cells.
-
-```{r}
-obj <- runCluster(obj, k_phenograph = 5)
-obj <- runUmap(obj, neighbors = 5, dist = 0.1, method = "euclidean") 
-```
+Any type of methylation can be indexed, as long as it is a group in the h5 file.
 
 Before moving to the local Rstudio, it is helpful to find cluster markers and make a matrix of % mCH over indexed genes while you can still multi-thread. 100kb matrices can be used for correlation to the Liu 2021 Ecker reference for cell type ID if analyzing brain data.
 
@@ -186,7 +151,7 @@ umapFeature(obj, colorBy = log(mch_pct)) + scale_color_gradientn(colors = c("bla
 Show the distribution of cluster membership between samples with sampleComp. Make sure the parameters of interest are categorical variables in the metadata. Plots can be easily modified with ggplot command logic.
 
 ```{r}
-sampleComp(obj, groupBy = batch, colorBy = cluster_id, colors = pal) 
+sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) 
 ```
 
 ########################################################################################################
