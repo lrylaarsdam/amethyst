@@ -99,7 +99,7 @@ makeWindows <- function(
 
   # If stepsize is specified, make fixed size genomic windows
   if (!is.null(stepsize)) {
-    windows <- future_map(barcodes, function(bar) {
+    windows <- furrr::future_map(barcodes, function(bar) {
       h5 <- data.table::data.table(rhdf5::h5read(obj@h5path, name = paste0({{type}}, "/", bar)))
       h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
       meth_cell <- h5[, round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 4)] # determine global methylation level
@@ -132,7 +132,7 @@ makeWindows <- function(
   }
 
   if (!is.null(genes)) {
-    windows <- future_map(as.list(genes), function(x) {
+    windows <- furrr::future_map(as.list(genes), function(x) {
       genem <- data.table::data.table(getGeneM(obj = {{obj}}, gene = x, type = {{type}}))
       if (metric == "percent") {
         summary <- genem[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 2)), by = cell_id]
@@ -335,7 +335,7 @@ makeSlidingWindows <- function(
   bed <- bed %>% arrange(chr, start, end) %>% dplyr::mutate(window = paste0(chr, "_", start, "_", end)) %>% dplyr::select(window)
 
   # calculate % methylation over 500 bp windows for all cells
-  windows <- future_map(.x = barcodes, .f = function(x) {
+  windows <- furrr::future_map(.x = barcodes, .f = function(x) {
     barcode_name <- sub("\\..*$", "", x)
     data <- h5read(obj@h5path, name = paste0(type, "/", x))
     setDT(data)
@@ -419,7 +419,7 @@ makeFuzzyGeneWindows <- function(
   }
 
   # calculate % methylation over 500 bp windows for all cells
-  windows <- future_map(.x = barcodes, .f = function(x) {
+  windows <- furrr::future_map(.x = barcodes, .f = function(x) {
     barcode_name <- sub("\\..*$", "", x)
     data <- data.table::data.table(rhdf5::h5read(obj@h5path, name = paste0(type, "/", x)))
     data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]

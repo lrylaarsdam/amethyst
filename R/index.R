@@ -68,7 +68,6 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #' @return A list of data frames named by gene. The data frames contain the
 #' coordinates in the hdf5 file corresponding to the gene's genomic location for
 #' each cell.
-#' @importFrom doFuture %dofuture%
 #' @export
 #'
 #' @examples index[["CH"]] <- indexGenes(
@@ -121,13 +120,13 @@ indexGenes <- function(hdf5,
   }
 
   # read in each barcode
-  output <- future_map(barcodes, function(bar) {
+  output <- furrr::future_map(barcodes, function(bar) {
     h5 <- data.table::data.table(rhdf5::h5read(hdf5, name = paste0(file_lead, bar)))
     h5[, index := 1:.N]
     # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
     # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
     coords <- as.list(ranges$gene_name)
-    index <- future_map(coords,
+    index <- furrr::future_map(coords,
                         .f = function(x) {
                           rel_entries <- which(ranges$gene_name == x)
                           rel_chr <- ranges$seqid[rel_entries]

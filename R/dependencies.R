@@ -1,7 +1,7 @@
 #' @importFrom cowplot plot_grid
-#' @import data.table
+#' @importFrom data.table as.data.table %between% %inrange% fread frollmean frollsum frollapply rbindlist setDT tstrsplit
 #' @import dplyr
-#' @import furrr
+#' @importFrom furrr future_map
 #' @import future
 #' @import ggplot2
 #' @importFrom gridExtra grid.arrange
