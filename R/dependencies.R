@@ -1,5 +1,5 @@
 #' @importFrom cowplot plot_grid
-#' @importFrom data.table as.data.table %between% %inrange% fread frollmean frollsum frollapply rbindlist setDT tstrsplit
+#' @importFrom data.table as.data.table %between% %inrange% fread frollmean frollsum frollapply rbindlist setDT tstrsplit setnames
 #' @import dplyr
 #' @importFrom furrr future_map
 #' @import future
