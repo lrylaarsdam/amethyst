@@ -6,6 +6,8 @@
 #' @returns A data.frame containing the p.value of methylation levels over each gene in each cluster relative to all other clusters
 #' @export
 #' @examples clusterMarkers <- findClusterMarkers(obj = obj, matrix = "gene_ch")
+#' @importFrom dplyr select filter mutate group_by
+#' @importFrom stats wilcox.test p.adjust
 findClusterMarkers <- function(
     obj,
     matrix) {
@@ -24,7 +26,7 @@ findClusterMarkers <- function(
       tryCatch(
         {
           results[[gene]][[id]] <- data.frame(
-            "p.val" = wilcox.test(
+            "p.val" = stats::wilcox.test(
               x = genematrix[gene, members],
               y = genematrix[gene, nonmembers])$p.value,
             "gene" = gene,
@@ -44,7 +46,7 @@ findClusterMarkers <- function(
     }
   }
   results <- do.call(rbind, lapply(results, function(x) do.call(rbind, x)))
-  results <- results |> dplyr::group_by(cluster_id) |> dplyr::mutate(p.adj = p.adjust(p.val, method = "bonferroni"))
+  results <- results |> dplyr::group_by(cluster_id) |> dplyr::mutate(p.adj = stats::p.adjust(p.val, method = "bonferroni"))
   results <- results |> dplyr::select(p.val, p.adj, everything())
 }
 

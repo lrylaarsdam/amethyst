@@ -7,17 +7,18 @@
 #' @param metadata Optional cell metadata. If included, make sure row names are cell IDs
 #' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
 #' @return Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
+#' @importFrom methods new
 #' @export
 #' @examples obj <- createObject(h5path = "~/Downloads/test.h5")
 createObject <- function(h5path,
                          index = NULL,
                          ref = NULL,
                          metadata = NULL) {
-  new(Class = "amethyst",
+  methods::new(Class = "amethyst",
       h5path = h5path)
 }
 
-setClass("amethyst", slots = c(
+methods::setClass("amethyst", slots = c(
   h5path = "character",
   genomeMatrices = "ANY",
   irlba = "ANY",
@@ -56,6 +57,8 @@ extractAttributes <- function(gtf_attributes,
 #' @param gtf If not using hg38 or mm10, please provide the gtf.gz file path
 #' @param attributes Information to extract from the gtf file. Must be a column name
 #' @return Returns an annotated reference of gene locations
+#' @importFrom dplyr mutate
+#' @importFrom rtracklayer readGFF
 #' @export
 #' @examples ref <- makeRef(ref = "hg38")
 makeRef <- function(ref,
@@ -135,6 +138,7 @@ fetchMarkers <- function(ref,
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
 #' @param dims list of how many dimensions to output for each matrix
 #' @return Returns a matrix of appended irlba dimensions as columns and cells as rows
+#' @importFrom irlba irlba
 #' @export
 #' @examples obj <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
 runIrlba <- function(
@@ -175,6 +179,7 @@ runIrlba <- function(
 #' @param obj Amethyst object to perform clustering on
 #' @param k_phenograph integer; number of nearest neighbors
 #' @return Adds cluster membership to the metadata file of the amethyst object
+#' @importFrom Rphenograph Rphenograph
 #' @export
 #' @examples obj <- runCluster(obj = obj, k_phenograph = 30)
 runCluster <- function(obj,
@@ -202,6 +207,7 @@ runCluster <- function(obj,
 #' @param dist Distance between point pairs
 #' @param method Distance metric to utilize. Default is euclidean
 #' @return Adds umap_x and umap_y coordinates to the metadata file of the object
+#' @importFrom umap umap
 #' @export
 #' @examples obj <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
 runUmap <- function(obj,
