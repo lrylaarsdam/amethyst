@@ -11,7 +11,7 @@ vlnGeneM(
   metric = "percent",
   matrix = NULL,
   groupBy,
-  colors = NULL,
+  colors = makeAmethystPalette(),
   nrow = round(sqrt(length(genes)))
 )
 }

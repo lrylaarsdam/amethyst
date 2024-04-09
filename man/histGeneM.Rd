@@ -10,7 +10,7 @@ histGeneM(
   groupBy = NULL,
   genes,
   bins = 100,
-  colors = pal,
+  colors = makeAmethystPalette(),
   smooth = TRUE,
   track = TRUE,
   promoter = FALSE,
