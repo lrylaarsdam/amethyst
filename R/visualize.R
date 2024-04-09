@@ -8,6 +8,7 @@
 #' @return A bar graph showing the distribution of categorical metadata in user-defined groups of cells
 #' @export
 #' @examples sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
+#' @importFrom ggplot2 ggplot geom_bar scale_fill_manual theme_classic labs theme
 sampleComp <- function(
   obj,
   groupBy,
@@ -34,6 +35,11 @@ sampleComp <- function(
 #' @return Returns a heatmap of average methylation levels of key marker genes
 #' @export
 #' @examples markerHeatmap(obj = obj, level = "CellClass", impute = FALSE, rownames = FALSE, type = "CH")
+#' @importFrom dplyr filter group_by arrange rename mutate select
+#' @importFrom janitor make_clean_names
+#' @importFrom Rmagic magic
+#' @importFrom tibble column_to_rownames
+#' @importFrom tidyr pivot_wider
 markerHeatmap <- function(
   obj,
   level = "CellClass",
@@ -81,6 +87,10 @@ markerHeatmap <- function(
 #' @return A ggplot dot plot showing the top 5 correlations of each group to the reference
 #' @export
 #' @examples clusterCompare(cluster_100kb_cg, level = "major_type", type = "cg")
+#' @importFrom dplyr bind_rows group_by arrange filter
+#' @importFrom ggplot2 ggplot
+#' @importFrom stats cor
+#' @importFrom tidyr pivot_longer
 clusterCompare <- function(
     matrix,
     ref = celltyperefs,
@@ -116,6 +126,7 @@ clusterCompare <- function(
 #' @description Add to a ggplot object to remove axes
 #'
 #' Developed by the Satija lab https://github.com/satijalab/seurat/blob/master/R/visualization.R
+#' @importFrom ggplot2 theme
 noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
   blank <- element_blank()
   no.axes.theme <- ggplot2::theme(
@@ -160,6 +171,7 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
 #' @examples umapFeature(obj = obj, colorBy = "cluster_id")
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend
 umapFeature <- function(
   obj,
   colorBy,
@@ -190,6 +202,13 @@ umapFeature <- function(
 #' @export
 #' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", metric = "percent", colors = c("black", "turquoise", "gold", "red"), blend = F)
 #' @examples umapGeneM(both, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, nrow = 1)
+#' @importFrom dplyr inner_join mutate
+#' @importFrom ggplot2 ggplot aes geom_point theme_classic guides scale_color_viridis_c scale_color_gradientn labs scale_color_identity geom_tile scale_fill_identity theme
+#' @importFrom grDevices rgb
+#' @importFrom gridExtra grid.arrange
+#' @importFrom plotly plot_ly subplot
+#' @importFrom tibble rownames_to_column
+#' @importFrom tidyr pivot_longer
 umapGeneM <-  function(
     obj,
     genes,
@@ -246,10 +265,10 @@ umapGeneM <-  function(
     genem <- genem * 0.01
     if (length(genes) == 2) {
       names(genem) <- c("gene1", "gene2")
-      genem <- genem |> dplyr::mutate(mix = rgb(red = gene1, green = gene2, blue = 0, maxColorValue = max(genem[1:2])))
+      genem <- genem |> dplyr::mutate(mix = grDevices::rgb(red = gene1, green = gene2, blue = 0, maxColorValue = max(genem[1:2])))
       plot <- merge(genem, obj@metadata, by = 0)
       legend <- expand.grid(red = seq(0, max(genem[1:2]), by = 0.02), green = seq(0, max(genem[1:2]), by = 0.02))
-      legend <- within(legend, mix <- rgb(green = green, red = red, blue = 0, maxColorValue = max(genem[1:2])))
+      legend <- within(legend, mix <- grDevices::rgb(green = green, red = red, blue = 0, maxColorValue = max(genem[1:2])))
       p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = mix)) +
         ggplot2::geom_point(size = 0.5) +
         ggplot2::theme_classic() +
@@ -266,7 +285,7 @@ umapGeneM <-  function(
     }
     else if (length(genes) == 3) {
       names(genem) <- c("gene1", "gene2", "gene3")
-      genem <- genem |> dplyr::mutate(mix = rgb(red = gene1, green = gene2, blue = gene3, maxColorValue = max(genem[1:3])))
+      genem <- genem |> dplyr::mutate(mix = grDevices::rgb(red = gene1, green = gene2, blue = gene3, maxColorValue = max(genem[1:3])))
       plot <- merge(genem, obj@metadata, by = 0)
       p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = mix)) +
         ggplot2::geom_point(size = 0.5) +
@@ -276,7 +295,7 @@ umapGeneM <-  function(
         ggplot2::labs(title = paste0(type, " methylation across ", genes[1], ", ", genes[2], ", and ", genes[3])) + noAxes() +
         ggplot2::theme(legend.position = "none")
       legend <- expand.grid(red = seq(0, .1, by = 0.02), blue = seq(0, .1, by = 0.02), green = seq(0, .1, by = 0.02))
-      legend <- within(legend, mix <- rgb(green = green, red = red, blue = blue, maxColorValue = 0.1))
+      legend <- within(legend, mix <- grDevices::rgb(green = green, red = red, blue = blue, maxColorValue = 0.1))
       p2 <- plotly::plot_ly(x = legend$red, y = legend$green, z = legend$blue, color = ~ I(legend$mix)) %>%
         layout(scene = list(
           xaxis = list(title=paste(genes[[1]])),
@@ -303,6 +322,10 @@ umapGeneM <-  function(
 #' @return Returns ggplot2 geom_violin plots of methylation levels faceted by the requested genes
 #' @export
 #' @examples vlnGeneM(obj, genes = c("SATB2", "GAD1"), matrix = "test_gene_ch", groupBy = "cluster_id")
+#' @importFrom dplyr inner_join
+#' @importFrom ggplot2 ggplot aes geom_violin geom_jitter theme_classic scale_fill_manual scale_color_manual facet_wrap
+#' @importFrom tibble rownames_to_column
+#' @importFrom tidyr pivot_longer
 vlnGeneM <-  function(
     obj,
     genes,
@@ -310,18 +333,18 @@ vlnGeneM <-  function(
     metric = "percent",
     matrix = NULL,
     groupBy,
-    colors = NULL,
+    colors = makeAmethystPalette(),
     nrow = round(sqrt(length(genes)))) {
 
   if (is.null(matrix) && is.null(type)) {
     stop("If matrix is not provided, 'type' must be specified.")
   }
-
-  if (is.null(colors)) {
-    pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2", "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3", "#FFA976")
-  } else if (!is.null(colors)) {
-    pal <- colors
-  }
+  pal <- colors
+  # if (is.null(colors)) {
+  #   pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2", "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3", "#FFA976")
+  # } else if (!is.null(colors)) {
+  #   pal <- colors
+  # }
 
   if (!is.null(matrix)) {
     genem <- obj@genomeMatrices[[matrix]]
@@ -359,6 +382,10 @@ vlnGeneM <-  function(
 #' @return Returns a ggplot object displaying average methylation values for each gene by the grouping variable
 #' @export
 #' @examples dotGeneM(obj = obj, genes = c("SATB2", "GAD1"), type = "gene_ch", groupBy = "cluster_id")
+#' @importFrom dplyr inner_join summarise group_by
+#' @importFrom ggplot2 ggplot aes geom_point theme_classic scale_color_viridis_c theme
+#' @importFrom tibble rownames_to_column
+#' @importFrom tidyr pivot_longer
 dotGeneM <-  function(
   obj,
   genes,
@@ -405,13 +432,18 @@ dotGeneM <-  function(
 #' @return Returns a ggplot histogram showing methylation levels over a gene body
 #' @export
 #' @examples histGeneM(obj = obj, type = "both", groupBy = cluster_id, genes = "SATB2")
+#' @importFrom data.table rbindlist
+#' @importFrom dplyr pull filter group_by mutate relocate summarise inner_join arrange select distinct
+#' @importFrom ggplot2 ggplot
+#' @importFrom gridExtra grid.arrange
+#' @importFrom tibble rownames_to_column
 histGeneM <- function(
   obj,
   type, # "CG" or "CH" methylation, or "both"
   groupBy = NULL, # metadata to divide by
   genes,
   bins = 100, # number of columns to plot across gene body
-  colors = pal,
+  colors = makeAmethystPalette(),
   smooth = TRUE,
   track = TRUE,
   promoter = FALSE,
@@ -522,6 +554,10 @@ histGeneM <- function(
 #' @return A ggplot geom_tile object with colors indicating % methylation over 500 bp windows and the gene of interest beneath
 #' @export
 #' @examples tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
+#' @importFrom dplyr filter mutate
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab
+#' @importFrom gridExtra grid.arrange
+#' @importFrom tidyr pivot_longer
 tileGeneM <- function(obj,
                       genes,
                       matrix,
@@ -562,3 +598,13 @@ tileGeneM <- function(obj,
   gridExtra::grid.arrange(grobs = p, nrow = nrow)
 }
 
+#' @title Make amethyst palette
+#' @description
+#' Returns a predefined palette frequently used in the `amethyst` package
+#' @return A vector of 13 colours
+#' @examples
+#' pal <- makeAmethystPalette()
+#' @export
+makeAmethystPalette <- function() {
+  c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2",  "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3",  "#FFA976")
+}
