@@ -7,6 +7,7 @@
 #' @param promoter Bool indicating if the requested type is for 'promoters';
 #' used internally as a flag.
 #' @returns A data.table of ranges
+#' @importFrom data.table data.table
 findRanges <- function(gtf, promoter, subset = NULL) {
   subset_passed <- !is.null(subset)
   gtf_dt <- data.table::data.table(gtf)
@@ -77,6 +78,11 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #'   threads = 10,
 #'   subset = c("SATB2", "TBR1", "FOXG1")
 #' )
+#' @importFrom data.table data.table rbindlist
+#' @importFrom dplyr filter pull
+#' @importFrom furrr future_map
+#' @importFrom future plan
+#' @importFrom rhdf5 h5read
 indexGenes <- function(hdf5,
                        gtf,
                        type,

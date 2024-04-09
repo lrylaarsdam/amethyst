@@ -8,6 +8,10 @@
 #' @return Returns a data frame listing the start and count for each barcode with reads covering the requested gene
 #' @export
 #' @examples getGeneM(obj = obj, gene = "RBFOX3", type = "CH", cells = c("ATTGAGGATACCAATTCCATCACGAGCG", "ATTGAGGATAACGCTTCGTCCGCCGATC"))
+#' @importFrom dplyr pull filter mutate
+#' @importFrom purrr map
+#' @importFrom rhdf5 h5read
+#' @importFrom tibble rownames_to_column
 getGeneM <- function(obj,
                      gene,
                      type,
@@ -70,6 +74,13 @@ getGeneM <- function(obj,
 #' @export
 #' @examples makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
 #' @examples makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
+#' @importFrom data.table data.table
+#' @importFrom dplyr pull filter select mutate
+#' @importFrom furrr future_map
+#' @importFrom future plan multicore
+#' @importFrom plyr round_any
+#' @importFrom rhdf5 h5ls h5read
+#' @importFrom tibble column_to_rownames rownames_to_column
 makeWindows <- function(
     obj,
     type,
@@ -192,6 +203,8 @@ makeWindows <- function(
 #' @return Updates obj to contain the new metadata concatenated to the old metadata
 #' @export
 #' @examples obj <- addMetadata(obj = obj, metadata = annotations)
+#' @importFrom dplyr left_join
+#' @importFrom tibble column_to_rownames rownames_to_column
 addMetadata <- function(obj,
                         metadata) {
   if (length(intersect(rownames(obj@metadata), rownames(metadata))) == 0) {
@@ -217,10 +230,12 @@ addMetadata <- function(obj,
 #' @return Returns the same amethyst object with information contained in the cellInfo file added to the obj@metadata slot
 #' @export
 #' @examples obj <- addCellInfo(obj = obj, file = "~/Downloads/cellInfo.txt")
+#' @importFrom tibble column_to_rownames
+#' @importFrom utils read.table
 addCellInfo <- function(obj,
                         file) {
 
-  cellInfo <- read.table(file, sep = "\t", header = F)
+  cellInfo <- utils::read.table(file, sep = "\t", header = F)
   if (ncol(cellInfo) == 6) {
     colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct")
   } else if (ncol(cellInfo) == 9) {
@@ -242,6 +257,7 @@ addCellInfo <- function(obj,
 #' @return Adds a new data frame to the genomeMatrices slot with imputed values
 #' @export
 #' @examples obj <- impute(obj, matrix = "gene_ch")
+#' @importFrom Rmagic magic
 impute <- function(obj,
                    matrix,
                    npca = 10) {
@@ -268,6 +284,9 @@ impute <- function(obj,
 #' @return Returns a matrix containing the mean value per group
 #' @export
 #' @examples obj <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = cluster_id, name = "cluster_ch_100k_pct")
+#' @importFrom data.table setDT
+#' @importFrom dplyr select filter
+#' @importFrom tibble rownames_to_column column_to_rownames
 aggregateMatrix <- function(obj,
                             matrix,
                             groupBy) {
@@ -289,7 +308,7 @@ aggregateMatrix <- function(obj,
   # reorder if genomic windows
   if (sum(grepl("chr", aggregated$window)) > 0) {
     # order
-    setDT(aggregated)
+    data.table::setDT(aggregated)
     aggregated <- aggregated[!grepl("([^_]*_){3,}", window)] # removes alternative loci
     aggregated[, c("chr", "start", "end") := {
       split_parts <- tstrsplit(window, "_", fixed = TRUE)
@@ -312,6 +331,11 @@ aggregateMatrix <- function(obj,
 #' @return Returns a data frame with % methylation over 1500 base pair genomic windows shifted every 500 bp aggregated by cluster
 #' @export
 #' @examples cluster_cg_500bp_windows <- makeSlidingWindows(obj = obj, type = "CG", threads = 20)
+#' @importFrom dplyr filter pull mutate select
+#' @importFrom furrr future_map
+#' @importFrom plyr round_any
+#' @importFrom purrr reduce
+#' @importFrom utils read.table
 makeSlidingWindows <- function(
     obj,
     type,
@@ -330,7 +354,7 @@ makeSlidingWindows <- function(
   }
 
   # get all possible 500 bp positions so you don't accidentally average across missing values
-  bed <- read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_500bp_intervals.bed", sep = "\t")
+  bed <- utils::read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_500bp_intervals.bed", sep = "\t")
   colnames(bed) <- c("chr", "start", "end")
   bed <- bed %>% arrange(chr, start, end) %>% dplyr::mutate(window = paste0(chr, "_", start, "_", end)) %>% dplyr::select(window)
 
@@ -338,7 +362,7 @@ makeSlidingWindows <- function(
   windows <- furrr::future_map(.x = barcodes, .f = function(x) {
     barcode_name <- sub("\\..*$", "", x)
     data <- h5read(obj@h5path, name = paste0(type, "/", x))
-    setDT(data)
+    data.table::setDT(data)
     data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
     result <- data[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1)), by = window]
     setnames(result, "value", barcode_name)
@@ -354,7 +378,7 @@ makeSlidingWindows <- function(
   # Calculate the rolling mean for each column
   result <- separate(result, col = "window", into = c("chr", "start", "end"), sep = "_")
   smoothed <- result
-  setDT(smoothed)
+  data.table::setDT(smoothed)
 
   smooth_start <- smoothed[, lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[1], align = "center", fill = NA)), .SDcols ="start"]
   smooth_end <- smoothed[, lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[3], align = "center", fill = NA)), .SDcols ="end"]
@@ -396,6 +420,13 @@ makeSlidingWindows <- function(
 #' @export
 #'
 #' @examples gene_ch <- makeFuzzyGeneWindows(obj = obj, type = "CH", threads = 20)
+#' @importFrom data.table setDT data.table
+#' @importFrom dplyr filter pull
+#' @importFrom furrr future_map
+#' @importFrom plyr round_any
+#' @importFrom purrr reduce
+#' @importFrom rhdf5 h5ls h5read
+#' @importFrom utils read.table
 makeFuzzyGeneWindows <- function(
     obj,
     type,
@@ -406,8 +437,8 @@ makeFuzzyGeneWindows <- function(
   }
 
   # download bed file
-  bed <- read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_mainChr_500bp_geneannot.bed", header = T, sep = '\t')
-  setDT(bed)
+  bed <- utils::read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_mainChr_500bp_geneannot.bed", header = T, sep = '\t')
+  data.table::setDT(bed)
   bed <- bed[, .(window, gene)]
 
   # get all cell IDs in h5 file
