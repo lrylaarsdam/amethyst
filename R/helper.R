@@ -1,3 +1,84 @@
+#' @title Calculate Window Methylation Statistic
+#' @description For a given genomic region, calculates a specific statistic
+#' (such as percent methylated).
+#' @param h5path Path to the .h5 file containing the methylation data for each
+#' cell
+#' @param barcode The barcode for a specific cell within the .h5 file
+#' @param stepszie The size of the windows
+#' @param stat One of `'percent'`, `'ration'` or `'score'`; the statistic to
+#' calculate for the window
+#' @returns Data.table of the cell methylation data updated to include the stat
+calcWindowMethylationStat <- function(barcode, h5path, stepsize, stat) {
+  .h5 <- data.table::data.table(rhdf5::h5read(h5path, name = paste0(type, "/", barcode)))
+  .h5 <- .h5[, window := paste0(
+    chr,
+    "_",
+    roundAny(pos, stepsize, floor),
+    "_",
+    roundAny(pos, stepsize, ceiling)
+  )]
+
+  if(stat == 'percent') {
+    .h5 <- .h5[, .(
+      value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1)
+    ), by = window]
+    return(.h5)
+  }
+  .h5 <- .h5[, glob_m := sum(c != 0) / (sum(c != 0) + sum(t != 0))]
+  if(stat == 'ratio') {
+    .h5 <- .h5[, .(
+        value = round((sum(c != 0) / (sum(c != 0) + sum(t != 0))) / mean(glob_m), 3)
+      ), by = window]
+  }
+  if(stat == 'score') {
+    .h5 <- .h5[, .(
+      meth = sum(c != 0) / (sum(c != 0) + sum(t != 0)), glob_m = mean(glob_m)
+    ), by = window]
+    .h5 <- .h5[, diff := Map(`-`, meth, glob_m)]
+    .h5 <- .h5[, value := round(diff / glob_m, 3)][diff > 0, value := round(diff / (1 - glob_m), 3)][]
+  }
+  .h5
+}
+
+
+calcWindowMethylationScore <- function(barcode, h5path, stepsize) {
+  calcWindowMethylationStat(barcode, h5path, stepsize, stat = 'score')
+}
+
+
+calcWindowMethylationRatio <- function(barcode, h5path, stepsize) {
+  calcWindowMethylationStat(barcode, h5path, stepsize, stat = 'ratio')
+}
+
+
+calcWindowMethylationPercent <- function(barcode, h5path, stepsize) {
+  calcWindowMethylationStat(barcode, h5path, stepsize, stat = 'percent')
+}
+
+
+#' @title Round any
+#' @description
+#' Local implementation of the plyr function `round_any`.
+#' @param x numeric vector to be rounded
+#' @param accuracy number to round to
+#' @param f rounding function
+#' @returns x with numbers rounded to `accuracy` number of significant figures
+#' as defined by `f`
+#' @examples
+#' roundAny(111.1111, 1)
+#' roundAny(111.1111, 10)
+#' roundAny(111.1111, 100)
+#' roundAny(111.1111, 0.1)
+#' roundAny(111.1111, 1, floor)
+#' roundAny(111.1111, 0.1, floor)
+#' roundAny(111.1111, 1, ceiling)
+#' roundAny(111.1111, 100, ceiling)
+#' roundAny(111.1111, 0.1, ceiling)
+roundAny <- function(x, accuracy, f = round) {
+  f(x / accuracy) * accuracy
+}
+
+
 #' @title Get gene M
 #' @description Helper function to retrieve the relevant portion of the hdf5 file for a given gene
 #'
@@ -22,7 +103,7 @@ getGeneM <- function(obj,
   }
 
   # Make data frame of all indexes for the gene
-  indexes <- as.data.frame(obj@index[[type]][[gene]])
+  indexes <- data.table::data.table(as.data.frame(obj@index[[type]][[gene]]))
   if (type == "promoters") {
     type <- "CG"
   }
@@ -39,13 +120,22 @@ getGeneM <- function(obj,
     .x = ids,
     .f = function(x) {
       dataset_name <- paste0(type, "/", x)
-      start <- indexes |>
-        dplyr::filter(cell_id == x) |>
-        dplyr::pull(start)
-      count <- indexes |>
-        dplyr::filter(cell_id == x) |>
-        dplyr::pull(count)
-      h5read(obj@h5path, name = dataset_name, start = start, count = count, stride = 1)
+      rel_indexes <- indexes[cell_id == x, ]
+      start <- rel_indexes$start
+      count <- rel_indexes$count
+      # start <- indexes |>
+      #   dplyr::filter(cell_id == x) |>
+      #   dplyr::pull(start)
+      #
+      # count <- indexes |>
+      #   dplyr::filter(cell_id == x) |>
+      #   dplyr::pull(count)
+      out <- rhdf5::h5read(obj@h5path,
+        name = dataset_name,
+        start = start,
+        count = count,
+        stride = 1
+      )
     }
   )
 
@@ -54,6 +144,7 @@ getGeneM <- function(obj,
 
   # Row bind the list into one big list
   gene_m <- do.call(rbind, gene_m)
+  # gene_m <- data.table::rbindlist(gene_m)
 
   # Make a new column containing the barcodes and remove unnecessary characters added automatically by R
   gene_m <- gene_m |>
@@ -69,24 +160,34 @@ getGeneM <- function(obj,
 #' size or a gene body. If desired, aggregate average percent methylation
 #' according to a categorical value in the metadata.
 #' @param obj Object for which to calculate percent methylation windows
-#' @param groupBy Optional metadata parameter to group cells by. If included, the function will calculate mean percent methylation of a given window over the group.
-#' @param genes If specified, the % methylation will be calculated over the indicated gene bodies.
-#' @param stepsize If specified, the % methylation will be calculated over genomic windows of the indicated size.
-#' @param nmin Optional. Minimum number of cytosines recorded in the window/gene to be included in the output.
-#' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
+#' @param type What type of methylation to retrieve; i.e. gene body mCH, gene
+#' body mCG, or promoter mCG.
+#' @param groupBy Optional metadata parameter to group cells by. If included,
+#' the function will calculate mean percent methylation of a given window over
+#' the group.
+#' @param genes If specified, the % methylation will be calculated over the
+#' indicated gene bodies.
+#' @param stepsize If specified, the % methylation will be calculated over
+#' genomic windows of the indicated size.
+#' @param nmin Optional. Minimum number of cytosines recorded in the window/gene
+#' to be included in the output.
 #'
-#' @return Returns a data frame with the genomic region or gene name as column names, cell barcode or group as row names, and values as percent methylated.
+#' @return Returns a data frame with the genomic region or gene name as column
+#' names, cell barcode or group as row names, and values as percent methylated.
 #' @export
 #'
-#' @examples makeWindows(obj, groupBy = cluster_id, genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")
-#' @examples makeWindows(obj, stepsize = 100000, type = "CH")
+#' @examples
+#' \dontrun{
+#' makeWindows(obj, groupBy = cluster_id, genes = c("TBR2", "TBR1"), nmin = 10, type = "CH")
+#' makeWindows(obj, stepsize = 100000, type = "CH")
+#' }
 makeWindows <- function(
     obj,
-    groupBy = NULL, # optional metadata parameter to group cells by
-    genes = NULL, # provide only genes, bed, or step size
-    stepsize = FALSE, # provide only genes, bed, or step size
-    nmin = NULL, # nmin is the minimum number of cytosines with data to include the cell in the analysis
-    type, # What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
+    type,
+    groupBy = NULL,
+    genes = NULL,
+    stepsize = FALSE,
+    nmin = NULL,
     metric = "percent",
     threads = 1,
     bed = NULL) {
@@ -108,69 +209,28 @@ makeWindows <- function(
           # windows for each cell
           windows <- furrr::future_map(
             .x = barcodes,
-            .f = function(x) {
-              h5read(obj@h5path, name = paste0(type, "/", x)) |>
-                dplyr::mutate(window = paste0(
-                  chr,
-                  "_",
-                  plyr::round_any(pos, stepsize, floor),
-                  "_",
-                  plyr::round_any(pos, stepsize, ceiling)
-                )) |>
-                dplyr::group_by(window) |>
-                dplyr::summarise(
-                  value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1),
-                  .groups = "keep"
-                )
-            }, .progress = TRUE
+            .f = calcWindowMethylationPercent,
+            h5path = obj@h5path,
+            stepsize = stepsize,
+            .progress = FALSE
           )
         } else if (metric == "ratio") {
           # read in each barcode and calculate % methylation over 100kb genomic
           # windows for each cell
           windows <- furrr::future_map(
             .x = barcodes,
-            .f = function(x) {
-              h5read(obj@h5path, name = paste0(type, "/", x)) |>
-                # determine global methylation status
-                dplyr::mutate(glob_m = sum(c != 0) / (sum(c != 0) + sum(t != 0))) |>
-                dplyr::mutate(
-                  window = paste0(
-                    chr,
-                    "_",
-                    plyr::round_any(pos, stepsize, floor),
-                    "_",
-                    plyr::round_any(pos, stepsize, ceiling)
-                  )
-                ) |>
-                dplyr::group_by(window) |>
-                dplyr::summarise(value = round((sum(c != 0) / (sum(c != 0) + sum(t != 0))) / mean(glob_m), 3), .groups = "keep")
-            }, # ratio of window to global methylation
-            .progress = TRUE
+            .f = calcWindowMethylationRatio,
+            h5path = obj@h5path,
+            stepsize = stepsize,
+            .progress = FALSE
           )
         } else if (metric == "score") {
           windows <- furrr::future_map(
             .x = barcodes,
-            .f = function(x) {
-              h5read(obj@h5path, name = paste0(type, "/", x)) |>
-                # determine global methylation status
-                # read in each barcode and calculate % methylation over 100kb genomic windows for each cell
-                dplyr::mutate(glob_m = sum(c != 0) / (sum(c != 0) + sum(t != 0))) |>
-                dplyr::mutate(
-                  window = paste0(
-                    chr,
-                    "_",
-                    plyr::round_any(pos, stepsize, floor),
-                    "_",
-                    plyr::round_any(pos, stepsize, ceiling)
-                  )
-                ) |>
-                dplyr::group_by(window) |>
-                dplyr::summarise(meth = sum(c != 0) / (sum(c != 0) + sum(t != 0)), glob_m = mean(glob_m), .groups = "keep") |>
-                dplyr::rowwise() |>
-                dplyr::mutate(diff = meth - glob_m) |>
-                dplyr::mutate(value = ifelse(diff > 0, round(diff / (1 - glob_m), 3), round(diff / glob_m, 3))) # ratio of window to global methylation
-            },
-            .progress = TRUE
+            .f = calcWindowMethylationScore,
+            h5path = obj@h5path,
+            stepsize = stepsize,
+            .progress = FALSE
           )
         }
         windows <- dplyr::bind_rows(windows)
@@ -181,7 +241,7 @@ makeWindows <- function(
           dplyr::summarise(value = mean(value))
 
         # change the format so genomic windows are columns
-        windows <- pivot_wider(windows, names_from = window, values_from = value)
+        windows <- tidyr::pivot_wider(windows, names_from = window, values_from = value)
 
         # set the row name to be the group
         rownames(windows) <- paste(as.character(i))
@@ -208,52 +268,30 @@ makeWindows <- function(
         # windows for each cell
         windows <- furrr::future_map(
           .x = barcodes,
-          .f = function(x) {
-            h5read(obj@h5path, name = paste0(type, "/", x)) |>
-              dplyr::mutate(window = paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))) |>
-              dplyr::group_by(window) |>
-              dplyr::summarise(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1), .groups = "keep")
-          },
-          .progress = TRUE
+          .f = calcWindowMethylationPercent,
+          h5path = obj@h5path,
+          stepsize = stepsize,
+          .progress = FALSE
         )
       } else if (metric == "ratio") {
         # read in each barcode and calculate % methylation over 100kb genomic
         # windows for each cell
         windows <- furrr::future_map(
           .x = barcodes,
-          .f = function(x) {
-            h5read(obj@h5path, name = paste0(type, "/", x)) |>
-              # determine global methylation status
-              dplyr::mutate(glob_m = sum(c != 0) / (sum(c != 0) + sum(t != 0))) |>
-              dplyr::mutate(window = paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))) |>
-              dplyr::group_by(window) |>
-              # ratio of window to global methylation
-              dplyr::summarise(value = round((sum(c != 0) / (sum(c != 0) + sum(t != 0))) / mean(glob_m), 3), .groups = "keep")
-          },
-          .progress = TRUE
+          .f = calcWindowMethylationRatio,
+          h5path = obj@h5path,
+          stepsize = stepsize,
+          .progress = FALSE
         )
       } else if (metric == "score") {
         # read in each barcode and calculate % methylation over 100kb genomic
         # windows for each cell
         windows <- furrr::future_map(
           .x = barcodes,
-          .f = function(x) {
-            h5read(obj@h5path, name = paste0(type, "/", x)) |>
-              # determine global methylation status
-              dplyr::mutate(glob_m = sum(c != 0) / (sum(c != 0) + sum(t != 0))) |>
-              dplyr::mutate(
-                window = paste0(
-                  chr, "_", round_any(pos, stepsize, floor), "_", round_any(pos, stepsize, ceiling)
-                )
-              ) |>
-              dplyr::group_by(window) |>
-              dplyr::summarise(meth = sum(c != 0) / (sum(c != 0) + sum(t != 0)), glob_m = mean(glob_m), .groups = "keep") |>
-              dplyr::rowwise() |>
-              dplyr::mutate(diff = meth - glob_m) |>
-              # ratio of window to global methylation
-              dplyr::mutate(value = ifelse(diff > 0, round(diff / (1 - glob_m), 3), round(diff / glob_m, 3)))
-          },
-          .progress = TRUE
+          .f = calcWindowMethylationScore,
+          h5path = obj@h5path,
+          stepsize = stepsize,
+          .progress = FALSE
         )
       }
       names(windows) <- barcodes
@@ -263,7 +301,8 @@ makeWindows <- function(
         names_from = window,
         values_from = value
       ) |>
-        tibble::column_to_rownames(var = "cell_id") # change format so columns are genomic windows and rows are cells
+        # change format so columns are genomic windows and rows are cells
+        tibble::column_to_rownames(var = "cell_id")
     }
   }
 
