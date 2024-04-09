@@ -1,7 +1,7 @@
 Package: amethyst
 Type: Package
 Title: A METHYl-c Single-cell analysis Toolkit
-Version: 0.0.0.9000
+Version: 0.0.0.9003
 Authors@R: 
     c(person("Lauren", "Rylaarsdam", , "rylaarsd@ohsu.edu", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-1614-408X")),
