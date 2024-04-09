@@ -11,7 +11,6 @@ indexAll(
   threads = 10,
   save = NULL,
   method = "foreach",
-  h5_approach = "read",
   choice = "all"
 )
 }

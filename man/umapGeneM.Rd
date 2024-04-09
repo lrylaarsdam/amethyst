@@ -37,8 +37,9 @@ Returns a plot of methylation over given genomic region in relation to UMAP
 Plot cumulative \% methylation over a gene body on umap
 }
 \examples{
+\dontrun{
 umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH")
 umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", blend = TRUE, nrow = 1)
 umapGeneM(both, genes = c("Cux1", "Lingo1"), matrix = "genemeans_cac_imputed", blend = T)
-
+}
 }
