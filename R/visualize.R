@@ -10,10 +10,10 @@
 #' @examples sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
 #' @importFrom ggplot2 ggplot geom_bar scale_fill_manual theme_classic labs theme
 sampleComp <- function(
-  obj,
-  groupBy,
-  colorBy,
-  colors = NULL) {
+    obj,
+    groupBy,
+    colorBy,
+    colors = NULL) {
   # Use ggplot2 to generate bar plot with the groupBy variable on the x axis and the fill determined by colorBy.
   ggplot2::ggplot(obj@metadata, aes(x = .data[[groupBy]])) +
     ggplot2::geom_bar(aes(fill = .data[[colorBy]]), position = "fill") +
@@ -41,11 +41,11 @@ sampleComp <- function(
 #' @importFrom tibble column_to_rownames
 #' @importFrom tidyr pivot_wider
 markerHeatmap <- function(
-  obj,
-  level = "CellClass",
-  impute = TRUE,
-  rownames = FALSE,
-  type = "CH") {
+    obj,
+    level = "CellClass",
+    impute = TRUE,
+    rownames = FALSE,
+    type = "CH") {
 
   markers <- keygenestable %>%
     dplyr::filter(cluster_level == level & marker %in% names(obj@index[[type]])) %>%
@@ -171,13 +171,13 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
 #' @examples umapFeature(obj = obj, colorBy = "cluster_id")
-#' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend
+#' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
 umapFeature <- function(
-  obj,
-  colorBy,
-  colors = NULL,
-  pointSize = 0.5) {
-  p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = .data[[colorBy]])) +
+    obj,
+    colorBy,
+    colors = NULL,
+    pointSize = 0.5) {
+  p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = {{colorBy}})) +
     ggplot2::geom_point(size = pointSize) +
     {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
     ggplot2::theme_classic() +
@@ -333,7 +333,6 @@ vlnGeneM <-  function(
     metric = "percent",
     matrix = NULL,
     groupBy,
-    colors = makeAmethystPalette(),
     nrow = round(sqrt(length(genes)))) {
 
   if (is.null(matrix) && is.null(type)) {
@@ -363,8 +362,6 @@ vlnGeneM <-  function(
     ggplot2::geom_violin(alpha = 0.3) +
     ggplot2::geom_jitter(ggplot2::aes(color = .data[[groupBy]]), size = 0.2) +
     ggplot2::theme_classic() +
-    ggplot2::scale_fill_manual(values = pal) +
-    ggplot2::scale_color_manual(values = pal) +
     ggplot2::facet_wrap(vars(gene))
 }
 
@@ -387,12 +384,12 @@ vlnGeneM <-  function(
 #' @importFrom tibble rownames_to_column
 #' @importFrom tidyr pivot_longer
 dotGeneM <-  function(
-  obj,
-  genes,
-  groupBy,
-  matrix = NULL,
-  type = NULL,
-  metric = NULL) {
+    obj,
+    genes,
+    groupBy,
+    matrix = NULL,
+    type = NULL,
+    metric = NULL) {
 
   if (!is.null(matrix)) {
     genem <- obj@genomeMatrices[[matrix]]
@@ -403,7 +400,7 @@ dotGeneM <-  function(
   }
   genem <- tidyr::pivot_longer(genem, cols = c(2:ncol(genem)), names_to = "cell_id", values_to = "pctm")
   genem <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
-  genem <- genem |> dplyr::group_by(.data[[groupBy]], gene) |> dplyr::summarise(pctm = mean(pctm))
+  genem <- genem |> dplyr::group_by(.data[[groupBy]], gene) |> dplyr::summarise(pctm = mean(pctm, na.rm = TRUE))
 
   ggplot2::ggplot(genem, ggplot2::aes(x = gene, y = .data[[groupBy]])) +
     ggplot2::geom_point(aes(size = pctm, color = pctm)) +
@@ -438,19 +435,19 @@ dotGeneM <-  function(
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tibble rownames_to_column
 histGeneM <- function(
-  obj,
-  type, # "CG" or "CH" methylation, or "both"
-  groupBy = NULL, # metadata to divide by
-  genes,
-  bins = 100, # number of columns to plot across gene body
-  colors = makeAmethystPalette(),
-  smooth = TRUE,
-  track = TRUE,
-  promoter = FALSE,
-  track.color = "cornflowerblue",
-  alpha = 0.2,
-  nrow = length(genes),
-  legend = F) {
+    obj,
+    type, # "CG" or "CH" methylation, or "both"
+    groupBy = NULL, # metadata to divide by
+    genes,
+    bins = 100, # number of columns to plot across gene body
+    colors = makeAmethystPalette(),
+    smooth = TRUE,
+    track = TRUE,
+    promoter = FALSE,
+    track.color = "cornflowerblue",
+    alpha = 0.2,
+    nrow = length(genes),
+    legend = F) {
 
   # make empty plot list
   p <- vector("list", length(genes)) # empty plot list
@@ -570,7 +567,7 @@ tileGeneM <- function(obj,
   p <- vector("list", length(genes)) # empty plot list
   for (i in 1:length(genes)) {
 
-    ref <- obj@ref %>% dplyr::filter(gene_name == genes[i])
+    ref <- obj@ref |> dplyr::filter(gene_name == genes[i])
     aggregated <- obj@genomeMatrices[[matrix]]
 
     if (!is.null(colors)) {
@@ -582,7 +579,7 @@ tileGeneM <- function(obj,
     toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
     ngroups <- ncol(toplot) - 7
     trackHeight <- ngroups * .07
-    toplot <- tidyr::pivot_longer(toplot, cols = c(8:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> rowwise() |> dplyr::mutate(middle = mean(c(start, end)))
+    toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
 
     p[[i]] <- ggplot2::ggplot() +
       ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = 1500) +
@@ -598,6 +595,7 @@ tileGeneM <- function(obj,
   gridExtra::grid.arrange(grobs = p, nrow = nrow)
 }
 
+############################################################################################################################
 #' @title Make amethyst palette
 #' @description
 #' Returns a predefined palette frequently used in the `amethyst` package

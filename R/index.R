@@ -7,7 +7,7 @@
 #' @param promoter Bool indicating if the requested type is for 'promoters';
 #' used internally as a flag.
 #' @returns A data.table of ranges
-#' @importFrom data.table data.table
+#' @importFrom data.table data.table :=
 findRanges <- function(gtf, promoter, subset = NULL) {
   subset_passed <- !is.null(subset)
   gtf_dt <- data.table::data.table(gtf)
@@ -22,7 +22,7 @@ findRanges <- function(gtf, promoter, subset = NULL) {
   # index
   if (!promoter) {
     gtf_dt <- gtf_dt[, .(seqid, start, end, gene_name, location)]
-    ranges <- setorderv(
+    ranges <- data.table::setorderv(
       gtf_dt,
       c("seqid", "start"),
       c(1, 1)
@@ -35,7 +35,7 @@ findRanges <- function(gtf, promoter, subset = NULL) {
     gtf_relevant <- gtf_dt[, ":="(promoter_start = tss - 1500, promoter_end = tss + 1500)]
     gtf_relevant <- unique(gtf_dt, by = c("seqid", "start", "end", "gene_name"))
     gtf_relevant <- gtf_dt[seqid != "chrM", .(seqid, promoter_start, promoter_end, gene_name, location)]
-    ranges <- setorderv(
+    ranges <- data.table::setorderv(
       gtf_relevant,
       c("seqid", "promoter_start"),
       c(1, 1)
@@ -78,10 +78,10 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #'   threads = 10,
 #'   subset = c("SATB2", "TBR1", "FOXG1")
 #' )
-#' @importFrom data.table data.table rbindlist
+#' @importFrom data.table data.table rbindlist :=
 #' @importFrom dplyr filter pull
 #' @importFrom furrr future_map
-#' @importFrom future plan
+#' @importFrom future plan multicore
 #' @importFrom rhdf5 h5read
 indexGenes <- function(hdf5,
                        gtf,
@@ -122,7 +122,7 @@ indexGenes <- function(hdf5,
   coords_iter <- seq(1, n_coords)
 
   if (threads > 1) {
-    plan(multicore, workers = threads)
+    future::plan(future::multicore, workers = threads)
   }
 
   # read in each barcode
@@ -133,22 +133,22 @@ indexGenes <- function(hdf5,
     # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
     coords <- as.list(ranges$gene_name)
     index <- furrr::future_map(coords,
-                        .f = function(x) {
-                          rel_entries <- which(ranges$gene_name == x)
-                          rel_chr <- ranges$seqid[rel_entries]
-                          pos_lower_bound <- ranges[rel_entries, 2]
-                          pos_upper_bound <- ranges[rel_entries, 3]
-                          h5_loc <- h5[chr == rel_chr & pos %inrange% c(pos_lower_bound, pos_upper_bound)]
-                          ind <- h5_loc[, .(gene = x, chr = rel_chr, start = min(index), count = .N)]
-                          ind
-                        },
-                        .progress = FALSE
+                               .f = function(x) {
+                                 rel_entries <- which(ranges$gene_name == x)
+                                 rel_chr <- ranges$seqid[rel_entries]
+                                 pos_lower_bound <- ranges[rel_entries, 2]
+                                 pos_upper_bound <- ranges[rel_entries, 3]
+                                 h5_loc <- h5[chr == rel_chr & pos %inrange% c(pos_lower_bound, pos_upper_bound)]
+                                 ind <- h5_loc[, .(gene = x, chr = rel_chr, start = min(index), count = .N)]
+                                 ind
+                               },
+                               .progress = FALSE
     )
     names(index) <- as.list(ranges$gene_name) # rename the list according to gene names
     index <- do.call(rbind, index) # bind to make one data frame
     index$cell_id <- paste(bar) # append the corresponding cell barcode
     index <- index[index$count != 0, ]
-  }, .progress = FALSE) # show a progress bar
+  }, .progress = TRUE) # show a progress bar
 
   if (threads > 1) {
     future::plan(NULL)
@@ -158,4 +158,3 @@ indexGenes <- function(hdf5,
   output <- split(output, output$gene)
   output
 }
-

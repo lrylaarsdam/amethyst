@@ -15,7 +15,7 @@ createObject <- function(h5path,
                          ref = NULL,
                          metadata = NULL) {
   methods::new(Class = "amethyst",
-      h5path = h5path)
+               h5path = h5path)
 }
 
 methods::setClass("amethyst", slots = c(
@@ -168,8 +168,38 @@ runIrlba <- function(
     }
 
     obj@irlba <- do.call(cbind, matrix)
-    output <- obj
+    return(obj)
   }
+}
+
+########################################################################################################
+#' @title regressCovBias
+#' @description Calculate the residuals of a logistic regression of cell coverage vs. each irlba dimension
+#'
+#' @param obj Amethyst object containing irlba matrix to regress coverage bias from
+#' @return Returns the residuals in the irlba slot
+#' @export
+#' @importFrom dplyr mutate select
+#' @importFrom tibble column_to_rownames
+#' @importFrom stats lm
+#' @examples obj <- regressCovBias(obj)
+regressCovBias <- function(
+    obj) {
+
+  if (is.null(obj@irlba)) {
+    stop("runIrlba step must be performed before regressing coverage bias.")
+  }
+  if (is.null(obj@metadata$cov)) {
+    stop("Cell info must be available in the metadata slot before regressing coverage bias.")
+  }
+
+  regress <- merge(obj@metadata |> dplyr::mutate(cov = log(cov)) |> dplyr::select(cov), obj@irlba, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+  obj@irlba <- as.data.frame(apply(regress[c(2:ncol(regress))], 2, function(x) {
+    lm_model <- stats::lm(x ~ regress$cov)
+    stats::residuals(lm_model)
+  }))
+
+  return(obj)
 }
 
 ############################################################################################################################
@@ -180,21 +210,27 @@ runIrlba <- function(
 #' @param k_phenograph integer; number of nearest neighbors
 #' @return Adds cluster membership to the metadata file of the amethyst object
 #' @importFrom Rphenograph Rphenograph
+#' @importFrom igraph membership
+#' @importFrom tibble column_to_rownames
 #' @export
 #' @examples obj <- runCluster(obj = obj, k_phenograph = 30)
 runCluster <- function(obj,
                        k_phenograph = 50) {
 
   clusters <- Rphenograph::Rphenograph(obj@irlba, k = k_phenograph)
-  clusters <- do.call(rbind, Map(data.frame, cell_id = row.names(obj@irlba), cluster_id = paste(membership(clusters[[2]]))))
+  clusters <- do.call(rbind, Map(data.frame, cell_id = row.names(obj@irlba), cluster_id = paste(igraph::membership(clusters[[2]]))))
 
-  if (is.null(obj@metadata)) {
-    obj@metadata <- clusters
-    output <- obj
-  } else if (!is.null(obj@metadata)) {
-    obj@metadata <- merge(obj@metadata %>% dplyr::select(-cluster_id), clusters, by = 0) %>% column_to_rownames(var = "Row.names")
-    output <- obj
+  if (is.null(obj@metadata$cluster_id)) {
+    if (is.null(obj@metadata)) {
+      obj@metadata <- clusters
+    }
+    if (!is.null(obj@metadata)) {
+      obj@metadata <- merge(obj@metadata, clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+    }
+  } else if (!is.null(obj@metadata$cluster_id)) {
+    obj@metadata <- merge(obj@metadata %>% dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
   }
+  output <- obj
 }
 
 
@@ -219,7 +255,7 @@ runUmap <- function(obj,
   obj@reduction <- "umap"
 
   # Add to metadata
-  if (is.null(obj@metadata[["umap_x"]])) {
+  if (is.null(obj@metadata$umap_x)) {
     metadata <- merge(umap_dims, obj@metadata, by = 0) %>%
       tibble::column_to_rownames(var = "Row.names") %>%
       dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>%
@@ -233,5 +269,3 @@ runUmap <- function(obj,
   obj@metadata <- metadata
   output <- obj
 }
-
-

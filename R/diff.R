@@ -1,3 +1,4 @@
+############################################################################################################################
 #' @title Find cluster markers
 #' @description Find variably methylated features across clusters
 #'
@@ -49,5 +50,3 @@ findClusterMarkers <- function(
   results <- results |> dplyr::group_by(cluster_id) |> dplyr::mutate(p.adj = stats::p.adjust(p.val, method = "bonferroni"))
   results <- results |> dplyr::select(p.val, p.adj, everything())
 }
-
-
