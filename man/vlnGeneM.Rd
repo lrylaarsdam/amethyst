@@ -11,7 +11,6 @@ vlnGeneM(
   metric = "percent",
   matrix = NULL,
   groupBy,
-  colors = makeAmethystPalette(),
   nrow = round(sqrt(length(genes)))
 )
 }
@@ -26,9 +25,9 @@ vlnGeneM(
 
 \item{groupBy}{Parameter to group by on the x axis}
 
-\item{colors}{Optional color palette}
-
 \item{nrow}{Number of rows to plot if visualizing many genes}
+
+\item{colors}{Optional color palette}
 }
 \value{
 Returns ggplot2 geom_violin plots of methylation levels faceted by the requested genes
