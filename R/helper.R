@@ -223,18 +223,21 @@ makeWindows <- function(
 #' @importFrom tibble column_to_rownames rownames_to_column
 addMetadata <- function(obj,
                         metadata) {
-  if (length(intersect(rownames(obj@metadata), rownames(metadata))) == 0) {
-    print("No intersection detected; check metadata structure. Make sure row names are cell IDs.")
-    output <- obj
+  if (is.null(obj@metadata)) {
+    obj@metadata <- metadata
   } else {
-    obj@metadata <- dplyr::left_join(
-      obj@metadata |> tibble::rownames_to_column(var = "cell_id"),
-      metadata |> tibble::rownames_to_column(var = "cell_id"),
-      by = "cell_id"
-    ) |>
-      tibble::column_to_rownames(var = "cell_id")
-    output <- obj
+    if (length(intersect(rownames(obj@metadata), rownames(metadata))) == 0) {
+      stop("No intersection detected; check metadata structure. Make sure row names are cell IDs.")
+    } else {
+      obj@metadata <- dplyr::left_join(
+        obj@metadata |> tibble::rownames_to_column(var = "cell_id"),
+        metadata |> tibble::rownames_to_column(var = "cell_id"),
+        by = "cell_id"
+      ) |>
+        tibble::column_to_rownames(var = "cell_id")
+    }
   }
+  return(obj)
 }
 
 ############################################################################################################################
@@ -365,8 +368,8 @@ makeClusterTracks <- function(
     type,
     threads = 1,
     bed) {
-  
-  
+
+
   # get barcodes and paths if from multiple h5 files
   if (is.null(obj@metadata$paths)) {
     h5paths <- obj@metadata |> dplyr::select(cluster_id) |> dplyr::mutate(path = obj@h5path)
@@ -374,7 +377,7 @@ makeClusterTracks <- function(
   if (!is.null(obj@metadata$paths)) {
     h5paths <- obj@metadata |> dplyr::select(cluster_id, paths)
   }
-  
+
   # load and clean bed file
   if (bed == "hg38") {
     bed <- data.table::data.table(read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_500bp_intervals.bed", sep = "\t"))
@@ -383,28 +386,28 @@ makeClusterTracks <- function(
   } else if (!(bed %in% c("hg38", "mm10"))) {
     bed <- data.table::data.table(read.table(bed, sep = "\t"))
   }
-  
+
   data.table::setnames(bed, c("chr", "start", "end"))
   data.table::setorder(bed, chr, start, end)
   bed[, window := paste0(chr, "_", start, "_", end)]
   bed[stringr::str_count(window, "_") == 2] # remove alternative loci
   order <- bed$window
   bed[, c("chr", "start", "end") := NULL]
-  
+
   # set up multithreading
   if (threads > 1) {
     future::plan(future::multicore, workers = threads)
   }
-  
+
   # get number of clusters
   groups <- as.list(unique(obj@metadata[["cluster_id"]]))
   aggregated <- list()
   for (i in groups) {
-    
+
     subset <- h5paths[h5paths$cluster_id == i,]
     paths <- as.list(subset$path)
     barcodes <- as.list(rownames(subset))
-    
+
     # find 500bp window values for all cells in cluster
     windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
       barcode_name <- sub("\\..*$", "", barcode)
@@ -421,17 +424,17 @@ makeClusterTracks <- function(
       }
       data
     }, .progress = TRUE)
-    
+
     # find mean 500bp window values for cluster
     windows <- data.table::data.table(do.call(cbind, c(bed, windows))) # append the pre-calculated window string for each cell back to the bed file
     windows <- windows[, .(window, rowMean = round(rowMeans(.SD, na.rm = TRUE), 1)), .SDcols = -"window"] # calculate the summary statistic of each window for the cluster
     data.table::setnames(windows, "rowMean", paste0(i)) # name it according to the cluster number
-    
+
     aggregated[[i]] <- as.data.frame(windows)
     gc()
-    
+
   }
-  
+
   # append mean values for each cluster to the genome location
   if (all(sapply(aggregated[-1], function(df) identical(aggregated[[1]]$window, df$window)))) { # check to make sure all the gene columns are in the same order before cbinding
     aggregated <- data.frame(aggregated[[1]][, 1:2], sapply(aggregated[-1], function(df) df[, 2]))
@@ -439,13 +442,13 @@ makeClusterTracks <- function(
   } else {
     aggregated <- purrr::reduce(aggregated, full_join, by = c("window"))
   }
-  
+
   rm(bed) # for memory reasons
   gc()
-  
+
   # Calculate the rolling mean for each column
   data.table::setDT(aggregated)
-  
+
   aggregated  <- aggregated [, c("chr", "start", "end") := {
     split_parts <- data.table::tstrsplit(window, "_", fixed = TRUE)
     list(split_parts[[1]], as.numeric(split_parts[[2]]), as.numeric(split_parts[[3]]))
@@ -454,9 +457,9 @@ makeClusterTracks <- function(
   aggregated <- aggregated[!is.na(start)]
   data.table::setorder(aggregated, chr, start)
   data.table::setcolorder(aggregated, c("chr", "start", "end", setdiff(names(aggregated), c("chr", "start", "end"))))
-  
+
   averages <- aggregated[, lapply(.SD, function(x) round(frollmean(x, n = 3, align = "center", fill = NA, na.rm = TRUE), 2)), .SDcols = -c("chr", "start", "end")]
-  
+
   # Add the averages as new columns to your original data.table
   aggregated[, colnames(aggregated)[colnames(aggregated) %in% groups] := NULL]
   aggregated[, smooth_start := lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[1], align = "center", fill = NA)), .SDcols = "start"]
@@ -464,14 +467,14 @@ makeClusterTracks <- function(
   aggregated[, names(averages) := averages]
   aggregated[shift(chr, 1) == shift(chr, -2)]
   aggregated[, c("smooth_start", "smooth_end") := NULL]
-  
+
   if (threads > 1) {
     future::plan(future::sequential)
     gc()
   }
-  
+
   return(aggregated)
-  
+
 }
 
 ############################################################################################################################

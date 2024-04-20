@@ -126,6 +126,7 @@ clusterCompare <- function(
 #' @description Add to a ggplot object to remove axes
 #'
 #' Developed by the Satija lab https://github.com/satijalab/seurat/blob/master/R/visualization.R
+#' @export
 #' @importFrom ggplot2 theme
 noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
   blank <- element_blank()
@@ -292,16 +293,13 @@ umapGeneM <-  function(
         ggplot2::theme_classic() +
         ggplot2::guides(colour = guide_legend(override.aes = list(size=3))) +
         ggplot2::scale_color_identity() +
-        ggplot2::labs(title = paste0(type, " methylation across ", genes[1], ", ", genes[2], ", and ", genes[3])) + noAxes() +
+        ggplot2::labs(title = paste0(type, " methylation across ", genes[1], " (red), ", genes[2], " (green), and ", genes[3], " (blue)")) + noAxes() +
         ggplot2::theme(legend.position = "none")
       legend <- expand.grid(red = seq(0, .1, by = 0.02), blue = seq(0, .1, by = 0.02), green = seq(0, .1, by = 0.02))
       legend <- within(legend, mix <- grDevices::rgb(green = green, red = red, blue = blue, maxColorValue = 0.1))
-      p2 <- plotly::plot_ly(x = legend$red, y = legend$green, z = legend$blue, color = ~ I(legend$mix)) %>%
-        layout(scene = list(
-          xaxis = list(title=paste(genes[[1]])),
-          yaxis = list(title=paste(genes[[2]])),
-          zaxis = list(title=paste(genes[[3]]))))
-      plotly::subplot(p1, p2, nrows = 1, widths = c(.8, 0.2))
+
+      p1
+
     } else {
       stop("Error: Blending only accommodates 2 or 3 genes")
     }
@@ -432,6 +430,7 @@ dotGeneM <-  function(
 #' @importFrom data.table rbindlist
 #' @importFrom dplyr pull filter group_by mutate relocate summarise inner_join arrange select distinct
 #' @importFrom ggplot2 ggplot
+#' @importFrom plyr round_any
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tibble rownames_to_column
 histGeneM <- function(
@@ -476,7 +475,7 @@ histGeneM <- function(
       names(genem) <- c("CH", "CG")
       genem <- data.table::rbindlist(genem, idcol = "type") |> dplyr::relocate(type, .after = last_col())
     }
-    genem <- genem |> dplyr::mutate(start = round_any(pos, binwidth, floor), end = round_any(pos, binwidth, ceiling), bin = paste0(chr, "_", round_any(pos, binwidth, floor), "_", round_any(pos, binwidth, ceiling)))
+    genem <- genem |> dplyr::mutate(start = round_any(pos, binwidth, floor), end = plyr::round_any(pos, binwidth, ceiling), bin = paste0(chr, "_", plyr::round_any(pos, binwidth, floor), "_", plyr::round_any(pos, binwidth, ceiling)))
     if (type == "CG" | type == "CH") {
       genem <- genem |> dplyr::group_by(cell_id, bin) |>
         dplyr::summarise(n = n(), start = mean(start), end = mean(end), middle = mean(c(start, end)), pct_m = (sum(c != 0)*100/(sum(c != 0) + sum(t != 0))), .groups = "keep")
@@ -577,7 +576,7 @@ tileGeneM <- function(obj,
     }
 
     toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
-    ngroups <- ncol(toplot) - 7
+    ngroups <- ncol(toplot) - 3
     trackHeight <- ngroups * .07
     toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
 

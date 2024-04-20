@@ -11,11 +11,10 @@
 #' @importFrom stats wilcox.test p.adjust
 findClusterMarkers <- function(
     obj,
-    matrix) {
+    matrix,
+    genes) {
 
   genematrix <- as.matrix(obj@genomeMatrices[[matrix]])
-
-  genes <- names(obj@index[[type]])
   membership <- obj@metadata |> dplyr::select("cluster_id")
 
   results <- list()

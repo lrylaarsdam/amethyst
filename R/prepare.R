@@ -129,6 +129,55 @@ fetchMarkers <- function(ref,
   }
 }
 
+############################################################################################################################
+#' @title dimEstimate
+#' @description Estimate the nv value needed for singular value decomposition with irlba
+#'
+#' @param obj Amethyst object containing the matrix to calculate, which should be in the genomeMatrices slot
+#' @param genomeMatrices Name of the matrix in the genomeMatrices slot to calculate nv
+#' @param threshold Amount of variance that must be explained by the nv value, with 1 being 100% of variance.
+#' @param dims Number of singular values to test for each matrix
+#'
+#' @return Integer indicating the number of principal components required to meet the variance threshold for each matrix
+#' @export
+#'
+#' @examples dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
+#'
+dimEstimate <- function(
+    obj,
+    genomeMatrices,
+    dims,
+    threshold = 0.98) {
+
+  if (length(genomeMatrices) != length(dims)) {
+    stop("Number of input matrices must equal the length of the dimension list")
+  }
+
+  svd_output <- list()
+  for (i in 1:length(genomeMatrices)) {
+    svd_output[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
+    windows <- rownames(svd_output[[i]])
+    cells <- colnames(svd_output[[i]])
+    svd_output[[i]][is.na(svd_output[[i]])] <- 0
+    svd_output[[i]] <- irlba::irlba(as.matrix(svd_output[[i]]), dims[[i]])
+    svd_output[[i]] <- as.data.frame(svd_output[[i]]$d)
+    colnames(svd_output[[i]]) <- paste(genomeMatrices[[i]])
+    rownames(svd_output[[i]]) <- paste("DIM", 1:dims[[i]])
+  }
+  svd_output <- do.call(cbind, svd_output)
+
+  dims_to_use <- apply(svd_output, 2, function(x) {
+    cumulative_variance_explained <- cumsum((x^2) / sum(x^2))
+    if (any(cumulative_variance_explained >= threshold)) {
+      min(which(cumulative_variance_explained >= threshold))
+    } else {
+      stop(paste("No nv value explains ", (threshold*100), "% of variance."))
+    }
+  })
+
+  dims_to_use
+
+}
 
 ############################################################################################################################
 #' @title runIrlba
@@ -263,8 +312,7 @@ runUmap <- function(obj,
   } else {
     metadata <- merge(umap_dims, obj@metadata %>% dplyr::select(-c(umap_x, umap_y)), by = 0) %>%
       tibble::column_to_rownames(var = "Row.names") %>%
-      dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>%
-      dplyr::select(-"cell_id")
+      dplyr::rename("umap_x" = "V1", "umap_y" = "V2")
   }
   obj@metadata <- metadata
   output <- obj
