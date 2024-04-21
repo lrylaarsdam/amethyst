@@ -253,7 +253,6 @@ addMetadata <- function(obj,
 #' @importFrom utils read.table
 addCellInfo <- function(obj,
                         file) {
-
   cellInfo <- utils::read.table(file, sep = "\t", header = F)
   if (ncol(cellInfo) == 6) {
     colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct")
@@ -262,11 +261,11 @@ addCellInfo <- function(obj,
   } else {
     stop("The cell file is not in the expected format. Please check your input.")
   }
-  if (is.null(obj@metadata) {
-    obj@metadata <- cellInfo |> tibble::column_to_rownames(var = "cell_id"))
-    else {
-      obj <- addMetadata(obj, metadata = cellInfo |> tibble::column_to_rownames(var = "cell_id"))
-      }
+  if (is.null(obj@metadata)) {
+    obj@metadata <- cellInfo |> tibble::column_to_rownames(var = "cell_id")
+  } else {
+    obj <- addMetadata(obj, metadata = cellInfo |> tibble::column_to_rownames(var = "cell_id"))
+  }
   output <- obj
 }
 
