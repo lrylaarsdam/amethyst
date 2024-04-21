@@ -262,7 +262,11 @@ addCellInfo <- function(obj,
   } else {
     stop("The cell file is not in the expected format. Please check your input.")
   }
-  obj <- addMetadata(obj, metadata = cellInfo |> tibble::column_to_rownames(var = "cell_id"))
+  if (is.null(obj@metadata) {
+    obj@metadata <- cellInfo |> tibble::column_to_rownames(var = "cell_id"))
+    else {
+      obj <- addMetadata(obj, metadata = cellInfo |> tibble::column_to_rownames(var = "cell_id"))
+      }
   output <- obj
 }
 
