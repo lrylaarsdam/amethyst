@@ -307,8 +307,7 @@ runUmap <- function(obj,
   if (is.null(obj@metadata$umap_x)) {
     metadata <- merge(umap_dims, obj@metadata, by = 0) %>%
       tibble::column_to_rownames(var = "Row.names") %>%
-      dplyr::rename("umap_x" = "V1", "umap_y" = "V2") %>%
-      dplyr::select(-"cell_id")
+      dplyr::rename("umap_x" = "V1", "umap_y" = "V2")
   } else {
     metadata <- merge(umap_dims, obj@metadata %>% dplyr::select(-c(umap_x, umap_y)), by = 0) %>%
       tibble::column_to_rownames(var = "Row.names") %>%
