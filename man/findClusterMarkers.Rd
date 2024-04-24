@@ -4,7 +4,7 @@
 \alias{findClusterMarkers}
 \title{Find cluster markers}
 \usage{
-findClusterMarkers(obj, matrix)
+findClusterMarkers(obj, matrix, genes)
 }
 \arguments{
 \item{obj}{The amethyst object to analyze. Clustering should be done prior to this step.}
