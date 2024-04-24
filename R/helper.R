@@ -241,6 +241,35 @@ addMetadata <- function(obj,
 }
 
 ############################################################################################################################
+#' @title addAnnot
+#' @description Add information containined in the .annot file to the Amethyst object
+#'
+#' @param file Path to .annot file
+#' @param obj Amethyst object to add metadata to
+#'
+#' @return Updates obj to contain the new metadata concatenated to the old metadata
+#' @export
+#' @examples obj <- addMetadata(obj = obj, metadata = annotations)
+#' @importFrom dplyr left_join
+#' @importFrom tibble column_to_rownames rownames_to_column
+addAnnot <- function(obj,
+                     file) {
+  annot <- utils::read.table(file, sep = "\t", header = F)
+  if (ncol(annot) == 2) {
+    colnames(annot) <- c("cell_id", "annot")
+  } else if (ncol(annot) > 2) {
+    cat("\nAdditional annot columns will need to be renamed.\n")
+    colnames(annot) <- c("cell_id", "annot")
+  }
+  if (is.null(obj@metadata)) {
+    obj@metadata <- annot |> tibble::column_to_rownames(var = "cell_id")
+  } else {
+    obj <- addMetadata(obj, metadata = annot |> tibble::column_to_rownames(var = "cell_id"))
+  }
+  output <- obj
+}
+
+############################################################################################################################
 #' @title addCellInfo
 #' @description Add the information contained in the cellInfo file outputs to the obj@metadata slot
 #'
@@ -256,10 +285,12 @@ addCellInfo <- function(obj,
   cellInfo <- utils::read.table(file, sep = "\t", header = F)
   if (ncol(cellInfo) == 6) {
     colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct")
-  } else if (ncol(cellInfo) == 9) {
-    colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "n_frag", "n_pair", "n_single")
-  } else {
-    stop("The cell file is not in the expected format. Please check your input.")
+  } else if (ncol(cellInfo) == 10) {
+    colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "n_frag", "n_pair", "n_single", "xpct_m")
+  } else if (ncol(cellInfo) != 6 && ncol(cellInfo) != 10) {
+    cat("\nThe cell file is not in the expected format of 6 or 10 columns. Columns after 10 will not be named.\n")
+    names <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "n_frag", "n_pair", "n_single", "xpct_m")
+    colnames(cellInfo) <- names[1:ncol(cellInfo)]
   }
   if (is.null(obj@metadata)) {
     obj@metadata <- cellInfo |> tibble::column_to_rownames(var = "cell_id")
