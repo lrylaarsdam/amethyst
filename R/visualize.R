@@ -360,7 +360,7 @@ vlnGeneM <-  function(
     ggplot2::geom_violin(alpha = 0.3) +
     ggplot2::geom_jitter(ggplot2::aes(color = .data[[groupBy]]), size = 0.2) +
     ggplot2::theme_classic() +
-    ggplot2::facet_wrap(vars(gene))
+    ggplot2::facet_wrap(vars(gene), nrow = nrow)
 }
 
 ############################################################################################################################
@@ -585,7 +585,7 @@ tileGeneM <- function(obj,
       ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
                          ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
       ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"), ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
-      ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight/2, "cm"))) + xlab(genes[i]) +
+      ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight/4, "cm"))) + xlab(genes[i]) +
       ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "gene"), ggplot2::aes(xmin = start, xmax = end, ymin = (-(trackHeight/2) -(trackHeight/20)), ymax = (-(trackHeight/2) + (trackHeight/20)))) +
       {if (!legend)ggplot2::theme(legend.position = "none")} +
       ggplot2::scale_fill_gradientn(colors = colors) +

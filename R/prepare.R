@@ -2,30 +2,28 @@
 #' @title createObject
 #' @description Create object of class amethyst
 #'
-#' @param h5path Path to the hdf5 file containing base-level read information organized by methylation type and barcode
+#' @param h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode
 #' @param index Corresponding gene coordinates in the hdf5 file
 #' @param metadata Optional cell metadata. If included, make sure row names are cell IDs
 #' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
 #' @return Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
 #' @importFrom methods new
 #' @export
-#' @examples obj <- createObject(h5path = "~/Downloads/test.h5")
-createObject <- function(h5path,
+#' @examples obj <- createObject(h5paths = "~/Downloads/test.h5")
+createObject <- function(h5paths = NULL,
                          index = NULL,
                          ref = NULL,
                          metadata = NULL) {
-  methods::new(Class = "amethyst",
-               h5path = h5path)
+  methods::new(Class = "amethyst")
 }
 
 methods::setClass("amethyst", slots = c(
-  h5path = "character",
+  h5paths = "ANY",
   genomeMatrices = "ANY",
   irlba = "ANY",
   index = "ANY",
   metadata = "ANY",
-  ref = "ANY",
-  reduction = "ANY"
+  ref = "ANY"
 ))
 
 ############################################################################################################################
@@ -271,13 +269,15 @@ runCluster <- function(obj,
 
   if (is.null(obj@metadata$cluster_id)) {
     if (is.null(obj@metadata)) {
-      obj@metadata <- clusters
+      obj@metadata <- clusters |> dplyr::select(-cell_id)
     }
     if (!is.null(obj@metadata)) {
-      obj@metadata <- merge(obj@metadata, clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+      obj@metadata <- merge(obj@metadata |> dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+      obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
     }
   } else if (!is.null(obj@metadata$cluster_id)) {
-    obj@metadata <- merge(obj@metadata %>% dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+    obj@metadata <- merge(obj@metadata |> dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+    obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
   }
   output <- obj
 }
@@ -301,7 +301,6 @@ runUmap <- function(obj,
                     method = "euclidean") {
 
   umap_dims <- as.data.frame(umap::umap(as.data.frame(obj@irlba), method = "naive", dims = 2, n_components = 2, neigh = neighbors, mdist = dist, metric = method)$layout)
-  obj@reduction <- "umap"
 
   # Add to metadata
   if (is.null(obj@metadata$umap_x)) {

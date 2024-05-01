@@ -54,8 +54,7 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #' mCG status of the promoter must be indexed separately. Providing a gene
 #' subset is recommended due to memory and time constraints.
 #'
-#' @param hdf5 Path to the hdf5 file containing base-level read information
-#' organized by methylation type and barcode.
+#' @param obj Amethyst object containing paths to h5 files to be indexed
 #' @param gtf Genome annotation file with chromosome, start, and end position
 #' information for genes of interest. See the "makeRef" function.
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene
@@ -78,13 +77,12 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #'   threads = 10,
 #'   subset = c("SATB2", "TBR1", "FOXG1")
 #' )
-#' @importFrom data.table data.table rbindlist :=
+#' @importFrom data.table data.table rbindlist := '%inrange'
 #' @importFrom dplyr filter pull
 #' @importFrom furrr future_map
 #' @importFrom future plan multicore
 #' @importFrom rhdf5 h5read
-indexGenes <- function(hdf5,
-                       gtf,
+indexGenes <- function(obj,
                        type,
                        threads = 1,
                        subset = NULL) {
@@ -96,9 +94,12 @@ indexGenes <- function(hdf5,
               \nAlternatively, consider using makeFuzzyGeneWindows to calculate genome-wide % methylation much more quickly.
               \n"))
   }
+  if (is.null(obj@ref)) {
+    stop("Please generate a reference using the makeRef function and add to the obj@ref slot.")
+  }
 
   promoter_type <- type == "promoters"
-  ranges <- findRanges(gtf, promoter = promoter_type, subset = subset)
+  ranges <- findRanges(obj@ref, promoter = promoter_type, subset = subset)
 
   # File leading string used in the H5I_DATASET file names for the barcodes
   file_lead <- paste0(type, "/")
@@ -106,33 +107,28 @@ indexGenes <- function(hdf5,
     file_lead <- "CG/"
   }
 
-  # get a list of unique barcodes (cells) in the h5 file
-  if (is.null(obj@metadata)) {
-    barcodes <- h5ls(obj@h5path)
-    barcodes <- as.list(unique(barcodes %>% dplyr::filter(otype == "H5I_DATASET") %>% dplyr::pull(name)))
+  # get barcodes and paths from amethyst object
+  if (is.null(obj@h5paths)) {
+    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
   } else {
-    barcodes <- as.list(rownames(obj@metadata))
+    barcodes <- as.list(rownames(obj@h5paths))
+    paths <- as.list(obj@h5paths$paths)
   }
 
-  n_barcodes <- length(barcodes)
-  barcodes_iter <- seq(1, n_barcodes)
-
   coords <- as.list(ranges$gene_name)
-  n_coords <- length(coords)
-  coords_iter <- seq(1, n_coords)
 
   if (threads > 1) {
     future::plan(future::multicore, workers = threads)
   }
 
   # read in each barcode
-  output <- furrr::future_map(barcodes, function(bar) {
-    h5 <- data.table::data.table(rhdf5::h5read(hdf5, name = paste0(file_lead, bar)))
+  output <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
+    h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(file_lead, bar)))
     h5[, index := 1:.N]
     # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
     # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
     coords <- as.list(ranges$gene_name)
-    index <- furrr::future_map(coords,
+    index <- furrr::future_map(.x = coords,
                                .f = function(x) {
                                  rel_entries <- which(ranges$gene_name == x)
                                  rel_chr <- ranges$seqid[rel_entries]
@@ -141,9 +137,7 @@ indexGenes <- function(hdf5,
                                  h5_loc <- h5[chr == rel_chr & pos %inrange% c(pos_lower_bound, pos_upper_bound)]
                                  ind <- h5_loc[, .(gene = x, chr = rel_chr, start = min(index), count = .N)]
                                  ind
-                               },
-                               .progress = FALSE
-    )
+                               }, .progress = FALSE)
     names(index) <- as.list(ranges$gene_name) # rename the list according to gene names
     index <- do.call(rbind, index) # bind to make one data frame
     index$cell_id <- paste(bar) # append the corresponding cell barcode
@@ -188,30 +182,18 @@ indexChr <- function(obj,
                      threads = 1) {
 
 
-  # get a list of unique barcodes (cells) in the h5 file
-  if (is.null(obj@metadata)) {
-    barcodes <- rhdf5::h5ls(obj@h5path)
-    barcodes <- as.list(unique(barcodes |> dplyr::filter(otype == "H5I_DATASET") |> dplyr::pull(name)))
-    h5paths <- data.frame(row.names = barcodes, path = rep(obj@h5path, length(barcodes)))
-  }  else {
-    # get barcodes and paths if from single h5 file
-    if (is.null(obj@metadata$path)) {
-      h5paths <- obj@metadata |> dplyr::mutate(paths = obj@h5path) |> dplyr::select(path)
-    }
-    # get barcodes and paths if from multiple h5 files
-    if (!is.null(obj@metadata$path)) {
-      h5paths <- obj@metadata |> dplyr::select(path)
-    }
+
+  # get barcodes and paths from amethyst object
+  if (is.null(obj@h5paths)) {
+    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
+  } else {
+    barcodes <- as.list(rownames(obj@h5paths))
+    paths <- as.list(obj@h5paths$paths)
   }
 
   if (threads > 1) {
     future::plan(future::multicore, workers = threads)
   }
-
-  # read in each barcode
-
-  paths <- as.list(h5paths$path)
-  barcodes <- as.list(rownames(h5paths))
 
   output <- list()
   output <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
