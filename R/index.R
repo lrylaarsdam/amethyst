@@ -77,7 +77,7 @@ findRanges <- function(gtf, promoter, subset = NULL) {
 #'   threads = 10,
 #'   subset = c("SATB2", "TBR1", "FOXG1")
 #' )
-#' @importFrom data.table data.table rbindlist := '%inrange'
+#' @importFrom data.table data.table rbindlist := '%inrange%'
 #' @importFrom dplyr filter pull
 #' @importFrom furrr future_map
 #' @importFrom future plan multicore
