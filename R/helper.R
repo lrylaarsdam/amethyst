@@ -444,9 +444,10 @@ makeClusterTracks <- function(
   }
   data.table::setnames(bed, c("chr", "start", "end"))
   data.table::setorder(bed, chr, start, end)
-  bed[, window := paste0(chr, "_", start, "_", end)]
-  bed[stringr::str_count(window, "_") == 2] # remove alternative loci
+  bed <- bed[, window := paste0(chr, "_", start, "_", end)]
+  bed <- bed[stringr::str_count(window, "_") == 2] # remove alternative loci
   chr_groups <- as.list(unique(bed$chr)) # store chr groups list to loop over
+  chr_groups <-chr_groups[!grepl("chrY|chrM", chr_groups)]
 
   # set up multithreading
   if (threads > 1) {
@@ -457,7 +458,7 @@ makeClusterTracks <- function(
   cluster_groups <- as.list(unique(obj@metadata[["cluster_id"]])) # make list for each unique cluster
   aggregated <- furrr::future_map(cluster_groups, .f = function(i) {
 
-    subset <- h5paths[h5paths$cluster_id == i,] # subset paths list to those in current cluster
+    subset <- h5paths[rownames(h5paths) %in% rownames(obj@metadata |> dplyr::filter(cluster_id == i)), , drop = FALSE] # subset paths list to those in current cluster
     paths <- as.list(subset$path)
     barcodes <- as.list(rownames(subset))
     by_chr <- list()
