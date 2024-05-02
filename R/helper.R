@@ -459,7 +459,7 @@ makeClusterTracks <- function(
   aggregated <- furrr::future_map(cluster_groups, .f = function(i) {
 
     subset <- h5paths[rownames(h5paths) %in% rownames(obj@metadata |> dplyr::filter(cluster_id == i)), , drop = FALSE] # subset paths list to those in current cluster
-    paths <- as.list(subset$path)
+    paths <- as.list(subset$paths)
     barcodes <- as.list(rownames(subset))
     by_chr <- list()
 
