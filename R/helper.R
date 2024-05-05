@@ -478,7 +478,7 @@ makeClusterTracks <- function(
         data <- data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))][, c("chr", "pos", "pct") := NULL]
         data <- data[, .(value = as.integer(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)))), by = window]
         data.table::setnames(data, "value", barcode_name)
-      }, .progress = FALSE)
+      }, .progress = TRUE)
 
       windows <- split(windows, ceiling(seq_along(windows)/50))
       windows <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE),
@@ -493,7 +493,7 @@ makeClusterTracks <- function(
       cat("\nCompleted chr", j, " cluster ", i, "\n")
     }
     aggregated <- do.call(rbind, by_chr)
-  }, .progress = TRUE)
+  }, .progress = FALSE)
 
   if (threads > 1) {
     future::plan(future::sequential)
