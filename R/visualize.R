@@ -610,7 +610,7 @@ tileGeneM <- function(obj,
 #' @return Returns a character vector of n hex codes.
 #' @examples pal <- makePalette(option = 1, n = 20)
 #' @export
-#' @importFrom RcolorBrewer colorRampPalette
+#' @importFrom RColorBrewer colorRampPalette
 makePalette <- function(
     option,
     n) {
@@ -648,7 +648,7 @@ makePalette <- function(
   if (n < length(pal)) {
     colors <- sample(pal, size = n)
   } else {
-    colors <- RcolorBrewer::colorRampPalette(pal)(n)
+    colors <- RColorBrewer::colorRampPalette(pal)(n)
   }
   return(colors)
 }
