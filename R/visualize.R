@@ -210,7 +210,7 @@ umapFeature <- function(
 #' @importFrom plotly plot_ly subplot
 #' @importFrom tibble rownames_to_column
 #' @importFrom tidyr pivot_longer
-#' @importFrom scales oob squish
+#' @importFrom scales squish
 umapGeneM <-  function(
     obj,
     genes,
@@ -610,7 +610,7 @@ tileGeneM <- function(obj,
 #' @return Returns a character vector of n hex codes.
 #' @examples pal <- makePalette(option = 1, n = 20)
 #' @export
-#' @importFrom RColorBrewer colorRampPalette
+#' @importFrom grDevices colorRampPalette
 makePalette <- function(
     option,
     n) {
@@ -648,7 +648,7 @@ makePalette <- function(
   if (n < length(pal)) {
     colors <- sample(pal, size = n)
   } else {
-    colors <- RColorBrewer::colorRampPalette(pal)(n)
+    colors <- grDevices::colorRampPalette(pal)(n)
   }
   return(colors)
 }
