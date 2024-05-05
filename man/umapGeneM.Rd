@@ -12,6 +12,7 @@ umapGeneM(
   matrix = NULL,
   blend = FALSE,
   colors = NULL,
+  squish = NULL,
   nrow = round(sqrt(length(genes)))
 )
 }

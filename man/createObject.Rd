@@ -4,10 +4,10 @@
 \alias{createObject}
 \title{createObject}
 \usage{
-createObject(h5path, index = NULL, ref = NULL, metadata = NULL)
+createObject(h5paths = NULL, index = NULL, ref = NULL, metadata = NULL)
 }
 \arguments{
-\item{h5path}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode}
+\item{h5paths}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode}
 
 \item{index}{Corresponding gene coordinates in the hdf5 file}
 
@@ -22,5 +22,5 @@ Returns a single object of class amethyst with h5path, index, metadata, ref, red
 Create object of class amethyst
 }
 \examples{
-obj <- createObject(h5path = "~/Downloads/test.h5")
+obj <- createObject(h5paths = "~/Downloads/test.h5")
 }

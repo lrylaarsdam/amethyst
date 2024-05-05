@@ -11,7 +11,8 @@ makeWindows(
   groupBy = NULL,
   genes = NULL,
   stepsize = NULL,
-  threads = 1
+  threads = 1,
+  nmin = 5
 )
 }
 \arguments{

@@ -4,14 +4,10 @@
 \alias{indexGenes}
 \title{Index genes}
 \usage{
-indexGenes(hdf5, gtf, type, threads = 1, subset = NULL)
+indexGenes(obj, type, threads = 1, subset = NULL)
 }
 \arguments{
-\item{hdf5}{Path to the hdf5 file containing base-level read information
-organized by methylation type and barcode.}
-
-\item{gtf}{Genome annotation file with chromosome, start, and end position
-information for genes of interest. See the "makeRef" function.}
+\item{obj}{Amethyst object containing paths to h5 files to be indexed}
 
 \item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene
 body mCG, or promoter mCG. Must be passed as one of "CG", "CH", or "promoter".
@@ -23,6 +19,9 @@ Defaults to 10.}
 
 \item{subset}{List of genes to index. Optional but recommended.See the
 \code{fetchMarkers} function.}
+
+\item{gtf}{Genome annotation file with chromosome, start, and end position
+information for genes of interest. See the "makeRef" function.}
 }
 \value{
 A list of data frames named by gene. The data frames contain the

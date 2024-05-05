@@ -4,7 +4,7 @@
 \alias{makeClusterTracks}
 \title{makeClusterTracks}
 \usage{
-makeClusterTracks(obj, type, threads = 1, bed)
+makeClusterTracks(obj, type, threads = 1, bed, index)
 }
 \arguments{
 \item{obj}{Amethyst object containing the path(s) to calculate.}
@@ -14,6 +14,9 @@ makeClusterTracks(obj, type, threads = 1, bed)
 \item{threads}{Optional number of threads for parallelization. Basically required for this step.}
 
 \item{bed}{Bed file containing genome in 500bp windows. Options are "hg38", "mm10", or path to bed file.}
+
+\item{index}{Name of chr index in the index slot.
+This reduces memory constraints by processing one chromosome at a time.}
 }
 \value{
 Returns a data.table with the genomic location as chr, start, and end columns, plus one column of the mean \% methylation per cluster

@@ -4,13 +4,15 @@
 \alias{makeFuzzyGeneWindows}
 \title{makeFuzzyGeneWindows}
 \usage{
-makeFuzzyGeneWindows(obj, type, threads = 1)
+makeFuzzyGeneWindows(obj, type, ref, threads = 1)
 }
 \arguments{
 \item{obj}{Amethyst object for which to calculate \% methylation over all genes}
 
 \item{type}{Type of methylation to calculate; e.g. "CH".
 "CG" is an option but may be less biologically relevant}
+
+\item{ref}{Species reference to obtain bed file in 500 bp genomic windows. "hg38", "mm10", or path to bed file.}
 
 \item{threads}{Enables multithreading}
 }

@@ -4,7 +4,7 @@
 \alias{getGeneM}
 \title{geneGeneM}
 \usage{
-getGeneM(obj, gene, type, cells = NULL)
+getGeneM(obj, gene, type, threads = 1, cells = NULL)
 }
 \arguments{
 \item{obj}{The object containing the path to the hdf5 file}
