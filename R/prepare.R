@@ -272,7 +272,7 @@ runCluster <- function(obj,
       obj@metadata <- clusters |> dplyr::select(-cell_id)
     }
     if (!is.null(obj@metadata)) {
-      obj@metadata <- merge(obj@metadata |> dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+      obj@metadata <- merge(obj@metadata, clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
       obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
     }
   } else if (!is.null(obj@metadata$cluster_id)) {
