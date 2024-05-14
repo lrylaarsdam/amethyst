@@ -242,17 +242,19 @@ umapGeneM <-  function(
         genem <- obj@genomeMatrices[[matrix]]
         genem <- genem[genes[i],] |> tibble::rownames_to_column(var = "gene")
         genem <- tidyr::pivot_longer(genem, cols = c(2:ncol(genem)), names_to = "cell_id", values_to = "pctm")
+        genem <- genem |> dplyr::filter(!is.na(pctm))
       }
       if (is.null(matrix)) {
         genem <- makeWindows({{obj}}, genes = genes[i], type = {{type}}, metric = {{metric}}) |> tibble::rownames_to_column(var = "gene")
         genem <- tidyr::pivot_longer(genem, cols = c(2:ncol(genem)), names_to = "cell_id", values_to = "pctm")
+        genem <- genem |> dplyr::filter(!is.na(pctm))
       }
 
       # merge with metadata
       plot <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
       # plot
       p[[i]] <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = pctm)) +
-        ggplot2::geom_point(size = 0.5) + ggplot2::theme_classic() +
+        ggplot2::geom_point(size = 0.1) + ggplot2::theme_classic() +
         ggplot2::scale_color_gradientn(colors = pal) +
         {if (!is.null(squish)) ggplot2::scale_color_gradientn(colors = pal, limits = c(0, squish), oob = scales::squish)} +
         ggplot2::labs(title = paste0(genes[i])) + noAxes()
@@ -337,18 +339,13 @@ vlnGeneM <-  function(
     type = NULL,
     metric = "percent",
     matrix = NULL,
+    colors = NULL,
     groupBy,
     nrow = round(sqrt(length(genes)))) {
 
   if (is.null(matrix) && is.null(type)) {
     stop("If matrix is not provided, 'type' must be specified.")
   }
-  pal <- colors
-  # if (is.null(colors)) {
-  #   pal <- c("#004A4A", "#F05252", "#419e9e", "#fcba2b", "#bd083e", "#FB9A99", "#75C8D2", "#FF8B73", "#B2DF8A", "#1F78B4", "#E31A1C",  "#aae3e3", "#FFA976")
-  # } else if (!is.null(colors)) {
-  #   pal <- colors
-  # }
 
   if (!is.null(matrix)) {
     genem <- obj@genomeMatrices[[matrix]]
@@ -364,9 +361,11 @@ vlnGeneM <-  function(
   plot <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
 
   ggplot2::ggplot(plot, ggplot2::aes(x = .data[[groupBy]], y = pctm, fill = .data[[groupBy]], color = .data[[groupBy]])) +
+    ggplot2::geom_jitter(ggplot2::aes(color = .data[[groupBy]]), size = 0.1, alpha = 0.2) +
     ggplot2::geom_violin(alpha = 0.3) +
-    ggplot2::geom_jitter(ggplot2::aes(color = .data[[groupBy]]), size = 0.2) +
     ggplot2::theme_classic() +
+    {if (!is.null(colors)) scale_fill_manual(values = colors) } +
+    {if (!is.null(colors)) scale_color_manual(values = colors) } +
     ggplot2::facet_wrap(vars(gene), nrow = nrow)
 }
 

@@ -24,7 +24,7 @@ findClusterMarkers <- function(
 
   # Set up multithreading
   if (threads > 1) {
-    future::plan(future::multisession, workers = threads)
+    future::plan(future::multicore, workers = threads)
   }
 
   results <- furrr::future_map(.x = genes, .f = function(gene) {

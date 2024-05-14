@@ -85,12 +85,19 @@ getGeneM <- function(obj,
 #' @param metric Calculate either percent, score, or ratio
 #' @param threads Enables multithreading
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
+#' @param index If calculating genomic windows, specify the name of the chr index in the index slot.
+#' This index should contain the coordinates in the hdf5 file corresponding to each chromosome.
+#' This reduces memory constraints by processing one chromosome at a time.
+#' @param species "hg38" or "mm10". This determines which chromosome list is used.
+#' @param futureType Method of parallelization, i.e. "multicore" (recommended) or "multisession". Multisession is more
+#' memory-efficient, but make sure your workspace is as small as possible before using.
+#' @param nmin Minimum number of observations for the window to be included.
 #'
 #' @return Returns a data frame of the calculated methylation windows with the genomic region or gene name as rows and cell barcode or group as columns
 #' @export
 #' @examples makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
-#' @examples makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
-#' @importFrom data.table data.table tstrsplit :=
+#' @examples makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score", species = "hg38", nmin = 10, index = "chr_cg")
+#' @importFrom data.table data.table tstrsplit := setorder
 #' @importFrom dplyr pull filter select mutate
 #' @importFrom furrr future_map
 #' @importFrom future plan multicore sequential
@@ -101,11 +108,15 @@ makeWindows <- function(
     obj,
     type,
     metric = "percent",
+    index = NULL,
+    species = NULL,
     groupBy = NULL,
     genes = NULL,
     stepsize = NULL,
     threads = 1,
-    nmin = 5) {
+    futureType = "multicore",
+    nmin = 5,
+    save = FALSE) {
 
   # check appropriate metric was specified
   if (!metric %in% c("percent", "score", "ratio")) {
@@ -114,12 +125,19 @@ makeWindows <- function(
 
   # set up multithreading
   if (threads > 1) {
-    future::plan(future::multicore, workers = threads)
+    if (futureType == "multicore") {
+      future::plan(future::multicore, workers = threads)
+    }
+    if (futureType == "multisession") {
+      future::plan(future::multisession, workers = threads)
+    } else if (!(futureType %in% c("multicore", "multisession"))) {
+      stop("Options for parallelizing include multicore or multisession.")
+    }
   }
 
   # get barcodes and paths from amethyst object
   if (is.null(obj@h5paths)) {
-   stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
+    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
   } else {
     barcodes <- as.list(rownames(obj@h5paths))
     paths <- as.list(obj@h5paths$paths)
@@ -127,39 +145,73 @@ makeWindows <- function(
 
   # If stepsize is specified, make fixed size genomic windows
   if (!is.null(stepsize)) {
-    windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
-      h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0({{type}}, "/", bar)))
-      h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
-      h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
-      meth_cell <- h5[, round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 4)] # determine global methylation level
-      meth_window <- h5[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 3), n = sum(c + t)), by = window]
-      meth_window <- meth_window[n > nmin, .(value, window)]
 
-      if (metric == "percent") {
-        summary <- meth_window[, value := (value * 100)]
-      }
-      if (metric == "score") {
-        summary <- meth_window[, value := round((ifelse(value - meth_cell > 0,
-                                                        (value - meth_cell)/(1 - meth_cell),
-                                                        (value - meth_cell)/meth_cell)), 3)]
-      }
-      if (metric == "ratio") {
-        summary <- meth_window[, value := round(value / meth_cell, 3)]
-      }
-      data.table::setnames(summary, "value", bar)
-    }, .progress = TRUE)
-
-    gc()
-
-    # set up multithreading before merging windows
-    if (threads > 1) {
-      future::plan(future::multicore, workers = as.integer(threads/3))
+    #define chr groups
+    if (species == "hg38") {
+      chr_groups <- c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX")
+    } else if (species == "mm10") {
+      chr_groups <- c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chrX")
+    } else if (!(species %in% c("hg38", "mm10"))) {
+      stop("Species options are only hg38 or mm10 at this time.")
     }
 
-    # Reduce merge the data.tables per cell in chunks (way faster for large datasets)
-    windows <- split(windows, ceiling(seq_along(windows)/1000))
-    windows_merged <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE),
-                             furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), .x), .progress = TRUE))
+    # check index
+    if (is.null(obj@index[[index]])) {
+      stop("Please index which rows in the h5 files correspond to each chromosome using indexChr.")
+    }
+
+    by_chr <- list()
+    for (j in 1:length(chr_groups)) {
+
+      # get index positions
+      sites <- obj@index[[index]][[chr_groups[[j]]]] # get chr index for h5 file
+
+      windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
+        if (futureType == "multisession") {
+          options(scipen = 999)
+        }
+        tryCatch({
+          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
+                                                     start = sites$start[sites$cell_id == barcode],
+                                                     count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
+          h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
+          h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
+          meth_cell <- h5[, round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 4)] # determine global methylation level
+          meth_window <- h5[, .(value = round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 3), n = sum(c + t, na.rm = TRUE)), by = window]
+          meth_window <- meth_window[n > nmin, .(window, value)]
+
+          if (metric == "percent") {
+            summary <- meth_window[, value := (value * 100)]
+          }
+          if (metric == "score") {
+            summary <- meth_window[, value := round((ifelse(value - meth_cell > 0,
+                                                            (value - meth_cell)/(1 - meth_cell),
+                                                            (value - meth_cell)/meth_cell)), 3)]
+          }
+          if (metric == "ratio") {
+            summary <- meth_window[, value := round(value / meth_cell, 3)]
+          }
+          data.table::setnames(summary, "value", barcode)
+        }, error = function(e) {
+          # Handle the error here, for example:
+          cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
+          return(NULL)  # Return NULL or any other value indicating failure
+        })
+      }, .progress = TRUE)
+
+      # Reduce merge the data.tables per cell in chunks (way faster for large datasets)
+      windows <- split(windows, ceiling(seq_along(windows)/1000))
+      windows_merged <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE),
+                               furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), .x), .progress = TRUE))
+      if (save) {
+        saveRDS(windows_merged, paste0("tmp_", type, "_", chr_groups[[j]], "_", stepsize, "kb_windows_nmin", nmin, ".RData"))
+      }
+      by_chr[[j]] <- windows_merged
+      cat("\nCompleted ", chr_groups[[j]],"\n")
+    }
+
+    gc()
+    windows_merged <- do.call(rbind, by_chr)
 
     # sort by chr and start just in case
     windows_merged <- windows_merged[, c("chr", "start", "end") := {
@@ -167,7 +219,7 @@ makeWindows <- function(
       list(split_parts[[1]], as.numeric(split_parts[[2]]), as.numeric(split_parts[[3]]))
     }]
     windows_merged <- windows_merged[(end - start) == stepsize]
-    setorder(windows_merged, chr, start)
+    data.table::setorder(windows_merged, chr, start)
     windows_merged[, c("chr", "start", "end") := NULL]
 
     # filter alternative loci and sex chromosomes
@@ -183,7 +235,7 @@ makeWindows <- function(
       genem <- genem[n > nmin]
 
       if (metric == "percent") {
-        summary <- genem[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 2)), by = cell_id]
+        summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
       }
       if (metric == "score" | metric == "ratio") {
         if (type == "CG" | type == "promoters") {
@@ -191,7 +243,7 @@ makeWindows <- function(
         } else if (type == "CH") {
           glob_m <- obj@metadata |> dplyr::mutate(pctm = mch_pct/100) |> dplyr::select(pctm) |> tibble::rownames_to_column(var = "cell_id")
         }
-        summary <- genem[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 2)), by = cell_id]
+        summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
         summary <- merge(summary, glob_m, by = "cell_id")
         if (metric == "score") {
           summary <- summary[, value := round((ifelse(value - pctm > 0,
@@ -204,7 +256,7 @@ makeWindows <- function(
         }
       }
       setnames(summary, "value", x)
-    })
+    }, .progress = TRUE)
     windows_merged <- Reduce(function(x, y) merge(x, y, by = "cell_id", all = TRUE, sort = FALSE), windows) |> tibble::column_to_rownames(var = "cell_id")
     windows_merged <- as.data.frame(t(windows_merged))
   }
@@ -227,7 +279,8 @@ makeWindows <- function(
     future::plan(future::sequential)
     gc()
   }
-  windows_merged
+
+  return(windows_merged)
 
 }
 
@@ -267,6 +320,7 @@ addMetadata <- function(obj,
 #'
 #' @param file Path to .annot file
 #' @param obj Amethyst object to add metadata to
+#' @param name Column name to add in the metadata
 #'
 #' @return Updates obj to contain the new metadata concatenated to the old metadata
 #' @export
@@ -274,13 +328,14 @@ addMetadata <- function(obj,
 #' @importFrom dplyr left_join
 #' @importFrom tibble column_to_rownames rownames_to_column
 addAnnot <- function(obj,
-                     file) {
+                     file,
+                     name) {
   annot <- utils::read.table(file, sep = "\t", header = F)
   if (ncol(annot) == 2) {
-    colnames(annot) <- c("cell_id", "annot")
+    colnames(annot) <- c("cell_id", name)
   } else if (ncol(annot) > 2) {
     cat("\nAdditional annot columns will need to be renamed.\n")
-    colnames(annot) <- c("cell_id", "annot")
+    colnames(annot) <- c("cell_id", name)
   }
   if (is.null(obj@metadata)) {
     obj@metadata <- annot |> tibble::column_to_rownames(var = "cell_id")
@@ -476,7 +531,7 @@ makeClusterTracks <- function(
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
         data <- data[pos %% 500 == 0, pos := pos + 1] # add 1 to anything exactly divisible by window size otherwise it will be its own window
         data <- data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))][, c("chr", "pos", "pct") := NULL]
-        data <- data[, .(value = as.integer(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)))), by = window]
+        data <- data[, .(value = as.integer(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)))), by = window]
         data.table::setnames(data, "value", barcode_name)
       }, .progress = TRUE)
 
@@ -493,7 +548,7 @@ makeClusterTracks <- function(
       cat("\nCompleted chr", j, " cluster ", i, "\n")
     }
     aggregated <- do.call(rbind, by_chr)
-  }, .progress = FALSE)
+  }, .progress = TRUE)
 
   if (threads > 1) {
     future::plan(future::sequential)
@@ -501,7 +556,7 @@ makeClusterTracks <- function(
   }
 
   aggregated <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), aggregated)
-  aggregated <- left_join(bed, aggregated, by = "window")
+  aggregated <- dplyr::left_join(bed, aggregated, by = "window")
 
   # Calculate the rolling mean for each column
   aggregated[, c("window") := NULL]
@@ -576,7 +631,7 @@ makeFuzzyGeneWindows <- function(
     barcode_name <- sub("\\..*$", "", bar)
     data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar)))
     data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
-    result <- data[, .(value = round(sum(c != 0) * 100 / (sum(c != 0) + sum(t != 0)), 1)), by = window]
+    result <- data[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 1)), by = window]
     setnames(result, "value", barcode_name)
     result <- dplyr::left_join(bed, result, by = c("window"))
     result <- result[, lapply(.SD, function(x) round(mean(x, na.rm = TRUE), 2)), by = gene, .SDcols = barcode_name]
