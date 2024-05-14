@@ -79,10 +79,10 @@ An initial indexing helps reduce the computational load by determining the locat
 *Note: This step is recommended to run on a cluster.
 
 ```{r}
-obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 20)
-obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 20, index = "chr_cg", nmin = 5, species = "hg38")
-obj@index[["chr_ch"]] <- indexChr(obj, type = "CH", threads = 20)
-obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 20, species = "hg38", index = "chr_ch", nmin = 10)
+obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 1)
+obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 1, index = "chr_cg", nmin = 5, species = "hg38")
+obj@index[["chr_ch"]] <- indexChr(obj, type = "CH", threads = 1)
+obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 1, species = "hg38", index = "chr_ch", nmin = 10)
 ```
 
 Next, perform dimensionality reduction with irlba. If you are unsure how many dimensions to use, the dimEstimate function can estimate the number needed to explain the desired variance threshold.
@@ -106,7 +106,7 @@ Optional: one useful approach for cell type ID is analyzing CG hypomethylation o
 *Note: This step requires a bed file of the genome divided into 500 bp windows. If using Adey lab servers, the path to the file is hardcoded. If not, the bed parameter should be the path to this file.
 
 ```{r}
-obj@genomeMatrices[["cluster_cg_500_slidingwindows"]] <- makeClusterTracks(obj, type = "CG", threads = 20, bed = "hg38", index = "chr_cg") 
+obj@genomeMatrices[["cluster_cg_500_slidingwindows"]] <- makeClusterTracks(obj, type = "CG", threads = 1, bed = "hg38", index = "chr_cg") 
 ```
 
 ########################################################################################################
@@ -130,8 +130,8 @@ Now get the positions in the h5 file that correspond to these genes using the in
 
 ```{r}
 index <- list() # make an empty list
-index[["CH"]] <- indexGenes(hdf5 = path, gtf = obj@ref, type = "CH", subset = markerGenes, threads = 10)
-index[["promoters"]] <- indexGenes(hdf5 = path, gtf = obj@ref, type = "promoters", subset = markerGenes, threads = 10) # promoter indexing finds CG base level information +/- 1500 bp around the first position of the gene (strand-aware)
+index[["CH"]] <- indexGenes(hdf5 = path, gtf = obj@ref, type = "CH", subset = markerGenes, threads = 1)
+index[["promoters"]] <- indexGenes(hdf5 = path, gtf = obj@ref, type = "promoters", subset = markerGenes, threads = 1) # promoter indexing finds CG base level information +/- 1500 bp around the first position of the gene (strand-aware)
 ```
 
 Any type of methylation context can be indexed, as long as it is a group in the h5 file. (Example: mCAC)
@@ -139,9 +139,9 @@ Any type of methylation context can be indexed, as long as it is a group in the 
 Before moving to the local Rstudio, it is helpful to find cluster markers and make a matrix of % mCH over indexed genes while you can still multi-thread. 
 
 ```{r}
-obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = names(obj@index[["CH"]]), threads = 20, type = "CH", nmin = 2)
+obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = names(obj@index[["CH"]]), threads = 1, type = "CH", nmin = 2)
 obj <- impute(obj, matrix = "gene_ch") # Imputation with Rmagic 
-clusterMarkersCH <- findClusterMarkers(obj, matrix = "gene_ch", genes = rownames(obj@genomeMatrices[["gene_ch"]]), threads = 10) # Matrix does not have to be pre-computed, but it speeds things up downstream 
+clusterMarkersCH <- findClusterMarkers(obj, matrix = "gene_ch", genes = rownames(obj@genomeMatrices[["gene_ch"]]), threads = 1) # Matrix does not have to be pre-computed, but it speeds things up downstream 
 topmarkers <- clusterMarkersCH %>% dplyr::filter(p.adj < 0.05) %>% dplyr::group_by(cluster_id, direction) %>% top_n(5, wt = p.adj)
 ```
 
