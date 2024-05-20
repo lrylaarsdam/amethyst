@@ -183,7 +183,9 @@ dimEstimate <- function(
 #'
 #' @param obj Object for which to run irlba
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
+#' @param replaceNA IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".
 #' @param dims list of how many dimensions to output for each matrix
+#'
 #' @return Returns a matrix of appended irlba dimensions as columns and cells as rows
 #' @importFrom irlba irlba
 #' @export
@@ -191,7 +193,8 @@ dimEstimate <- function(
 runIrlba <- function(
     obj,
     genomeMatrices,
-    dims) {
+    dims,
+    replaceNA = rep(0, length(dims))) {
 
   if (length(genomeMatrices) != length(dims)) {
     stop("Number of input matrices must equal the length of the dimension list")
@@ -205,9 +208,30 @@ runIrlba <- function(
 
     for (i in 1:length(genomeMatrices)) {
       matrix[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
+      default <- replaceNA[[i]]
+
+      if (default == 0) {
+        matrix[[i]][is.na(matrix[[i]])] <- 0
+      } else if (default == 1) {
+        matrix[[i]][is.na(matrix[[i]])] <- 1
+      } else if (default %in% c("mch_pct", "mcg_pct")) {
+        matrix[[i]] <- matrix[[i]][, colnames(matrix[[i]]) %in% rownames(obj@metadata)]
+        if (default == "mch_pct") {
+          replacement_vector <- obj@metadata$mch_pct[match(colnames(matrix[[i]]), rownames(obj@metadata))]
+        }
+        if (default == "mcg_pct") {
+          replacement_vector <- obj@metadata$mcg_pct[match(colnames(matrix[[i]]), rownames(obj@metadata))]
+        }
+        # Replace NA values in the matrix with corresponding mch_pct values
+        na_indices <- which(is.na(matrix[[i]]), arr.ind = TRUE)
+        matrix[[i]][na_indices] <- replacement_vector[na_indices[, 2]]
+      } else {
+        stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.")
+      }
+
       windows <- rownames(matrix[[i]])
       cells <- colnames(matrix[[i]])
-      matrix[[i]][is.na(matrix[[i]])] <- 0
+
       matrix[[i]] <- irlba::irlba(as.matrix(matrix[[i]]), dims[[i]])
       matrix[[i]] <- as.data.frame(matrix[[i]]$v)
       colnames(matrix[[i]]) <- paste("DIM", 1:dims[[i]], "_", genomeMatrices[i], sep = "")

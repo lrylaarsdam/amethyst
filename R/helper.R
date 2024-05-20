@@ -176,9 +176,9 @@ makeWindows <- function(
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
           h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
           h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
-          meth_cell <- h5[, round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 4)] # determine global methylation level
-          meth_window <- h5[, .(value = round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 3), n = sum(c + t, na.rm = TRUE)), by = window]
-          meth_window <- meth_window[n > nmin, .(window, value)]
+          meth_cell <- h5[, round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 4)] # determine global methylation level
+          meth_window <- h5[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 3), n = sum(c + t, na.rm = TRUE)), by = window]
+          meth_window <- meth_window[n >= nmin, .(window, value)]
 
           if (metric == "percent") {
             summary <- meth_window[, value := (value * 100)]
@@ -204,7 +204,7 @@ makeWindows <- function(
       windows_merged <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE),
                                furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), .x), .progress = TRUE))
       if (save) {
-        saveRDS(windows_merged, paste0("tmp_", type, "_", chr_groups[[j]], "_", stepsize, "kb_windows_nmin", nmin, ".RData"))
+        saveRDS(windows_merged, paste0("tmp_", type, "_", metric, "_", chr_groups[[j]], "_", stepsize, "kb_windows_nmin", nmin, ".RData"))
       }
       by_chr[[j]] <- windows_merged
       cat("\nCompleted ", chr_groups[[j]],"\n")
@@ -232,7 +232,7 @@ makeWindows <- function(
     windows <- furrr::future_map(as.list(genes), function(x) {
       genem <- data.table::data.table(getGeneM(obj = {{obj}}, gene = x, type = {{type}}))
       genem <- genem[, n := c + t, by = cell_id]
-      genem <- genem[n > nmin]
+      genem <- genem[n >= nmin]
 
       if (metric == "percent") {
         summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
@@ -382,25 +382,44 @@ addCellInfo <- function(obj,
 #'
 #' @param obj Amethyst object to perform imputation on
 #' @param matrix Name of the matrix contained in the genomeMatrices slot to perform imputation on
+#' @param replaceNA Rmagic can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".
 #' @param npca Number of principle components to use
-#' @return Adds a new data frame to the genomeMatrices slot with imputed values
+#'
+#' @return Returns a data frame of imputed values.
 #' @export
 #' @examples obj <- impute(obj, matrix = "gene_ch")
 #' @importFrom Rmagic magic
 impute <- function(obj,
                    matrix,
-                   npca = 10) {
+                   npca = 10,
+                   replaceNA = 0) {
   name <- matrix # store name of matrix for output
   matrix <- obj@genomeMatrices[[matrix]]
   num_na <- sum(is.na(matrix))
   pct_na <- round(sum(is.na(matrix)) * 100 / (ncol(matrix) * nrow(matrix)), 3)
   if (num_na > 0) {
-    print(paste0("Warning: Replacing ", num_na, " NAs with zeros (", pct_na, "% of matrix) to perform imputation."))
+    print(paste0("Warning: Replacing ", num_na, " NAs (", pct_na, "% of matrix) to perform imputation."))
   }
-  matrix[is.na(matrix)] <- 0
+  if (replaceNA == 0) {
+    matrix[is.na(matrix)] <- 0
+  } else if (replaceNA == 1) {
+    matrix[is.na(matrix)] <- 1
+  } else if (replaceNA %in% c("mch_pct", "mcg_pct")) {
+    matrix <- matrix[, colnames(matrix) %in% rownames(obj@metadata)]
+    if (replaceNA == "mch_pct") {
+      replacement_vector <- obj@metadata$mch_pct[match(colnames(matrix), rownames(obj@metadata))]
+    }
+    if (replaceNA == "mcg_pct") {
+      replacement_vector <- obj@metadata$mcg_pct[match(colnames(matrix), rownames(obj@metadata))]
+    }
+    # Replace NA values in the matrix with corresponding mch_pct values
+    na_indices <- which(is.na(matrix), arr.ind = TRUE)
+    matrix[na_indices] <- replacement_vector[na_indices[, 2]]
+  } else {
+    stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.")
+  }
   matrix_imputed <- Rmagic::magic(t(matrix), npca = npca)[["result"]]
-  obj@genomeMatrices[[paste0(name, "_imputed")]] <- as.data.frame(t(matrix_imputed))
-  output <- obj
+  return(matrix_imputed)
 }
 
 ############################################################################################################################
