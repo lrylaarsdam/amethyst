@@ -567,7 +567,8 @@ tileGeneM <- function(obj,
                       trackOverhang = 5000,
                       arrowOverhang = 3000,
                       nrow = length(genes),
-                      legend = TRUE) {
+                      legend = TRUE,
+                      width = 500) {
   # make empty plot list
   p <- vector("list", length(genes)) # empty plot list
   for (i in 1:length(genes)) {
@@ -587,7 +588,7 @@ tileGeneM <- function(obj,
     toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
 
     p[[i]] <- ggplot2::ggplot() +
-      ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = 1500) +
+      ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = width) +
       ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
                          ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
       ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"), ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
