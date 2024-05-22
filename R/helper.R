@@ -52,12 +52,16 @@ getGeneM <- function(obj,
 
   # Read in the portion of the hdf5 file with reads covering the given gene for all requested cells
   gene_m <- furrr::future_pmap(
-    .l = list(paths, barcodes),
-    .f = function(path, bar) {
-      dataset_name <- paste0(type, "/", bar)
-      start <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(start)
-      count <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(count)
-      rhdf5::h5read(path, name = dataset_name, start = start, count = count, stride = 1)
+    .l = list(paths, barcodes), .f = function(path, bar) {
+      tryCatch({
+        dataset_name <- paste0(type, "/", bar)
+        start <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(start)
+        count <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(count)
+        rhdf5::h5read(path, name = dataset_name, start = start, count = count, stride = 1)
+      }, error = function(e) {
+        cat("Error processing data for barcode", bar, ":", conditionMessage(e), "\n")
+        return(NULL)  # Return NULL or any other value indicating failure
+      })
     })
 
   # The result will be a list. Name the list with the corresponding cell barcodes.
@@ -230,32 +234,37 @@ makeWindows <- function(
 
   if (!is.null(genes)) {
     windows <- furrr::future_map(as.list(genes), function(x) {
-      genem <- data.table::data.table(getGeneM(obj = {{obj}}, gene = x, type = {{type}}))
-      genem <- genem[, n := c + t, by = cell_id]
-      genem <- genem[n >= nmin]
+      tryCatch({
+        genem <- data.table::data.table(getGeneM(obj = {{obj}}, gene = x, type = {{type}}))
+        genem <- genem[, n := c + t, by = cell_id]
+        genem <- genem[n >= nmin]
 
-      if (metric == "percent") {
-        summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
-      }
-      if (metric == "score" | metric == "ratio") {
-        if (type == "CG" | type == "promoters") {
-          glob_m <- obj@metadata |> dplyr::mutate(pctm = mcg_pct/100) |> dplyr::select(pctm) |> tibble::rownames_to_column(var = "cell_id")
-        } else if (type == "CH") {
-          glob_m <- obj@metadata |> dplyr::mutate(pctm = mch_pct/100) |> dplyr::select(pctm) |> tibble::rownames_to_column(var = "cell_id")
+        if (metric == "percent") {
+          summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
         }
-        summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
-        summary <- merge(summary, glob_m, by = "cell_id")
-        if (metric == "score") {
-          summary <- summary[, value := round((ifelse(value - pctm > 0,
-                                                      (value - pctm)/(1 - pctm),
-                                                      (value - pctm)/pctm)), 3), by = cell_id][, pctm := NULL]
+        if (metric == "score" | metric == "ratio") {
+          if (type == "CG" | type == "promoters") {
+            glob_m <- obj@metadata |> dplyr::mutate(pctm = mcg_pct/100) |> dplyr::select(pctm) |> tibble::rownames_to_column(var = "cell_id")
+          } else if (type == "CH") {
+            glob_m <- obj@metadata |> dplyr::mutate(pctm = mch_pct/100) |> dplyr::select(pctm) |> tibble::rownames_to_column(var = "cell_id")
+          }
+          summary <- genem[, .(value = round(sum(c != 0, na.rm = TRUE) / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 2)), by = cell_id]
+          summary <- merge(summary, glob_m, by = "cell_id")
+          if (metric == "score") {
+            summary <- summary[, value := round((ifelse(value - pctm > 0,
+                                                        (value - pctm)/(1 - pctm),
+                                                        (value - pctm)/pctm)), 3), by = cell_id][, pctm := NULL]
 
+          }
+          if (metric == "ratio") {
+            summary <- summary[, value := round(value / pctm, 3), by = cell_id][, pctm := NULL]
+          }
         }
-        if (metric == "ratio") {
-          summary <- summary[, value := round(value / pctm, 3), by = cell_id][, pctm := NULL]
-        }
-      }
-      setnames(summary, "value", x)
+        setnames(summary, "value", x)
+      }, error = function(e) {
+        cat("Error processing data for gene", x, ":", conditionMessage(e), "\n")
+        return(NULL)  # Return NULL or any other value indicating failure
+      })
     }, .progress = TRUE)
     windows_merged <- Reduce(function(x, y) merge(x, y, by = "cell_id", all = TRUE, sort = FALSE), windows) |> tibble::column_to_rownames(var = "cell_id")
     windows_merged <- as.data.frame(t(windows_merged))
@@ -468,131 +477,6 @@ aggregateMatrix <- function(obj,
   aggregated <- aggregated |> tibble::column_to_rownames(var = "window")
 }
 
-######################################################################
-#' @title makeClusterTracks
-#' @description Calculate mean percent methylation over 1500 base pair genomic windows shifted every 500 bp and aggregate by cluster.
-#' Intended to generate input for the tileGeneM function.
-#'
-#' @param obj Amethyst object containing the path(s) to calculate.
-#' @param type Type of methylation - e.g. "CG" or "CH" - to calculate. Typically will be "CG."
-#' @param threads Optional number of threads for parallelization. Basically required for this step.
-#' @param bed Bed file containing genome in 500bp windows. Options are "hg38", "mm10", or path to bed file.
-#' @param index Name of chr index in the index slot.
-#' This reduces memory constraints by processing one chromosome at a time.
-#'
-#' @return Returns a data.table with the genomic location as chr, start, and end columns, plus one column of the mean % methylation per cluster
-#' @importFrom dplyr filter pull mutate select left_join
-#' @importFrom stringr str_count
-#' @importFrom rhdf5 h5read h5ls
-#' @importFrom future plan multicore sequential
-#' @importFrom furrr future_map future_pmap
-#' @importFrom plyr round_any
-#' @importFrom tidyr separate
-#' @importFrom data.table setnames setDT tstrsplit := setorder data.table
-#' @importFrom purrr reduce
-#' @importFrom utils read.table
-#' @export
-#'
-#' @examples cluster_500bp_cg_tracks <- makeClusterTracks(obj = obj, type = "CG", threads = 20, bed = "hg38")
-makeClusterTracks <- function(
-    obj,
-    type,
-    threads = 1,
-    bed,
-    index) {
-
-  # get barcodes and paths from amethyst object
-  if (is.null(obj@h5paths)) {
-    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
-  } else {
-    h5paths <- obj@h5paths
-  }
-
-  # load and clean bed file
-  if (bed == "hg38") {
-    bed <- data.table::data.table(read.table("/home/groups/ravnica/projects/amethyst/bedfiles/hg38_500bp_intervals.bed", sep = "\t"))
-  } else if (bed == "mm10") {
-    bed <- data.table::data.table(read.table("/home/groups/ravnica/projects/amethyst/bedfiles/mm10_500bp_intervals.bed", sep = "\t"))
-  } else if (!(bed %in% c("hg38", "mm10"))) {
-    bed <- data.table::data.table(read.table(bed, sep = "\t"))
-  }
-  data.table::setnames(bed, c("chr", "start", "end"))
-  data.table::setorder(bed, chr, start, end)
-  bed <- bed[, window := paste0(chr, "_", start, "_", end)]
-  bed <- bed[stringr::str_count(window, "_") == 2] # remove alternative loci
-  chr_groups <- as.list(unique(bed$chr)) # store chr groups list to loop over
-  chr_groups <-chr_groups[!grepl("chrY|chrM", chr_groups)]
-
-  # set up multithreading
-  if (threads > 1) {
-    future::plan(future::multicore, workers = threads)
-  }
-
-  # get number of clusters
-  cluster_groups <- as.list(unique(obj@metadata[["cluster_id"]])) # make list for each unique cluster
-  aggregated <- furrr::future_map(cluster_groups, .f = function(i) {
-
-    subset <- h5paths[rownames(h5paths) %in% rownames(obj@metadata |> dplyr::filter(cluster_id == i)), , drop = FALSE] # subset paths list to those in current cluster
-    paths <- as.list(subset$paths)
-    barcodes <- as.list(rownames(subset))
-    by_chr <- list()
-
-    for (j in 1:length(chr_groups)) {
-
-      # get index positions
-      sites <- obj@index[[index]][[chr_groups[[j]]]] # get chr index for h5 file
-
-      # find 500bp window values for all cells in chr + cluster
-      windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
-        barcode_name <- sub("\\..*$", "", barcode)
-        data <- data.table::data.table(rhdf5::h5read(path, name = paste0("CG", "/", barcode),
-                                                     start = sites$start[sites$cell_id == barcode],
-                                                     count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
-        data <- data[pos %% 500 == 0, pos := pos + 1] # add 1 to anything exactly divisible by window size otherwise it will be its own window
-        data <- data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))][, c("chr", "pos", "pct") := NULL]
-        data <- data[, .(value = as.integer(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)))), by = window]
-        data.table::setnames(data, "value", barcode_name)
-      }, .progress = TRUE)
-
-      windows <- split(windows, ceiling(seq_along(windows)/50))
-      windows <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE),
-                        furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), .x), .progress = FALSE))
-
-      # windows <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), windows)
-      data.table::setDT(windows)
-      windows <- windows[, .(window, rowMean = round(rowMeans(.SD, na.rm = TRUE), 1)), .SDcols = -"window"] # calculate the summary statistic of each window for the cluster
-      data.table::setnames(windows, "rowMean", paste0(i))
-
-      by_chr[[j]] <- windows
-      cat("\nCompleted chr", j, " cluster ", i, "\n")
-    }
-    aggregated <- do.call(rbind, by_chr)
-  }, .progress = TRUE)
-
-  if (threads > 1) {
-    future::plan(future::sequential)
-    gc()
-  }
-
-  aggregated <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), aggregated)
-  aggregated <- dplyr::left_join(bed, aggregated, by = "window")
-
-  # Calculate the rolling mean for each column
-  aggregated[, c("window") := NULL]
-  data.table::setorder(aggregated, chr, start)
-
-  averages <- aggregated[, lapply(.SD, function(x) round(frollmean(x, n = 3, align = "center", fill = NA, na.rm = TRUE), 2)), .SDcols = -c("chr", "start", "end")]
-
-  # Add the averages as new columns to your original data.table
-  aggregated[, colnames(aggregated)[colnames(aggregated) %in% cluster_groups] := NULL]
-  aggregated[, smooth_start := lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[1], align = "center", fill = NA)), .SDcols = "start"]
-  aggregated[, smooth_end := lapply(.SD, function(x) frollapply(x, n = 3, FUN = function(y) y[3], align = "center", fill = NA)), .SDcols = "end"]
-  aggregated[, names(averages) := averages]
-  aggregated[shift(chr, 1) == shift(chr, -2)]
-  aggregated[, c("smooth_start", "smooth_end") := NULL]
-  return(aggregated)
-}
-
 ############################################################################################################################
 #' @title makeFuzzyGeneWindows
 #' @description Rapidly calculate % methylation over all genes by averaging 500 bp window values.
@@ -647,14 +531,19 @@ makeFuzzyGeneWindows <- function(
 
   # calculate % methylation over 500 bp windows for all cells
   windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
-    barcode_name <- sub("\\..*$", "", bar)
-    data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar)))
-    data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
-    result <- data[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 1)), by = window]
-    setnames(result, "value", barcode_name)
-    result <- dplyr::left_join(bed, result, by = c("window"))
-    result <- result[, lapply(.SD, function(x) round(mean(x, na.rm = TRUE), 2)), by = gene, .SDcols = barcode_name]
-    data.table::setorder(result, gene)
+    tryCatch({
+      barcode_name <- sub("\\..*$", "", bar)
+      data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar)))
+      data[, window := paste0(chr, "_", plyr::round_any(pos, 500, floor), "_", plyr::round_any(pos, 500, ceiling))]
+      result <- data[, .(value = round(sum(c != 0, na.rm = TRUE) * 100 / (sum(c != 0, na.rm = TRUE) + sum(t != 0, na.rm = TRUE)), 1)), by = window]
+      setnames(result, "value", barcode_name)
+      result <- dplyr::left_join(bed, result, by = c("window"))
+      result <- result[, lapply(.SD, function(x) round(mean(x, na.rm = TRUE), 2)), by = gene, .SDcols = barcode_name]
+      data.table::setorder(result, gene)
+    }, error = function(e) {
+      cat("Error processing data for barcode", bar, ":", conditionMessage(e), "\n")
+      return(NULL)  # Return NULL or any other value indicating failure
+    })
   }, .progress = TRUE)
 
   if (all(sapply(windows[-1], function(df) identical(windows[[1]]$gene, df$gene)))) { # check to make sure all the gene columns are in the same order before cbinding

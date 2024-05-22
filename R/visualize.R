@@ -23,56 +23,6 @@ sampleComp <- function(
     ggplot2::theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 }
 
-############################################################################################################################
-#' @title markerHeatmap
-#' NEEDS UPDATING
-#' @description Plot the methylation levels of sample groups across many genes at once
-#' @param obj The amethyst object to plot
-#' @param level Hierarchy of reference to plot. i.e., "cell_class" plots "Exc"  "Inh"  "NonN"
-#' @param impute Logical indicating whether to impute values using Rmagic
-#' @param rownames Logical indicating whether to show row names on the heatmap
-#' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
-#' @return Returns a heatmap of average methylation levels of key marker genes
-#' @export
-#' @examples markerHeatmap(obj = obj, level = "CellClass", impute = FALSE, rownames = FALSE, type = "CH")
-#' @importFrom dplyr filter group_by arrange rename mutate select
-#' @importFrom janitor make_clean_names
-#' @importFrom Rmagic magic
-#' @importFrom tibble column_to_rownames
-#' @importFrom tidyr pivot_wider
-markerHeatmap <- function(
-    obj,
-    level = "CellClass",
-    impute = TRUE,
-    rownames = FALSE,
-    type = "CH") {
-
-  markers <- keygenestable %>%
-    dplyr::filter(cluster_level == level & marker %in% names(obj@index[[type]])) %>%
-    dplyr::group_by(cluster_level) %>%
-    dplyr::arrange(marker, .by_group = TRUE) %>%
-    pull(marker)
-  markers <- makeWindows(obj, genes = markers, type = {{ type }})
-  markers[is.na(markers)] <- 0
-  if (impute) {
-    markers <- Rmagic::magic(markers , npca = 10)
-    markers <- markers[["result"]]
-  }
-  markers <- pivot_longer(markers %>% rownames_to_column(var = "cell_id"), cols = c(2:(length(colnames(markers)) + 1)), names_to = "gene", values_to = "pct_m")
-  markers <- inner_join(markers, keygenestable %>% dplyr::filter(cluster_level == level) %>% dplyr::rename("gene" = "marker"), by = "gene")
-  markers <- inner_join(markers, obj@metadata %>% rownames_to_column(var = "cell_id"), by = "cell_id")
-  markers <- markers %>% rowwise() %>% dplyr::mutate(group = paste0(janitor::make_clean_names(description), "_", gene)) %>% dplyr::arrange(cluster_id, description)
-  toplot <- tidyr::pivot_wider(markers %>% dplyr::select(c(cell_id, pct_m, group)), names_from = "group", values_from = "pct_m") %>% tibble::column_to_rownames(var = "cell_id")
-
-  # plot pheatmap
-  annot_col <- markers %>% dplyr::select(group, name) %>% distinct(group, name) %>% column_to_rownames("group")
-  annot_row <- markers %>% dplyr::select(cell_id, cluster_id) %>% distinct(cell_id, cluster_id) %>% column_to_rownames("cell_id")
-
-  pheatmap(toplot, annotation_row = annot_row, annotation_col = annot_col, show_rownames = rownames,
-           labels_col = (markers %>% dplyr::select(group, name, gene) %>% distinct(group, name, .keep_all = TRUE) %>% pull("gene")),
-           cluster_rows = F, cluster_cols = F)
-
-}
 
 ############################################################################################################################
 #' @title clusterCompare
@@ -162,47 +112,61 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 }
 
 ############################################################################################################################
-#' @title umapFeature
+#' @title dimFeature
 #'
-#' @description Plot any feature in the metadata in UMAP space
+#' @description Plot any feature in the metadata in UMAP or TSNE space
+#'
 #' @param obj The amethyst object to plot
-#' @param colorBy The metadata feature to plot in UMAP space
+#' @param colorBy The metadata feature to plot in UMAP or TSNE space
 #' @param colors Optional color scale
+#' @param reduction Whether to plot "umap" or "tsne" coordinates. Note runUmap and/or runTsne must have been run.
 #' @param pointSize Optional adjustment of point size
+#'
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
-#' @examples umapFeature(obj = obj, colorBy = "cluster_id")
+#' @examples dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
-umapFeature <- function(
+dimFeature <- function(
     obj,
     colorBy,
     colors = NULL,
-    pointSize = 0.5) {
-  p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = {{colorBy}})) +
-    ggplot2::geom_point(size = pointSize) +
-    {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
-    ggplot2::theme_classic() +
-    noAxes() +
-    ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size=3)))
+    pointSize = 0.5,
+    reduction = "umap") {
+  if (reduction == "umap") {
+    p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = umap_x, y = umap_y, color = {{colorBy}})) +
+      ggplot2::geom_point(size = pointSize) +
+      {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
+      ggplot2::theme_classic() +
+      noAxes() +
+      ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size=3)))
+  }
+  if (reduction == "tsne") {
+    p <- ggplot2::ggplot(obj@metadata, ggplot2::aes(x = tsne_x, y = tsne_y, color = {{colorBy}})) +
+      ggplot2::geom_point(size = pointSize) +
+      {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
+      ggplot2::theme_classic() +
+      noAxes() +
+      ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size=3)))
+  }
   p
 }
 
 ############################################################################################################################
-#' @title umapGeneM
-#' @description Plot cumulative % methylation over a gene body on umap
+#' @title dimGeneM
+#' @description Plot cumulative % methylation over a gene body on UMAP or TNSE dimensionality reductions
 #'
 #' @param obj The amethyst object to plot
-#' @param genes List of genes to plot % methylation in UMAP space
+#' @param genes List of genes to plot % methylation in UMAP or TSNE space
 #' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
 #' @param blend Logical indicating whether to blend methylation levels of two or three genes
 #' @param nrow Number of rows to distribute graphs over
 #' @param metric If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"
 #' @param colors Optional color gradient to include
 #' @param matrix Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.
-#' @return Returns a plot of methylation over given genomic region in relation to UMAP
+#' @return Returns a plot of methylation over given genomic region using UMAP or TSNE coordinates
 #' @export
-#' @examples umapGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", metric = "percent", colors = c("black", "turquoise", "gold", "red"), blend = F)
-#' @examples umapGeneM(both, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, nrow = 1)
+#' @examples dimGeneM(obj, genes = c("GAD1", "SATB2"), type = "CH", metric = "percent", colors = c("black", "turquoise", "gold", "red"), blend = F)
+#' @examples dimGeneM(both, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, nrow = 1)
 #' @importFrom dplyr inner_join mutate
 #' @importFrom ggplot2 ggplot aes geom_point theme_classic guides scale_color_viridis_c scale_color_gradientn labs scale_color_identity geom_tile scale_fill_identity theme
 #' @importFrom grDevices rgb
@@ -211,7 +175,7 @@ umapFeature <- function(
 #' @importFrom tibble rownames_to_column
 #' @importFrom tidyr pivot_longer
 #' @importFrom scales squish
-umapGeneM <-  function(
+dimGeneM <-  function(
     obj,
     genes,
     type = NULL,
@@ -220,10 +184,20 @@ umapGeneM <-  function(
     blend = FALSE,
     colors = NULL,
     squish = NULL,
+    reduction = "umap",
     nrow = round(sqrt(length(genes)))) {
 
   if (is.null(matrix) && is.null(type)) {
     stop("If matrix is not provided, type and metric must both be specified. Default metric is % methylation.")
+  }
+
+  if (reduction == "umap") {
+    dim_x <- "umap_x"
+    dim_y <- "umap_y"
+  }
+  if (reduction == "tsne") {
+    dim_x <- "tsne_x"
+    dim_y <- "tsne_y"
   }
 
   if (!blend) {
@@ -253,7 +227,7 @@ umapGeneM <-  function(
       # merge with metadata
       plot <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
       # plot
-      p[[i]] <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = pctm)) +
+      p[[i]] <- ggplot2::ggplot(plot, ggplot2::aes(x = .data[[dim_x]], y = .data[[dim_y]], color = pctm)) +
         ggplot2::geom_point(size = 0.1) + ggplot2::theme_classic() +
         ggplot2::scale_color_gradientn(colors = pal) +
         {if (!is.null(squish)) ggplot2::scale_color_gradientn(colors = pal, limits = c(0, squish), oob = scales::squish)} +
@@ -279,7 +253,7 @@ umapGeneM <-  function(
       plot <- merge(genem, obj@metadata, by = 0)
       legend <- expand.grid(red = seq(0, max(genem[1:2]), by = 0.02), green = seq(0, max(genem[1:2]), by = 0.02))
       legend <- within(legend, mix <- grDevices::rgb(green = green, red = red, blue = 0, maxColorValue = max(genem[1:2])))
-      p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = mix)) +
+      p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = .data[[dim_x]], y = .data[[dim_y]], color = mix)) +
         ggplot2::geom_point(size = 0.5) +
         ggplot2::theme_classic() +
         ggplot2::guides(colour = guide_legend(override.aes = list(size=3))) +
@@ -297,7 +271,7 @@ umapGeneM <-  function(
       names(genem) <- c("gene1", "gene2", "gene3")
       genem <- genem |> dplyr::mutate(mix = grDevices::rgb(red = gene1, green = gene2, blue = gene3, maxColorValue = max(genem[1:3])))
       plot <- merge(genem, obj@metadata, by = 0)
-      p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = umap_x, y = umap_y, color = mix)) +
+      p1 <- ggplot2::ggplot(plot, ggplot2::aes(x = .data[[dim_x]], y = .data[[dim_y]], color = mix)) +
         ggplot2::geom_point(size = 0.5) +
         ggplot2::theme_classic() +
         ggplot2::guides(colour = guide_legend(override.aes = list(size=3))) +
@@ -552,54 +526,115 @@ histGeneM <- function(
 #' @param matrix Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output
 #' @param colors Optional list of colors to include
 #' @param trackOverhang Number of base pairs to extend beyond the gene
+#' @param regions Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
+#' Any genes or exons that fall within the region will be plotted below.
+#' @param nrow When multiple genes or regions are plotted, number of rows the output is divided across.
+#' @param legend Boolean indicating whether to plot the color legend
+#' @param removeNA Boolean indicating whether to remove NA values as opposed to plotting them grey
+#' @param width Width of the tiles, which should correspond to the step size calculated with calcSmoothedWindows.
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
+#'
 #' @return A ggplot geom_tile object with colors indicating % methylation over 500 bp windows and the gene of interest beneath
 #' @export
 #' @examples tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
-#' @importFrom dplyr filter mutate
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab
+#' @importFrom dplyr filter mutate rowwise
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 tileGeneM <- function(obj,
-                      genes,
+                      genes = NULL,
+                      regions = NULL,
                       matrix,
                       colors = NULL,
                       trackOverhang = 5000,
                       arrowOverhang = 3000,
-                      nrow = length(genes),
+                      nrow = length(genes) | length(regions),
                       legend = TRUE,
+                      removeNA = TRUE,
                       width = 500) {
-  # make empty plot list
-  p <- vector("list", length(genes)) # empty plot list
-  for (i in 1:length(genes)) {
 
-    ref <- obj@ref |> dplyr::filter(gene_name == genes[i])
-    aggregated <- obj@genomeMatrices[[matrix]]
+  if (!is.null(colors)) {
+    pal <- colors
+  } else {
+    pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+  }
 
-    if (!is.null(colors)) {
-      colors <- colors
-    } else {
-      colors <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+  if (!is.null(genes)) {
+    # make empty plot list
+    p <- vector("list", length(genes)) # empty plot list
+    for (i in 1:length(genes)) {
+
+      ref <- obj@ref |> dplyr::filter(gene_name == genes[i])
+      aggregated <- obj@genomeMatrices[[matrix]]
+
+      toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
+      ngroups <- ncol(toplot) - 3
+      trackHeight <- ngroups * .07
+      toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+      if (removeNA) {
+        toplot <- toplot |> dplyr::filter(!is.na(pct_mCG))
+      }
+
+      p[[i]] <- ggplot2::ggplot() +
+        ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = width) +
+        ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
+                           ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
+        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"), ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
+        ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight/4, "cm"))) + xlab(genes[i]) +
+        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "gene"), ggplot2::aes(xmin = start, xmax = end, ymin = (-(trackHeight/2) -(trackHeight/20)), ymax = (-(trackHeight/2) + (trackHeight/20)))) +
+        {if (!legend)ggplot2::theme(legend.position = "none")} +
+        ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,100)) +
+        ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(),  panel.grid.major.y = element_line(color = "#dbdbdb")) + ggplot2::ylab("Group ID")
     }
+  }
 
-    toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
-    ngroups <- ncol(toplot) - 3
-    trackHeight <- ngroups * .07
-    toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+  if (!is.null(regions)) {
+    p <- vector("list", length(regions))
+    for (i in 1:length(regions)) {
 
-    p[[i]] <- ggplot2::ggplot() +
-      ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = width) +
-      ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
-                         ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
-      ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"), ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
-      ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight/4, "cm"))) + xlab(genes[i]) +
-      ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "gene"), ggplot2::aes(xmin = start, xmax = end, ymin = (-(trackHeight/2) -(trackHeight/20)), ymax = (-(trackHeight/2) + (trackHeight/20)))) +
-      {if (!legend)ggplot2::theme(legend.position = "none")} +
-      ggplot2::scale_fill_gradientn(colors = colors) +
-      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank()) + ggplot2::ylab("Cluster ID")
+      # get genome location
+      split_parts <- data.table::tstrsplit(regions[[i]], "_", fixed = TRUE)
+      chrom = split_parts[[1]]
+      min = as.numeric(split_parts[[2]])
+      max = as.numeric(split_parts[[3]])
+
+      aggregated <- obj@genomeMatrices[[matrix]]
+      toplot <- aggregated[(chr == chrom & start >= min & end <= max)]
+      ngroups <- ncol(toplot) - 3
+
+      ref <- obj@ref |> dplyr::filter(seqid == chrom & start >= min & end <= max & type %in% c("gene", "exon")) |>
+        dplyr::distinct(gene_name, start, end, type, strand) |> dplyr::group_by(gene_name) |> dplyr::mutate(label = cur_group_id()) |>
+        dplyr::mutate(trackHeight = ngroups * label * .07,
+                      ymin = -(trackHeight - (ngroups * 0.03)),
+                      ymax = -(trackHeight + (ngroups * 0.03)))
+
+      toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "cluster_id", values_to = "pct_mCG") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+      if (removeNA) {
+        toplot <- toplot |> dplyr::filter(!is.na(pct_mCG))
+      }
+
+      p[[i]] <- ggplot2::ggplot() +
+        ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = cluster_id, fill = pct_mCG), width = width) +
+        {if (!legend)ggplot2::theme(legend.position = "none")} +
+        ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,100)) +
+        ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(),  panel.grid.major.y = element_line(color = "#dbdbdb")) + ggplot2::ylab("Group ID") +
+        ggplot2::xlab(chrom) +
+        # plotting genes beneath
+        ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
+                           ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
+        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"),
+                           ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
+        ggplot2::geom_segment(data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start - arrowOverhang, end + arrowOverhang),
+                                                                                           xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang)),
+                              aes(x = x, xend = xend, y = -trackHeight, yend = -trackHeight),
+                              arrow = ggplot2::arrow(length = unit(ngroups * 0.03, "cm"))) +
+        geom_text(data = ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1),
+                  aes(x = end + 100, y = -trackHeight, label = gene_name), hjust = 0)
+    }
   }
   gridExtra::grid.arrange(grobs = p, nrow = nrow)
 }
+
 
 ######################################################################
 #' @title makePalette

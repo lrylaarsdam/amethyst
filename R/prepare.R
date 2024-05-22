@@ -11,6 +11,7 @@
 #' @export
 #' @examples obj <- createObject(h5paths = "~/Downloads/test.h5")
 createObject <- function(h5paths = NULL,
+                         genomeMatrices = NULL,
                          index = NULL,
                          ref = NULL,
                          metadata = NULL) {
