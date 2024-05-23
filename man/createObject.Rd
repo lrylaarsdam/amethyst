@@ -4,19 +4,30 @@
 \alias{createObject}
 \title{createObject}
 \usage{
-createObject(h5paths = NULL, index = NULL, ref = NULL, metadata = NULL)
+createObject(
+  h5paths = NULL,
+  genomeMatrices = NULL,
+  reductions = NULL,
+  index = NULL,
+  metadata = NULL,
+  ref = NULL
+)
 }
 \arguments{
 \item{h5paths}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode}
 
-\item{index}{Corresponding gene coordinates in the hdf5 file}
+\item{genomeMatrices}{Slot to store aggregated genomic information}
 
-\item{ref}{Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.}
+\item{reductions}{Slot to store dimensionality reductions, such as irlba}
+
+\item{index}{Corresponding gene and/or chromosome coordinates for each cell in the hdf5 file}
 
 \item{metadata}{Optional cell metadata. If included, make sure row names are cell IDs}
+
+\item{ref}{Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.}
 }
 \value{
-Returns a single object of class amethyst with h5path, index, metadata, ref, reduction, and irlba slots.
+Returns a single object of class amethyst with h5path, genomeMatrices, reduction, index, metadata, and ref slots.
 }
 \description{
 Create object of class amethyst

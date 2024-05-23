@@ -4,7 +4,7 @@
 \alias{impute}
 \title{impute}
 \usage{
-impute(obj, matrix, npca = 10)
+impute(obj, matrix, npca = 10, replaceNA = 0)
 }
 \arguments{
 \item{obj}{Amethyst object to perform imputation on}
@@ -12,9 +12,11 @@ impute(obj, matrix, npca = 10)
 \item{matrix}{Name of the matrix contained in the genomeMatrices slot to perform imputation on}
 
 \item{npca}{Number of principle components to use}
+
+\item{replaceNA}{Rmagic can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".}
 }
 \value{
-Adds a new data frame to the genomeMatrices slot with imputed values
+Returns a data frame of imputed values.
 }
 \description{
 Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC

@@ -4,7 +4,13 @@
 \alias{runUmap}
 \title{runUmap}
 \usage{
-runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
+runUmap(
+  obj,
+  neighbors = 30,
+  dist = 0.1,
+  method = "euclidean",
+  reduction = "irlba"
+)
 }
 \arguments{
 \item{obj}{Amethyst object for which to determine umap coordinates}

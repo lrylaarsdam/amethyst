@@ -8,11 +8,15 @@ makeWindows(
   obj,
   type,
   metric = "percent",
+  index = NULL,
+  species = NULL,
   groupBy = NULL,
   genes = NULL,
   stepsize = NULL,
   threads = 1,
-  nmin = 5
+  futureType = "multicore",
+  nmin = 5,
+  save = FALSE
 )
 }
 \arguments{
@@ -22,6 +26,12 @@ makeWindows(
 
 \item{metric}{Calculate either percent, score, or ratio}
 
+\item{index}{If calculating genomic windows, specify the name of the chr index in the index slot.
+This index should contain the coordinates in the hdf5 file corresponding to each chromosome.
+This reduces memory constraints by processing one chromosome at a time.}
+
+\item{species}{"hg38" or "mm10". This determines which chromosome list is used.}
+
 \item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group}
 
 \item{genes}{Optional genes to include. Do not specify both genes and stepsize}
@@ -29,6 +39,11 @@ makeWindows(
 \item{stepsize}{If specified, the methylation levels will be calculated over genomic windows of the indicated size}
 
 \item{threads}{Enables multithreading}
+
+\item{futureType}{Method of parallelization, i.e. "multicore" (recommended) or "multisession". Multisession is more
+memory-efficient, but make sure your workspace is as small as possible before using.}
+
+\item{nmin}{Minimum number of observations for the window to be included.}
 }
 \value{
 Returns a data frame of the calculated methylation windows with the genomic region or gene name as rows and cell barcode or group as columns
@@ -38,5 +53,5 @@ Calculate methylation levels across a fixed genomic window or gene body.
 }
 \examples{
 makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
-makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
+makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score", species = "hg38", nmin = 10, index = "chr_cg")
 }
