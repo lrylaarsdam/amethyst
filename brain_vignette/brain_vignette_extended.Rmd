@@ -7,9 +7,25 @@ If you are working on Adey lab servers, consider adding a pre-assembled library 
 .libPaths('/home/groups/ravnica/env/R_libs/R-4.2.2_amethyst')
 ```
 
-First, load the package using devtools. 
+If you are new to R, you may need to install some of the dependencies:
+```{r} 
+if (!requireNamespace("BiocManager", quietly = TRUE))
+install.packages("BiocManager")
+BiocManager::install(version = "3.14")
+
+library(BiocManager)
+BiocManager::install(c("data.table", "dplyr", "furrr", "future", 
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "methods", 
+  "plotly", "plyr", "purrr", "rhdf5", "rtracklayer", "scales", "stats", "stringr", 
+  "tibble", "tidyr", "umap", "utils"))
+```
+
+Next, install a few additional dependencies only found on Github as well as amethyst itself.
 
 ```{r}
+install.packages("devtools")
+devtools::install_github("JinmiaoChenLab/Rphenograph")
+devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 devtools::install_github("lrylaarsdam/amethyst")
 library(amethyst)
 ```
@@ -79,8 +95,8 @@ An initial indexing helps reduce the computational load by determining the locat
 *Note: This step is recommended to run on a cluster.
 
 ```{r}
-obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 1)
-obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 1, index = "chr_cg", nmin = 5, species = "hg38")
+obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 20)
+obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 20, index = "chr_cg", nmin = 2, species = "hg38")
 obj@index[["chr_ch"]] <- indexChr(obj, type = "CH", threads = 1)
 obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 1, species = "hg38", index = "chr_ch", nmin = 10)
 ```
@@ -90,23 +106,57 @@ Next, perform dimensionality reduction with irlba. If you are unsure how many di
 
 ```{r}
 dimEstimate(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(10, 10), threshold = 0.98)
-obj <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5))
+obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5))
 ```
 
 Now determine cluster membership using the Rphenograph package.
 *Note: In this example, k_phenograph and neighbors parameters are low because brain_vignette.h5 has 50 cells.
 
 ```{r}
-obj <- regressCovBias(obj)
-obj <- runCluster(obj, k_phenograph = 5) # consider increasing k_phenograph to 50 for larger datasets
-obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean") 
+obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
+obj <- runCluster(obj, k_phenograph = 5, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
 ```
 
-Optional: one useful approach for cell type ID is analyzing CG hypomethylation over promoter regions of key marker genes. While still on the cluster, it can be helpful to calculate these cluster tracks.
-*Note: This step requires a bed file of the genome divided into 500 bp windows. If using Adey lab servers, the path to the file is hardcoded. If not, the bed parameter should be the path to this file.
+Umap and tsne are dimensionality reduction techniques frequently used to collapse higher-order information into two or three
+coordinates for visualization of single-cell data. Either or both methods can be used as input for dimensionality reduction-
+based visualization functions like dimFeature. 
 
 ```{r}
-obj@genomeMatrices[["cluster_cg_500_slidingwindows"]] <- makeClusterTracks(obj, type = "CG", threads = 1, bed = "hg38", index = "chr_cg") 
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_regressed") 
+obj <- runTsne(obj, perplexity = 5, method = "euclidean", theta = 0.5, reduction = "irlba_regressed") 
+```
+
+Optional: one useful approach for cell type ID is analyzing CG hypomethylation over promoter regions of key marker genes. While still on the cluster, it can be helpful to calculate these cluster tracks. We recommend saving the intermediate matrix of summed observations in order to save a step for differentially methylated region (DMR) analysis.
+
+```{r}
+cluster500bpwindows <- calcSmoothedWindows(obj, type = "CG", threads = 1, step = 500, species = "human", 
+                                           index = "chr_cg", groupBy = "cluster_id", returnSumMatrix = T, returnPctMatrix = T)
+obj@genomeMatrices[["cg_cluster_tracks"]] <- cluster500bpwindows[["pct_matrix"]]
+```
+
+While still on the server, we will run DMR analysis as an example. In reality, you will probably want to validate the groups before completing this step.
+eachVsAll tests observations for each group at a time versus the rest.
+
+```{r}
+dmrs <- testDMR(sumMatrix = cluster500bpwindows[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5)
+```
+
+If specific comparisons are desired, a data frame can be provided describing the tests. Three columns should be included: One listing members of group A, one listing members of group B, and one with the name of the test.
+
+```{r}
+comparisons <- data.frame(
+  stringsAsFactors = FALSE,
+              name = c("test1", "test2", "test3"),
+                 A = c("1,2,3", "1", "2,3"),
+                 B = c("4,5", "6", "1")
+)
+dmrs <- testDMR(sumMatrix = cluster500bpwindows[["sum_matrix"]], comparisons = comparisons, nminTotal = 5, nminGroup = 5)
+```
+
+Then expand and filter the resulting list according to the desired stringency.
+
+```{r}
+dmrs <- filterDMR(dmrs, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 2)
 ```
 
 ########################################################################################################
@@ -161,24 +211,25 @@ load("~/Downloads/brain_vignette.RData")
 ```
 
 ### Visualizing the results ###
-First, plot the UMAP coordinates of the cells with the color corresponding to cluster membership.
+First, plot the UMAP or TSNE coordinates of the cells with the color corresponding to cluster membership.
 
 ```{r}
-umapFeature(obj, colorBy = cluster_id)
+dimFeature(obj, colorBy = cluster_id, reduction = "umap")
+dimFeature(obj, colorBy = cluster_id, reduction = "tsne")
 ```
 
 umapFeature uses ggplot logic, so you can adjust as needed. For example:
 
 ```{r}
-umapFeature(obj, colorBy = cluster_id, colors = sample(pal)) + facet_wrap(vars(batch)) # Batch is made up to illustrate function utility
+dimFeature(obj, colorBy = cluster_id, colors = sample(pal)) + facet_wrap(vars(batch)) # Batch is made up to illustrate function utility
 ```
 
 umapFeature is useful for looking at how the different parameters in the cellInfo file are distributed throughout the UMAP:
 
 ```{r}
-umapFeature(obj, colorBy = log(cov)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # no coverage bias!
-umapFeature(obj, colorBy = mcg_pct) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) 
-umapFeature(obj, colorBy = log(mch_pct)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # helps distinguish neuron vs glia populations
+dimFeature(obj, colorBy = log(cov)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # no coverage bias!
+dimFeature(obj, colorBy = mcg_pct) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) 
+dimFeature(obj, colorBy = log(mch_pct)) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) # helps distinguish neuron vs glia populations
 ```
 
 Show the distribution of cluster membership between samples with sampleComp. Make sure the parameters of interest are categorical variables in the metadata. Plots can be easily modified with ggplot command logic.
@@ -194,44 +245,36 @@ Now let's look at methylation levels over key marker genes in relation to the UM
 Look at sigmarkers results to explore other genes.
 
 ```{r}
-umapGeneM(obj, genes = c("GAD1", "SATB2", "LINGO1", "SLC17A8"), matrix = "gene_ch") 
-umapGeneM(obj, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T) # these two are pretty mutually exclusive
-
-```
-
-If matrices haven't been calculated, this function can also calculate from the h5 file, but it may take longer.
-
-```{r}
-umapGeneM(obj, genes = c("GAD1", "SATB2", "LINGO1", "SLC17A8"), type = "CH") # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+dimM(obj, genes = c("GAD1", "SATB2", "LINGO1", "SLC17A8"), matrix = "gene_ch") 
+dimM(obj, genes = c("GAD1", "SATB2"), matrix = "gene_ch", blend = T, pointSize = 0.8) # these two are pretty mutually exclusive
 ```
 
 Visualization can also be easily done with violin plots or dot plots
 
 ```{r}
-vlnGeneM(obj, genes = c("SATB2", "GAD1"), groupBy = cluster_id, nrow = 2, matrix = "gene_ch")
-dotGeneM(obj, genes = c("SATB2", "GAD1"), type = "CH", groupBy = cluster_id) # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
+violinM(obj, genes = c("SATB2", "GAD1"), groupBy = "cluster_id", nrow = 2, matrix = "gene_ch")
+dotM(obj, genes = c("SATB2", "GAD1"), matrix = "gene_ch", groupBy = "cluster_id")
 ```
 
 Since single-cell methylation data can be low coverage, it may be helpful to impute values.
 If having trouble downloading Rmagic, try devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 
 ```{r}
-obj <- impute(obj, matrix = "gene_ch") # Already added if using /home/groups/ravnica/projects/amethyst/sciMETv2_braindata/brain_vignette_workspace.RData
+obj@genomeMatrices[["gene_ch_imputed"]] <- impute(obj, matrix = "gene_ch", replaceNA = "mch_pct") 
 ```
 
-Then use the resulting matrix to visualize from imputed values
+Then use the resulting matrix to compare imputed vs. non-imputed values
 
 ```{r}
-p1 <- umapGeneM(obj, genes = c("SLC17A8"), matrix = "gene_ch")
-p2 <- umapGeneM(obj, genes = c("SLC17A8"), matrix = "gene_ch_imputed") 
-plot_grid(p1, p2)
+dimM(obj, genes = c("SLC17A8"), matrix = "gene_ch", pointSize = 0.8)
+dimM(obj, genes = c("SLC17A8"), matrix = "gene_ch_imputed", pointSize = 0.8) 
 ```
 
-Visualization of methylation over the gene body can be done with histGeneM or tileGeneM
+Visualization of methylation over the gene body can be done with histograM or heatMap
 
 ```{r}
-histGeneM(obj, type = "CH", groupBy = cluster_id, genes = c("GAD1", "LINGO1"), bins = 40) # You need "~/Downloads/brain_vignette.h5" to exist for this, or modify obj@h5path 
-tileGeneM(obj, genes = c("MOG", "C1QA", "GAD1", "SLC17A7", "SST", "AQP4"), matrix = "cluster_cg_500_slidingwindows", nrow = 3) 
+histograM(obj, genes = c("TBR1", "SLC17A7", "MOG"), matrix = "cg_cluster_tracks", legend = F)
+heatMap(obj, genes = c("MOG", "C1QA", "GAD1", "SLC17A7", "SST", "AQP4"), matrix = "cg_cluster_tracks", nrow = 3, removeNA = F) 
 ```
 
 Variation in methylation levels of key marker genes can help aid in cell type ID, but it may be more effective to compare to a reference. If using brain data you can use clusterCompare to correlate % methylation over 100kb genomic windows to a reference generated from Liu 2021 (Ecker lab). Levels to compare with are:
