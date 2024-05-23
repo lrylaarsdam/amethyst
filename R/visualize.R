@@ -452,7 +452,7 @@ histograM <- function(obj,
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
 #' @return A ggplot geom_tile object with colors indicating % methylation over 500 bp windows and the gene of interest beneath
 #' @export
-#' @examples tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
+#' @examples heatMap(obj, matrix = "cluster_cg_500_slidingwindows", regions = "chr11_47369500_47420000")
 #' @importFrom dplyr filter mutate rowwise
 #' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit
 #' @importFrom gridExtra grid.arrange

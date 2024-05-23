@@ -428,6 +428,8 @@ impute <- function(obj,
     stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.")
   }
   matrix_imputed <- Rmagic::magic(t(matrix), npca = npca)[["result"]]
+  matrix_imputed <- as.data.frame(t(matrix_imputed))
+
   return(matrix_imputed)
 }
 
@@ -568,7 +570,7 @@ makeFuzzyGeneWindows <- function(
 #' @param cells Character vector of barcodes to include in the subset
 #' @return Returns a new amethyst object with all slots subsetted
 #' @export
-#' @examples
+#' @examples subset <- subsetObject(obj = obj, cells = c("ATTGAGGATAACGCTTCGTCCGCCGATC", "ATTGAGGATAACGCTTCGTCTAAGGTCA"))
 subsetObject <- function(obj,
                          cells) {
   subset <- obj
