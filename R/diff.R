@@ -85,7 +85,7 @@ findClusterMarkers <- function(
 #' @param futureType If using parallelization, should R multithread using "multicore" or "multisession".
 #' @param groupBy Parameter contained in the metadata over which to aggregate observations. Default is "cluster_id".
 #' @param returnSumMatrix Whether or not the function should return the matrix of summed c and t observations. Required for testDMR input.
-#' @param returnPctMatrix Whether or not the function should calculate % methylation over each genomic window. Required for tileGeneM input.
+#' @param returnPctMatrix Whether or not the function should calculate % methylation over each genomic window. Required for heatMap input.
 #' @return if returnSumMatrix = TRUE, returns a data.table with the genomic location as chr, start, and end columns,
 #' plus aggregated c and t observations for each groupBy value. If returnPctMatrix = TRUE, returns a data.table with the
 #' genomic location as chr, start, and end columns, plus one column of the mean % methylation for each window per groupBy value.
@@ -103,7 +103,7 @@ findClusterMarkers <- function(
 #' @export
 #'
 #' @examples output <- calcSmoothedWindows(obj, returnSumMatrix = TRUE, returnPctMatrix = FALSE) # example to calculate testDMR input
-#' @examples output <- calcSmoothedWindows(obj, returnSumMatrix = FALSE, returnPctMatrix = TRUE) # example to calculate tileGeneM input
+#' @examples output <- calcSmoothedWindows(obj, returnSumMatrix = FALSE, returnPctMatrix = TRUE) # example to calculate heatMap input
 calcSmoothedWindows <- function(
     obj,
     type = "CG",
@@ -289,7 +289,7 @@ testDMR <- function(
     nminTotal = 3,
     nminGroup = 3) {
 
-  if (eachVsAll && !is.null(comparisons)) {
+  if (!eachVsAll && is.null(comparisons)) {
     stop("Please either specify eachVsAll = TRUE or provide a data frame of comparisons to make.")
   }
 
@@ -403,7 +403,7 @@ filterDMR <- function(
   if (keepSums) {
     results <- data.table::melt(results, id.vars = c("chr", "start", "end", paste0(ids, "_c"), paste0(ids, "_t")), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "group", value.name = c("pval", "logFC"), na.rm = TRUE)
   } else if (!(keepSums)) {
-    results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "group", value.name = c("pval", "logFC"), na.rm = TRUE)
+    results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test", value.name = c("pval", "logFC"), na.rm = TRUE)
   }
   results <- results[, padj := stats::p.adjust(pval, method = method)]
 

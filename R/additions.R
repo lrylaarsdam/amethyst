@@ -13,26 +13,27 @@
 transferLabelsNN <- function(obj,
                              labels = 'labels',
                              transferred = 'transferred',
-                             nnn = 5) {
+                             nnn = 5,
+                             reduction = "irlba") {
   # Check if the label slot exists in the metadata
   if (!labels %in% names(obj@metadata)) {
     stop(paste("The label slot", labels, "does not exist in obj@metadata."))
   }
 
-  # Check if the irlba slot exists
-  if (!"irlba" %in% slotNames(obj)) {
-    stop("The irlba slot does not exist in the object.")
+  # Check if the reduction slot exists
+  if (!reduction %in% names(obj@reductions)) {
+    stop(paste0("The reduction ", reduction, " does not exist in the object."))
   }
 
   labels_vector <- obj@metadata[[labels]]
-  irlba_matrix <- obj@irlba
+  dimred_matrix <- obj@reductions[[reduction]]
 
   # Initialize transferred labels with original labels
   transferred_labels <- labels_vector
 
-  # Exclude rows with any NA values in irlba_matrix and corresponding labels
-  valid_indices <- which(rowSums(is.na(irlba_matrix)) == 0)
-  irlba_matrix_valid <- irlba_matrix[valid_indices, ]
+  # Exclude rows with any NA values in dimred_matrix and corresponding labels
+  valid_indices <- which(rowSums(is.na(dimred_matrix)) == 0)
+  dimred_matrix_valid <- dimred_matrix[valid_indices, ]
   labels_vector_valid <- labels_vector[valid_indices]
 
   # Update indices for NA and non-NA labels after filtering
@@ -41,8 +42,8 @@ transferLabelsNN <- function(obj,
 
   if (length(na_indices_valid) > 0 && length(non_na_indices_valid) > 0) {
     # Calculate nearest neighbors only for NA labeled rows using valid non-NA rows
-    knn <- FNN::get.knnx(data = irlba_matrix_valid[non_na_indices_valid, , drop = FALSE],
-                    query = irlba_matrix_valid[na_indices_valid, , drop = FALSE],
+    knn <- FNN::get.knnx(data = dimred_matrix_valid[non_na_indices_valid, , drop = FALSE],
+                    query = dimred_matrix_valid[na_indices_valid, , drop = FALSE],
                     k = nnn)
 
     # Propagate labels based on mode of nearest neighbors

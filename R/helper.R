@@ -560,3 +560,102 @@ makeFuzzyGeneWindows <- function(
   result <- result |> tibble::column_to_rownames(var = "gene")
 }
 
+############################################################################################################################
+#' @title subsetObject
+#' @description Subset all slots of an amethyst object to only include information from specified barcodes
+#'
+#' @param obj Amethyst object to subset
+#' @param cells Character vector of barcodes to include in the subset
+#' @return Returns a new amethyst object with all slots subsetted
+#' @export
+#' @examples
+subsetObject <- function(obj,
+                         cells) {
+  subset <- obj
+  subset@h5paths <- subset@h5paths[rownames(subset@h5paths) %in% cells, , drop = FALSE]
+
+  # get genomeMatrices to subset
+  contains_cells <- sapply(subset@genomeMatrices, function(matrix) {
+    any(colnames(matrix) %in% cells)
+  })
+  which_matrices <- names(subset@genomeMatrices)[contains_cells]
+  if (length(which_matrices) != length(subset@genomeMatrices)) {
+    cat("\nWarning: any aggregated matrices will still contain information from non-subsetted cells.\n")
+  }
+
+  for (i in which_matrices) {
+    subset@genomeMatrices[[i]] <- subset@genomeMatrices[[i]][, colnames(subset@genomeMatrices[[i]]) %in% cells]
+  }
+
+  # subset reductions
+  for (i in names(subset@reductions)) {
+    subset@reductions[[i]] <- subset@reductions[[i]][rownames(subset@reductions[[i]]) %in% cells , ]
+  }
+
+  # subset indexes
+  for (i in names(subset@index)) {
+    subset@index[[i]] <- lapply(subset@index[[i]], function(x) {
+      x <- x[x$cell_id %in% cells, ]
+    })
+  }
+
+  # subset metadata
+  subset@metadata <- subset@metadata[rownames(subset@metadata) %in% cells, , drop = FALSE]
+
+  return(subset)
+
+}
+
+############################################################################################################################
+#' @title combineObject
+#' @description Merge a list of amethyst objects into one
+#'
+#' @param objList List of amethyst objects to merge. Make sure barcode names are unique.
+#' @param matrices List of genomeMatrices contained within each amethyst object to merge.
+#' @return Returns a new object with merged slots. Dimensionality reductions should be re-run post merging.
+#' @export
+#' @importFrom tibble column_to_rownames rownames_to_column
+#' @examples new <- combineObject(objList = list(obj1, obj2, obj3), genomeMatrices = c("ch_100k_pct", "gene_ch"))
+combineObject <- function(objList,
+                          genomeMatrices) {
+  cat("\nMake sure barcodes are unique when combining objects.")
+
+  combined <- createObject()
+
+  # rbind h5paths
+  combined@h5paths <- do.call(rbind, lapply(objList, function(x) {x@h5paths}))
+
+  # merge genomeMatrices
+  for (i in genomeMatrices) {
+    tomerge <- lapply(objList, function(x) {x@genomeMatrices[[i]] |> tibble::rownames_to_column(var = "window")})
+    combined@genomeMatrices[[i]] <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), tomerge) |>
+      tibble::column_to_rownames(var = "window")
+  }
+
+  # print reductions warning
+  cat("\nDimensionality reductions (i.e., irlba, umap, tsne) should not be merged and will need to be re-run.")
+
+  # merge indexes
+  cat("\nOnly indexes and subindexes found in all objects will be merged.")
+  common_indexes <- Reduce(intersect, lapply(objList, function(x) names(x@index)))
+  for (i in common_indexes) {
+    common_subindexes <- Reduce(intersect, lapply(objList, function(x) names(x@index[[i]])))
+    for (j in common_subindexes) {
+      combined@index[[i]][[j]] <- do.call(rbind, lapply(objList, function(x) {x@index[[i]][[j]]}))
+    }
+  }
+
+  # merge metadata
+  combined@metadata <- do.call(rbind, lapply(objList, function(x) {x@metadata}))
+
+  # pull ref
+  if (!is.null(objList[[1]]@ref)) {
+    combined@ref <- objList[[1]]@ref
+  } else {
+    cat("\nThe first object did not contain a reference. The combined ref slot will remain empty.")
+  }
+
+  return(combined)
+
+}
+
