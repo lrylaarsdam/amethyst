@@ -385,7 +385,7 @@ runUmap <- function(obj,
                     method = "euclidean",
                     reduction = "irlba") {
 
-  umap_dims <- as.data.frame(umap::umap(as.data.frame(obj@reductions[[reduction]]), method = "naive", dims = 2, n_components = 2, neigh = neighbors, mdist = dist, metric = method)$layout)
+  umap_dims <- as.data.frame(umap::umap(as.data.frame(obj@reductions[[reduction]]), method = "naive", dims = 2, n_components = 2, n_neighbors = neighbors, min_dist = dist, metric = method)$layout)
 
   # Add to metadata
   if (is.null(obj@metadata$umap_x)) {
