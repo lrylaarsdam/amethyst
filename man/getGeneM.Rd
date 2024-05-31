@@ -2,7 +2,7 @@
 % Please edit documentation in R/helper.R
 \name{getGeneM}
 \alias{getGeneM}
-\title{geneGeneM}
+\title{getGeneM}
 \usage{
 getGeneM(obj, gene, type, threads = 1, cells = NULL)
 }

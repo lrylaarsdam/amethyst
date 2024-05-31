@@ -12,7 +12,7 @@ heatMap(
   colors = NULL,
   trackOverhang = 5000,
   arrowOverhang = 3000,
-  nrow = length(genes) | length(regions),
+  nrow = max(length(genes), length(regions)),
   legend = TRUE,
   removeNA = TRUE,
   width = 500
@@ -49,5 +49,5 @@ A ggplot geom_tile object with colors indicating \% methylation over 500 bp wind
 Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
 }
 \examples{
-tileGeneM(obj, gene = "SYT7", matrix = "cluster_cg_500_slidingwindows")
+heatMap(obj, matrix = "cluster_cg_500_slidingwindows", regions = "chr11_47369500_47420000")
 }
