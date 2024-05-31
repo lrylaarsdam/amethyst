@@ -95,7 +95,7 @@ findClusterMarkers <- function(
 #' @importFrom rhdf5 h5read h5ls
 #' @importFrom future plan multicore sequential
 #' @importFrom furrr future_map future_pmap
-#' @importFrom plyr round_any
+#' @importFrom plyr round_any .
 #' @importFrom tidyr separate
 #' @importFrom data.table setnames setDT tstrsplit := setorder data.table frollapply frollsum frollmean shift copy
 #' @importFrom purrr reduce
@@ -159,6 +159,18 @@ calcSmoothedWindows <- function(
     stop("Only human and mouse data can be processed at this time.")
   }
 
+  # set up multithreading
+  if (threads > 1) {
+    if (futureType == "multicore") {
+      future::plan(future::multicore, workers = threads)
+    }
+    if (futureType == "multisession") {
+      future::plan(future::multisession, workers = threads)
+    } else if (!(futureType %in% c("multicore", "multisession"))) {
+      stop("Options for parallelizing include multicore or multisession.")
+    }
+  }
+
   data.table::setDT(genomechunks)
   genomechunks <- genomechunks[, window := paste0(chr, "_", start, "_", end)]
 
@@ -175,21 +187,9 @@ calcSmoothedWindows <- function(
     # get index positions
     sites <- obj@index[[index]][[chr]] # get chr index for h5 file
 
-    # set up multithreading
-    if (threads > 1) {
-      if (futureType == "multicore") {
-        future::plan(future::multicore, workers = threads)
-      }
-      if (futureType == "multisession") {
-        future::plan(future::multisession, workers = threads)
-      } else if (!(futureType %in% c("multicore", "multisession"))) {
-        stop("Options for parallelizing include multicore or multisession.")
-      }
-    }
-
     chr_group_results <- furrr::future_map(.x = groups, .f = function(gr) {
       members <- rownames(membership |> dplyr::filter(membership == gr))
-      member_paths <- h5paths[rownames(h5paths) %in% members, ]
+      member_paths <- h5paths[match(members, rownames(h5paths)), "paths"]
 
       # add up sum c and sum t in member cells
       member_results <- furrr::future_pmap(.l = list(member_paths, members), .f = function(path, barcode) {
@@ -415,4 +415,73 @@ filterDMR <- function(
   return(results)
 }
 
+############################################################################################################################
+#' @title collapseDMR
+#' @description Identify adjacent DMRs
+#'
+#' @param dmrMatrix Table of differentially methylated regions identified with testDMR and filterDMR
+#' @param maxDist Maximum allowable overlap between DMRs to be considered adjacent
+#' @param minLength Minimum length of collapsed DMR window to include in the output
+#' @return Returns a data.table of collapsed DMRs
+#' @export
+#' @importFrom data.table copy setorder as.data.table setnames
+#' @importFrom GenomicRanges reduce
+#' @importFrom IRanges IRanges
+#' @examples results <- collapseDMR(dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T)
+collapseDMR <- function(
+    dmrMatrix,
+    maxDist = 0,
+    minLength = 1000,
+    reduce = TRUE,
+    annotate = TRUE) {
+
+  x <- data.table::copy(dmrMatrix)
+  x <- x[, c("start", "end") := list(start - maxDist, end + maxDist)]
+  data.table::setorder(x, test, direction, chr, start)
+  collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(test, chr, direction)]
+  data.table::setnames(collapsed, old = c("start", "end"), new = c("dmr_start", "dmr_end"))
+
+  output <- dmrMatrix[collapsed, on = .(chr = chr, direction = direction, test = test, start >= dmr_start, end <= dmr_end),
+                      .(chr,
+                        start = x.start,
+                        end = x.end,
+                        test,
+                        pval = x.pval,
+                        padj = x.padj,
+                        logFC = x.logFC,
+                        direction = direction,
+                        dmr_start = (dmr_start + maxDist),
+                        dmr_end = (dmr_end - maxDist),
+                        dmr_length = (width - (2 * maxDist) - 1))]
+  output <- output[, c("dmr_padj", "dmr_logFC") := list(min(padj),
+                                                        (ifelse(logFC < 0, min(logFC), max(logFC)))),
+                   by = .(test, direction, chr, dmr_start, dmr_end)]
+  output <- output[dmr_length >= minLength]
+
+  if (reduce) {
+    output <- unique(output[, .(chr, test, direction, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch= 0 ])
+  }
+
+  if (annotate) {
+    if (is.null(obj@ref)) {
+      stop("\nReference slot must be filled to annotate.")
+    }
+    genes <- obj@ref |> dplyr::filter(type == "gene") |>
+      dplyr::select(seqid, start, end, gene_name) |>
+      dplyr::distinct(gene_name, .keep_all = TRUE) |>
+      dplyr::rename("chr" = "seqid", "gene" = "gene_name") |>
+      data.table::data.table()
+
+    setkey(output, chr, dmr_start, dmr_end)
+    setkey(genes, chr, start, end)
+    overlaps <- foverlaps(output, genes, by.x = c("chr", "dmr_start", "dmr_end"), by.y = c("chr", "start", "end"), type="any")
+    overlaps[, gene_names := paste(unique(gene), collapse = ", "), by = .(chr, dmr_start, dmr_end)] # Handle multiple overlaps by concatenating gene names
+    overlaps_unique <- unique(overlaps[, .(chr, dmr_start, dmr_end, gene_names)]) # Select necessary columns and remove duplicates
+    output <- merge(output, overlaps_unique, by = c("chr", "dmr_start", "dmr_end"), all.x = TRUE)  # Merge the gene names back into the original output data.table
+
+  }
+
+  return(output)
+
+}
 

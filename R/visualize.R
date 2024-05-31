@@ -464,7 +464,7 @@ heatMap <- function(obj,
                     colors = NULL,
                     trackOverhang = 5000,
                     arrowOverhang = 3000,
-                    nrow = length(genes) | length(regions),
+                    nrow = max(length(genes), length(regions)),
                     legend = TRUE,
                     removeNA = TRUE,
                     width = 500) {
@@ -616,7 +616,7 @@ makePalette <- function(
 #' If output = "dimFeature", returns the amethyst object in each palette option.
 #' @export
 #' @importFrom tidyr gather
-#' @importFrom ggplot2 ggplot aes geom_tile theme_void scale_fill_identity facet_wrap
+#' @importFrom ggplot2 ggplot aes geom_tile theme_void scale_fill_identity facet_wrap ggtitle
 #' @examples testPalette(output = "swatch", n = 30)
 #' @examples testPalette(output = "dimFeature", obj = obj)
 testPalette <- function(output,
@@ -642,7 +642,7 @@ testPalette <- function(output,
       colors <- sample(makePalette(option = i, n = length(unique(obj@metadata$cluster_id))))
       # get average methylation across a gene
       p[[i]] <- dimFeature(obj = obj, colorBy = cluster_id, pointSize = 0.1, colors = colors, reduction = "umap") +
-        theme(legend.position = "none") + ggtitle(paste0("pal ", i))
+        theme(legend.position = "none") + ggplot2::ggtitle(paste0("pal ", i))
     }
     gridExtra::grid.arrange(grobs = p, nrow = 5)
   }
