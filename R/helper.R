@@ -31,6 +31,7 @@ makeWindows <- function(
     obj,
     type,
     genes = NULL,
+    promoter = FALSE,
     stepsize = NULL,
     bed = NULL,
     metric = "percent",
@@ -114,7 +115,7 @@ makeWindows <- function(
           bed_tmp <- copy(bed[[chr]])
           barcode_name <- sub("\\..*$", "", barcode)
 
-          meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")] # pull global methylation level from metadata
+          meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
                                                      start = sites$start[sites$cell_id == barcode],
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
@@ -125,7 +126,7 @@ makeWindows <- function(
           meth_window <- meth_window[n >= nmin, ][, n := NULL]
 
           if (metric == "percent") { summary <- meth_window[, value := (value * 100)] }
-          if (metric == "score") { summary <- meth_window[, value := round((ifelse(value - meth_cell > 0,
+          if (metric == "score") { summary <- meth_window[, value := round((ifelse((value - meth_cell) > 0,
                                                                                    (value - meth_cell)/(1 - meth_cell),
                                                                                    (value - meth_cell)/meth_cell)), 3)] }
           if (metric == "ratio") { summary <- meth_window[, value := round(value / meth_cell, 3)] }
@@ -169,12 +170,12 @@ makeWindows <- function(
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
           h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
           h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
-          meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")] # pull global methylation level from metadata
+          meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           meth_window <- h5[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 3), n = sum(c + t, na.rm = TRUE)), by = window]
           meth_window <- meth_window[n >= nmin, .(window, value)]
 
           if (metric == "percent") { summary <- meth_window[, value := (value * 100)] }
-          if (metric == "score") { summary <- meth_window[, value := round((ifelse(value - meth_cell > 0,
+          if (metric == "score") { summary <- meth_window[, value := round((ifelse((value - meth_cell > 0),
                                                                                    (value - meth_cell)/(1 - meth_cell),
                                                                                    (value - meth_cell)/meth_cell)), 3)] }
           if (metric == "ratio") { summary <- meth_window[, value := round(value / meth_cell, 3)] }
@@ -219,11 +220,23 @@ makeWindows <- function(
       obj@ref <- makeRef(ref = ifelse(species == "human", "hg38", "mm10"))
     }
 
-    bed <- obj@ref |> dplyr::filter(gene_name %in% genes & type == "gene") |>
-      dplyr::select(seqid, start, end, gene_name) |>
-      dplyr::distinct(gene_name, .keep_all = TRUE) |>
-      dplyr::rename("chr" = "seqid", "gene" = "gene_name") |>
-      data.table::data.table()
+    if (!promoter) {
+      bed <- obj@ref |> dplyr::filter(gene_name %in% genes & type == "gene") |>
+        dplyr::select(seqid, start, end, gene_name) |>
+        dplyr::distinct(gene_name, .keep_all = TRUE) |>
+        dplyr::rename("chr" = "seqid", "gene" = "gene_name") |>
+        data.table::data.table()
+    } else if (promoter) {
+      bed <- obj@ref |> dplyr::filter(gene_name %in% genes & type == "gene") |>
+        dplyr::select(seqid, start, end, gene_name, strand) |>
+        dplyr::distinct(gene_name, .keep_all = TRUE) |>
+        dplyr::rename("chr" = "seqid", "gene" = "gene_name") |>
+        data.table::data.table()
+      bed[, `:=`(p_start = ifelse(strand == "+", start - 1500, end - 1500),
+                 p_end = ifelse(strand == "+", start + 1500, end + 1500))] # make bed file for promoter cg
+      bed[, `:=`(start = NULL, end = NULL, strand = NULL)]
+      setnames(bed, c("chr", "gene", "start", "end"))
+    }
 
     chr_groups <- as.list(unique(as.character(bed$chr)))
     bed <- split(bed, bed$chr)

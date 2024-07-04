@@ -429,6 +429,7 @@ filterDMR <- function(
 #' @importFrom IRanges IRanges
 #' @examples results <- collapseDMR(dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T)
 collapseDMR <- function(
+    obj,
     dmrMatrix,
     maxDist = 0,
     minLength = 1000,

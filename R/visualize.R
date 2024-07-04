@@ -352,6 +352,7 @@ dotM <-  function(
   genem <- tidyr::pivot_longer(genem, cols = c(2:ncol(genem)), names_to = "cell_id", values_to = "pctm")
   genem <- dplyr::inner_join(genem, obj@metadata |> tibble::rownames_to_column(var = "cell_id"), by = "cell_id")
   genem <- genem |> dplyr::group_by(.data[[groupBy]], gene) |> dplyr::summarise(pctm = mean(pctm, na.rm = TRUE))
+  genem$gene <- factor(genem$gene, levels = genes)
 
   ggplot2::ggplot(genem, ggplot2::aes(x = gene, y = .data[[groupBy]])) +
     ggplot2::geom_point(aes(size = pctm, color = pctm)) +
@@ -392,7 +393,9 @@ histograM <- function(obj,
                       ncol = length(genes),
                       legend = TRUE,
                       removeNA = TRUE,
-                      width = 500) {
+                      width = 500,
+                      trackScale = 1.5,
+                      colorMax = 100) {
 
   if (!is.null(colors)) {
     pal <- colors
@@ -410,7 +413,7 @@ histograM <- function(obj,
                               aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) &
                               aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
     ngroups <- ncol(toplot) - 3
-    trackHeight <- ngroups * 1.5
+    trackHeight <- ngroups * trackScale
     toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "group", values_to = "pct_m") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
     if (removeNA) {
       toplot <- toplot |> dplyr::filter(!is.na(pct_m))
@@ -428,7 +431,7 @@ histograM <- function(obj,
                                             xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang),
                                             yend = -(trackHeight*1.5)), arrow = arrow(length = unit(trackHeight/40, "cm"))) + xlab(genes[i]) +
       {if (!legend)ggplot2::theme(legend.position = "none")} +
-      ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,100)) + theme(axis.title.y = element_blank()) +
+      ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax)) + theme(axis.title.y = element_blank()) +
       ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed"))
   }
   gridExtra::grid.arrange(grobs = p, ncol = ncol)
