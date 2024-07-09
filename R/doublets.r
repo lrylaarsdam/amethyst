@@ -1,11 +1,3 @@
-library(irlba)
-library(future)
-library(future.apply)
-library(caret)
-library(dplyr)
-library(tibble)
-library(randomForest)
-
 ############################################################################################################################
 #' @title makeDoubletObject
 #' @description This function makes the new object with true cells as well as artificial doublets
@@ -19,7 +11,7 @@ library(randomForest)
 #' @importFrom dplyr left_join mutate
 #' @importFrom tibble rownames_to_column column_to_rownames
 #' @importFrom caret createDataPartition train
-#' @importFrom future multisession plan sequential
+#' @importFrom future multicore plan sequential
 #' @importFrom future.apply future_lapply
 #' @examples dbobj <- makeDoubletObject(obj, simFraction=0.25, threads = 10, genomeMatrices=c("cg_100kb_score", "ch_100k_pct"))
 makeDoubletObject <- function(
@@ -36,7 +28,7 @@ makeDoubletObject <- function(
   }
 
   # Set up parallel processing with a specified number of threads
-  future::plan(future::multisession, workers = threads)  # Configures the number of threads to use
+  future::plan(future::multicore, workers = threads)  # Configures the number of threads to use
 
   # Number of artificial doublets to create
   cell_names <- colnames(as.matrix(obj@genomeMatrices[[genomeMatrices[[1]]]]))
@@ -110,7 +102,7 @@ makeDoubletObject <- function(
           mean(vals, na.rm = TRUE)
         }
       })
-    })
+    }, future.seed = TRUE)
 
     # Bind the results back into a matrix
     doublet_matrix <- do.call(cbind, doublets)
@@ -121,6 +113,11 @@ makeDoubletObject <- function(
     cat("Completed matrix:", matrix_name, "\n")
     return(combined_matrix)
   })
+
+  if (threads > 1) {
+    future::plan(future::sequential)
+    gc()
+  }
 
   # Name the slots in dbobj@genomeMatrices as the original slot
   for (i in seq_along(newMatrices)) {
