@@ -4,14 +4,21 @@
 \alias{collapseDMR}
 \title{collapseDMR}
 \usage{
-collapseDMR(dmrMatrix, max_dist = 0, min_length = 1000, collapse = TRUE)
+collapseDMR(
+  obj,
+  dmrMatrix,
+  maxDist = 0,
+  minLength = 1000,
+  reduce = TRUE,
+  annotate = TRUE
+)
 }
 \arguments{
 \item{dmrMatrix}{Table of differentially methylated regions identified with testDMR and filterDMR}
 
-\item{max_dist}{Maximum allowable overlap between DMRs to be considered adjacent}
+\item{maxDist}{Maximum allowable overlap between DMRs to be considered adjacent}
 
-\item{min_length}{Minimum length of collapsed DMR window to include in the output}
+\item{minLength}{Minimum length of collapsed DMR window to include in the output}
 }
 \value{
 Returns a data.table of collapsed DMRs
@@ -20,5 +27,5 @@ Returns a data.table of collapsed DMRs
 Identify adjacent DMRs
 }
 \examples{
-results <- collapseDMR(dmrs, max_dist = 2000, min_length = 5000, collapse = T)
+results <- collapseDMR(dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T)
 }

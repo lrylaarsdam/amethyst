@@ -14,7 +14,9 @@ histograM(
   ncol = length(genes),
   legend = TRUE,
   removeNA = TRUE,
-  width = 500
+  width = 500,
+  trackScale = 1.5,
+  colorMax = 100
 )
 }
 \arguments{

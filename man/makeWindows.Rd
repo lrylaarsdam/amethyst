@@ -8,6 +8,7 @@ makeWindows(
   obj,
   type,
   genes = NULL,
+  promoter = FALSE,
   stepsize = NULL,
   bed = NULL,
   metric = "percent",
