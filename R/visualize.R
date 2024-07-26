@@ -569,11 +569,11 @@ makePalette <- function(
     option,
     n) {
   if (option == 1) {pal <- c("#004A4A", "#419e9e", "#75C8D2", "#aae3e3", "#cfe3dc", "#d4c8b2", "mistyrose1", "#ffdea3", "#FFD554", "#fcba2b", "#FFA976",  "#FF8B73", "#F05252", "#bd083e")}
-  if (option == 2) {pal <- c("#233A32", "#5b8e7d","#8cb369","#f4e285","#f4a259","#bc4b51")}
+  if (option == 2) {pal <- c("#d84c4b", "#15485d", "#439f9e", "#f2e5dd", "#f08e29", "#df431a")}
   if (option == 3) {pal <- c("#150808","#ec5151","#ffdd6d","#a8dadc")}
   if (option == 4) {pal <- c("#293241","#3d5a80","#98c1d9","#e0fbfc","#ee6c4d")}
-  if (option == 5) {pal <- c("#150808","#ec5151","#ffdd6d","#a8dadc")}
-  if (option == 6) {pal <- c("#0D3B66","#FAF0CA","#F4D35E","#EE964B","#F95738")}
+  if (option == 5) {pal <- c("#00050b", "#0b704e", "#6f9d80", "#e1e9d1", "#fb8b01", "#f34509")}
+  if (option == 6) {pal <- c("#3D7577", "#4A4B1F", "#BDBEBF", "#F69E09", "#E32D12", "#540101")}
   if (option == 7) {pal <- c("#B5DCA5","#F9AB60","#E7576E", "#630661", "#220D50")}
   if (option == 8) {pal <- c("#0D353F","#72CDAE","#E6DAC6","#F5562A","#AB2E44")}
   if (option == 9) {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")}
@@ -584,20 +584,20 @@ makePalette <- function(
   if (option == 14) {pal <- c("#870022", "#db5375","#e86c5f","#f58549","#f2a65a","#eec170", "#ccd0b5","#bbd7d7", "#288989")}
   if (option == 15) {pal <- c("#f7b0be","#ed8e83","#ef3c23","#f15a42","#fac92c","#cfe5cc","#2178ae","#1b4793")}
   if (option == 16) {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
-  if (option == 17) {pal <- c("#227c9d","#17c3b2","#ffcb77","#fef9ef","#fe6d73")}
+  if (option == 17) {pal <- c("#C5C9BC", "#114F5A", "#D08222", "#402742", "#B69BB2")}
   if (option == 18) {pal <- c("#f7ede2","#f6bd60","#f5cac3","#84a59d","#f28482")}
   if (option == 19) {pal <- c("#218380","#73d2de","#ffbc42","#d81159","#8f2d56")}
-  if (option == 20) {pal <- c("#562c2c","#f2542d","#f5dfbb","#0e9594","#127475")}
-  if (option == 21) {pal <- c("#73b7b8","#52a1a3","#76c8b1","#50b99b","#f6cb52","#f3b816","#d23f0f","#f05a29","#dc244b","#af1d3c")}
-  if (option == 22) {pal <- c("#F05252","#FFA976","#66C2A5","#aae3e3","#004A4A","#FF8B73","#A6D854","#419e9e","#FFD92F","#bd083e", "#fcba2b", "#8DA0CB","#75C8D2","#E78AC3","#B2DF8A","#1F78B4","#E5C494","#B3B3B3","#FC8D62","#FB9A99")}
+  if (option == 20) {pal <- c("#383536", "#361F1C", "#A23226", "#D7412E", "#EDBBBC","#979296" )}
+  if (option == 21) {pal <- c("#c46c9f", "#f46b72", "#f0898c", "#feb46b", "#fe9e6c", "#acd2c7", "#bed4bd", "#d3cd79")}
+  if (option == 22) {pal <- c("#B7CFCF", "#D3C75C", "#8BA2CD", "#E2987B", "#37737D")}
   if (option == 23) {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
-  if (option == 24) {pal <- c("#023047","#219ebc","#8ecae6","#ffb703","#fb8500")}
-  if (option == 25) {pal <- c("#885053","#fe5f55","#777da7","#94c9a9","#c6ecae")}
+  if (option == 24) {pal <- c("#7EAA9F", "#892B69", "#6E0B1B", "#C61B24", "#EE5C47", "#fcb9ac")}
+  if (option == 25) {pal <- c("#7C2C47", "#B4141F", "#DF6C26", "#E9B60D", "#BABC36")}
   if (option == 26) {pal <- c("#1c5253", "#306b34","#c3eb78", "#f3ffc6","#b6174b")}
   if (option == 27) {pal <- c("#b6e2dd","#c8ddbb","#e9e5af","#fbdf9d","#fbc99d","#fbb39d","#fba09d")}
   if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")}
-  if (option == 29) {pal <- c("#84a59d","#f6bd60","#f7ede2","#f5cac3","#f28482")}
-  if (option == 30) {pal <- c("#dad2d8","#143642","#0f8b8d","#a8201a","#ec9a29")}
+  if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")}
+  if (option == 30) {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")}
 
   if (n < length(pal)) {
     colors <- sample(pal, size = n)
