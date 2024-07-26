@@ -123,25 +123,29 @@ indexGenes <- function(obj,
 
   # read in each barcode
   output <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
-    h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(file_lead, bar)))
-    h5[, index := 1:.N]
-    # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
-    # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
-    coords <- as.list(ranges$gene_name)
-    index <- furrr::future_map(.x = coords,
-                               .f = function(x) {
-                                 rel_entries <- which(ranges$gene_name == x)
-                                 rel_chr <- ranges$seqid[rel_entries]
-                                 pos_lower_bound <- ranges[rel_entries, 2]
-                                 pos_upper_bound <- ranges[rel_entries, 3]
-                                 h5_loc <- h5[chr == rel_chr & pos %inrange% c(pos_lower_bound, pos_upper_bound)]
-                                 ind <- h5_loc[, .(gene = x, chr = rel_chr, start = min(index), count = .N)]
-                                 ind
-                               }, .progress = FALSE)
-    names(index) <- as.list(ranges$gene_name) # rename the list according to gene names
-    index <- do.call(rbind, index) # bind to make one data frame
-    index$cell_id <- paste(bar) # append the corresponding cell barcode
-    index <- index[index$count != 0, ]
+    tryCatch({
+      h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(file_lead, bar)))
+      h5[, index := 1:.N]
+      # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
+      # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
+      coords <- as.list(ranges$gene_name)
+      index <- furrr::future_map(.x = coords, .f = function(x) {
+        rel_entries <- which(ranges$gene_name == x)
+        rel_chr <- ranges$seqid[rel_entries]
+        pos_lower_bound <- ranges[rel_entries, 2]
+        pos_upper_bound <- ranges[rel_entries, 3]
+        h5_loc <- h5[chr == rel_chr & pos %inrange% c(pos_lower_bound, pos_upper_bound)]
+        ind <- h5_loc[, .(gene = x, chr = rel_chr, start = min(index), count = .N)]
+        ind
+      }, .progress = FALSE)
+      names(index) <- as.list(ranges$gene_name) # rename the list according to gene names
+      index <- do.call(rbind, index) # bind to make one data frame
+      index$cell_id <- paste(bar) # append the corresponding cell barcode
+      index <- index[index$count != 0, ]
+    }, error = function(e) {
+      cat("Error processing data for ", x, ":", conditionMessage(e), "\n")
+      return(NULL)
+    })
   }, .progress = TRUE) # show a progress bar
 
   if (threads > 1) {
@@ -197,18 +201,23 @@ indexChr <- function(obj,
 
   output <- list()
   output <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, bar) {
-    h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar)))
-    h5[, index := 1:.N]
-    # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
-    # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
-    chrs <- as.list(unique(h5$chr[!grepl("_|EBV|M", h5$chr)]))
-    index <- furrr::future_map(chrs,
-                               .f = function(x) {
-                                 ind <- h5[chr == x]
-                                 ind <- ind[, .(cell_id = bar, chr = x, start = min(index), count = .N)]
-                                 ind
-                               }, .progress = FALSE)
-    index <- do.call(rbind, index) # bind to make one data frame
+    tryCatch({
+      h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar)))
+      h5[, index := 1:.N]
+      # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
+      # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
+      chrs <- as.list(unique(h5$chr[!grepl("_|EBV|M", h5$chr)]))
+      index <- furrr::future_map(chrs,
+                                 .f = function(x) {
+                                   ind <- h5[chr == x]
+                                   ind <- ind[, .(cell_id = bar, chr = x, start = min(index), count = .N)]
+                                   ind
+                                 }, .progress = FALSE)
+      index <- do.call(rbind, index) # bind to make one data frame
+    }, error = function(e) {
+      cat("Error processing data for barcode", bar, ":", conditionMessage(e), "\n")
+      return(NULL)
+    })
   }, .progress = TRUE) # show a progress bar
 
   if (threads > 1) {

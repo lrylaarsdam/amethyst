@@ -4,7 +4,7 @@
 \alias{runCluster}
 \title{runCluster}
 \usage{
-runCluster(obj, k_phenograph = 50)
+runCluster(obj, k_phenograph = 50, reduction = "irlba")
 }
 \arguments{
 \item{obj}{Amethyst object to perform clustering on}

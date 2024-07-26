@@ -7,36 +7,55 @@
 makeWindows(
   obj,
   type,
-  metric = "percent",
-  groupBy = NULL,
   genes = NULL,
+  promoter = FALSE,
   stepsize = NULL,
+  bed = NULL,
+  metric = "percent",
+  index = paste0("chr_", tolower(type)),
+  species = "human",
+  groupBy = NULL,
   threads = 1,
-  nmin = 5
+  futureType = "multicore",
+  nmin = 2,
+  save = FALSE
 )
 }
 \arguments{
 \item{obj}{Object for which to calculate methylation windows}
 
-\item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
+\item{type}{What type of methylation to retrieve; i.e. "CH" or "CG"}
 
-\item{metric}{Calculate either percent, score, or ratio}
-
-\item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group}
-
-\item{genes}{Optional genes to include. Do not specify both genes and stepsize}
+\item{genes}{Optional genes to calculate \% methylation over body}
 
 \item{stepsize}{If specified, the methylation levels will be calculated over genomic windows of the indicated size}
 
+\item{bed}{Optional bed file to input. If specified, methylation levels will be calculated over input regions}
+
+\item{metric}{Calculate either methylation percent, score, or ratio}
+
+\item{index}{If calculating genomic windows, specify the name of the chr index in the index slot.
+This index should contain the coordinates in the hdf5 file corresponding to each chromosome. Reduces memory constraints.}
+
+\item{species}{"human" or "mouse". This determines which chromosome list is used.}
+
+\item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group}
+
 \item{threads}{Enables multithreading}
+
+\item{futureType}{Method of parallelization, i.e. "multicore" (recommended) or "multisession". Multisession is more
+memory-efficient, but make sure your workspace is as small as possible before using.}
+
+\item{nmin}{Minimum number of observations for the window to be included.}
+
+\item{save}{Boolean indicating whether to save the intermediate output by chromosome. Good for very large datasets.}
 }
 \value{
-Returns a data frame of the calculated methylation windows with the genomic region or gene name as rows and cell barcode or group as columns
+Returns a data frame with columns as cells and rows as either genes or genomic windows
 }
 \description{
-Calculate methylation levels across a fixed genomic window or gene body.
+Calculate methylation levels across a fixed genomic window, bed file coordinates, or gene body.
 }
 \examples{
-makeWindows(obj = obj, groupBy = "cluster_id", genes = c("SATB2", "GAD1"), type = "CH", metric = "percent", threads = 10)
-makeWindows(obj = obj, stepsize = 100000, type = "CG", metric = "score")
+makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), species = "human", metric = "percent")
 }

@@ -4,17 +4,17 @@
 \alias{regressCovBias}
 \title{regressCovBias}
 \usage{
-regressCovBias(obj)
+regressCovBias(obj, reduction = "irlba")
 }
 \arguments{
 \item{obj}{Amethyst object containing irlba matrix to regress coverage bias from}
 }
 \value{
-Returns the residuals in the irlba slot
+Returns the residuals
 }
 \description{
 Calculate the residuals of a logistic regression of cell coverage vs. each irlba dimension
 }
 \examples{
-obj <- regressCovBias(obj)
+obj@reductions[["irlba_regressed"]] <- regressCovBias(obj)
 }
