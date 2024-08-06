@@ -2,7 +2,7 @@
 ### PACKAGE INSTALLATION ###
 
 If you are new to R, you may need to install some of the dependencies:
-```{r} 
+```{r eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
 BiocManager::install()
@@ -16,7 +16,7 @@ BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "fut
 
 Next, install a few additional dependencies found on Github, including amethyst itself.
 
-```{r}
+```{r eval=FALSE}
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 devtools::install_github("lrylaarsdam/amethyst")
@@ -24,7 +24,7 @@ devtools::install_github("lrylaarsdam/amethyst")
 
 Now load libraries into R:
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(amethyst)
 library(data.table)
 library(ggplot2)
@@ -46,11 +46,10 @@ First, download the practice data. This vignette comes with site-level CpG methy
 
 * Note: By default, data will download to the ~/Downloads folder. Change if a different directory is desired.
 
-```{r}
-setwd("~/Downloads/")
-download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "./pbmc_vignette.h5", method = "curl") # Contains site-level methylation information for each cell
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette_cellInfo.txt", "./pbmc_vignette_cellInfo.txt") # Summary QC statistics for each cell
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette.annot", "./pbmc_vignette.annot") # Simulated batch metadata
+```{r eval=FALSE}
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "~/Downloads/pbmc_vignette.h5", method = "curl") # Contains site-level methylation information for each cell
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette_cellInfo.txt", "~/Downloads/pbmc_vignette_cellInfo.txt") # Summary QC statistics for each cell
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette.annot", "~/Downloads/pbmc_vignette.annot") # Simulated batch metadata
 ```
 
 ########################################################################################################
@@ -65,8 +64,8 @@ obj <- createObject()
 Next, we need to add metadata about each cell. Useful metadata includes quality control metrics contained in the .cellInfo.txt intermediate output or .annot files, if using the Adey lab Premethyst workflow.
 
 ```{r}
-obj <- addCellInfo(obj, file = "./pbmc_vignette_cellInfo.txt")
-obj <- addAnnot(obj, file = "./pbmc_vignette.annot", name = "batch") 
+obj <- addCellInfo(obj, file = "~/Downloads/pbmc_vignette_cellInfo.txt")
+obj <- addAnnot(obj, file = "~/Downloads/pbmc_vignette.annot", name = "batch") 
 head(obj@metadata)
 ```
 
@@ -82,7 +81,7 @@ obj@metadata <- obj@metadata |> dplyr::filter(cov > 100000 & cov < 40000000)
 Next, we need to specify the location of the h5 file containing site-level methylation data for each barcode. In this case, every barcode belongs to the same h5 file, but an unlimited number of h5 files can be used in the same object. Row names are barcodes and the "paths" column specifies each path.
 
 ```{r}
-obj@h5paths <- data.frame(row.names = rownames(obj@metadata), paths = rep("./pbmc_vignette.h5", length(rownames(obj@metadata))))
+obj@h5paths <- data.frame(row.names = rownames(obj@metadata), paths = rep("~/Downloads/pbmc_vignette.h5", length(rownames(obj@metadata))))
 head(obj@h5paths)
 ```
 
@@ -92,7 +91,8 @@ head(obj@h5paths)
 The next step is to cluster cells, which we typically do based on methylation values over fixed genomic windows. 
 An initial indexing helps reduce the computational load by determining the locations corresponding to each chromosome in every h5 file and only calculating across one at a time.
 
-* Note: You may have to copy/paste any code reading the h5 file (e.g., makeWindows) directly into the console instead of running the chunk
+* Note: You may have to copy/paste any code reading the h5 file (e.g., makeWindows) directly into the console instead of running the chunk, if using the .Rmd template
+
 ```{r}
 obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 1) # This would usually take place with a lot more threads
 obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, # Amethyst object to calculate methylation levels over
@@ -148,7 +148,7 @@ obj <- runTsne(obj, perplexity = 10, method = "euclidean", theta = 0.5, reductio
 ### Visualizing the results ###
 First, plot the UMAP or TSNE coordinates of the cells with the color corresponding to cluster membership.
 
-```{r}
+```{r, fig.width=10, fig.height=4}
 p1 <- dimFeature(obj, colorBy = cluster_id, reduction = "umap") + ggtitle("UMAP")
 p2 <- dimFeature(obj, colorBy = cluster_id, reduction = "tsne") + ggtitle("TSNE")
 plot_grid(p1, p2)
@@ -159,8 +159,8 @@ The makeWindows function can also calculate methylation levels over a bed file o
 Here is another clustering example using a set of pre-identified PBMC differentially methylated regions (DMRs).
 
 ```{r}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "./pbmc_dmr.bed") 
-obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "./pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2, species = "human")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_dmr.bed") 
+obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2, species = "human")
 obj@genomeMatrices[["pbmc_dmrs"]] <- obj@genomeMatrices[["pbmc_dmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_dmrs"]])) >= 10, ] 
 dimEstimate(obj, genomeMatrices = c("pbmc_dmrs"), dims = c(10), threshold = 0.90) # 7
 set.seed(111)
@@ -170,7 +170,7 @@ obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
 
 Now re-run clustering and UMAP:
 
-```{r}
+```{r, fig.width=6, fig.height=4}
 set.seed(111)
 obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
 set.seed(111)
@@ -181,30 +181,30 @@ dimFeature(obj, colorBy = cluster_id, reduction = "umap")
 In this context, DMRs worked much better than genomic windows for clustering.
 dimFeature uses ggplot logic, so you can easily modify plots as needed. For example:
 
-```{r}
+```{r, fig.width=12, fig.height=4}
 dimFeature(obj, colorBy = cluster_id) + facet_wrap(vars(batch)) # Batch is simulated to illustrate function utility. Any column in the metadata will work.
 ```
 
 (Optional) If you want to make the umap/tsne plots look nicer, amethyst provides many built-in color palettes:
 
-```{r}
+```{r, fig.width=3, fig.height=5}
 testPalette(output = "swatch", n = length(unique(obj@metadata$cluster_id)))
 ```
 
-```{r}
+```{r, fig.width=6, fig.height=4}
 pal <- c("#F9AB60", "#E7576E", "#630661", "#B5DCA5") # makePalette(option = 7, n = 4) 
 dimFeature(obj, colorBy = cluster_id, colors = pal, pointSize = 1)
 ```
 
 Show the distribution of cluster membership between samples with sampleComp. Plots can be easily modified with ggplot command logic.
 
-```{r}
+```{r, fig.width=5, fig.height=5}
 sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) 
 ```
 
 dimFeature is useful for visualizing how different parameters in the cellInfo file are distributed throughout the UMAP:
 
-```{r}
+```{r, fig.width=10, fig.height=4}
 p1 <- dimFeature(obj, colorBy = log(cov), pointSize = 1) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Coverage distribution")
 p2 <- dimFeature(obj, colorBy = mcg_pct, pointSize = 1) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Global %mCG distribution")
 plot_grid(p1, p2)
@@ -240,7 +240,7 @@ obj@genomeMatrices[["cg_cluster_tracks"]] <- cluster1kbwindows[["pct_matrix"]]
 
 Now you can view methylation patterns over key marker genes:
 
-```{r}
+```{r, fig.width=15, fig.height=10}
 heatMap(obj, 
         genes = c("SPI1", "CD2", "S100A8",  "CD79A", "CD3G", "ELANE", "MPO", 
            "S100A8", "MPEG1", "IRF8", "CD74", "GZMK", "CD3E", "CD3D", "KIR2DL4", "KLRB1"), 
@@ -313,8 +313,8 @@ While few exist, we have put aggregated methylation levels per group over high-c
 First download this data and calculate average methylation levels per cluster for each DMR (windows or any feature can also work)
 
 ```{r}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_ref.RData", "./pbmc_ref.RData") 
-ref <- readRDS("./pbmc_ref.RData")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData") 
+ref <- readRDS("~/Downloads/pbmc_ref.RData")
 
 obj@genomeMatrices[["pbmc_dmrs_aggregated"]] <- aggregateMatrix(obj, matrix = "pbmc_dmrs", groupBy = "cluster_id")
 ```
@@ -439,7 +439,7 @@ heatMap(obj, matrix = "cg_type_tracks", regions = top_dmrs$location[top_dmrs$dir
 Further interpretation of the results can be explored using a wide variety of packages available on R.
 In this example, we will use the topGO package to test for Gene Ontology (GO) term enrichments for genes with hypomethylated regions in the T cell group.
 
-``` {r}
+```{r, message=FALSE}
 library(topGO)
 background <- rownames(obj@genomeMatrices[["cg_promoter"]]) # all genes tested 
 query <- unlist(strsplit(collapsed_dmrs$gene_names[collapsed_dmrs$type == "T" & collapsed_dmrs$direction == "hypo"], ", "))
