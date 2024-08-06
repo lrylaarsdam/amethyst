@@ -35,9 +35,9 @@ devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 
 ## Usage
 
-To become familiar with the Amethyst workflow, we recommend beginning with the [pbmc vignette](https://github.com/lrylaarsdam/amethyst/blob/dev/pbmc_vignette/pbmc_vignette.html), which is focused on CG methylation and applicable to any tissue. 
+To become familiar with the Amethyst workflow, we recommend beginning with the [pbmc vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/dev/pbmc_vignette/pbmc_vignette.html), which is focused on CG methylation and applicable to any tissue. 
 
-Certain tissues - such as the brain and stem cells - also contain high levels of non-CG methylation and necessitate a very different workflow. After completing the pbmc vignette, we recommend going over the [brain vignette](https://github.com/lrylaarsdam/amethyst/blob/dev/brain_vignette/brain_vignette.html) for CH-specific analysis.
+Certain tissues - such as the brain and stem cells - also contain high levels of non-CG methylation and necessitate a very different workflow. After completing the pbmc vignette, we recommend going over the [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/dev/brain_vignette/brain_vignette.html) for CH-specific analysis.
 
 Additional vignettes for doublet detection, batch integration, subsetting, and other utilities will be coming shortly.
 
@@ -48,3 +48,5 @@ Amethyst is still a work in progress. Please let us know if any [issues](https:/
 ## License
 
 Amethyst is distributed under the MIT License. Please see LICENSE.txt for further information. 
+
+
