@@ -3,7 +3,9 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-<img src="https://github.com/lrylaarsdam/amethyst/blob/dev/images/amethyst.png?raw=true" alt="Amethyst" width="200" />
+<p align="center">
+  <img src="https://github.com/lrylaarsdam/amethyst/blob/dev/images/amethyst.png?raw=true" alt="Amethyst" width="250" />
+</p>
 
 Single-cell sequencing technologies have revolutionized biomedical research by enabling deconvolution of cell type-specific properties in highly heterogeneous tissue. While robust tools have been developed to handle bioinformatic challenges posed by single-cell RNA and ATAC data, options for emergent modalities such methylation are much more limited, impeding the utility of results. Here we present Amethyst, the first comprehensive R package for atlas-scale single-cell methylation sequencing data analysis. Amethyst takes base-level methylation calls and facilitates batch integration, doublet detection, dimensionality reduction, clustering, cell type annotation, differentially methylated region calling, and interpretation of results all in one streamlined platform. Versatile visualization functions mediate rapid interaction with the data in a local environment. Efforts like Amethyst will increase accessibility to single-cell methylation data interpretation, accelerating progress in understanding principles of this critical epigenetic modification across diverse contexts.  
 
