@@ -48,6 +48,7 @@ methods::setClass("amethyst", slots = c(
 #' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
 #' @return Returns a populated amethyst object for futher analysis.
 #' @importFrom data.table fread
+#' @importFrom dplyr filter
 #' @importFrom Matrix readMM
 #' @export
 #' @examples obj <- createScaleObject(directory = "~/Downloads/scalebio", genomeMatrices = c("CG.score"))
