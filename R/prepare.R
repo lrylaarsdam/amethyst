@@ -19,7 +19,13 @@ createObject <- function(h5paths = NULL,
                          index = NULL,
                          metadata = NULL,
                          ref = NULL) {
-  methods::new(Class = "amethyst")
+  methods::new(Class = "amethyst",
+               h5paths = h5paths,
+               genomeMatrices = genomeMatrices,
+               reductions = reductions,
+               index = index,
+               metadata = metadata,
+               ref = ref)
 }
 
 methods::setClass("amethyst", slots = c(
@@ -30,6 +36,41 @@ methods::setClass("amethyst", slots = c(
   metadata = "ANY",
   ref = "ANY"
 ))
+
+############################################################################################################################
+# With input from Dave Ross and Felix Schlesinger at Scale Biosciences
+#' @title createScaleObject
+#' @description Helper function for converting Scale Biosciences pipeline output into an Amethyst object
+#'
+#' @param directory Path to the directory containing output from the Scale Biosciences computational pipeline.
+#' The folder is expected to contain an ".allCells.csv" file with metadata, a genome_bin_matrix folder with pre-constructed
+#' matrices, and a methylation_coverage folder containing .h5 files with base-level methylation information for each cell.
+#' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
+#' @return Returns a populated amethyst object for futher analysis.
+#' @importFrom data.table fread
+#' @importFrom Matrix readMM
+#' @export
+#' @examples obj <- createScaleObject(directory = "~/Downloads/scalebio", genomeMatrices = c("CG.score"))
+createScaleObject <- function(directory,
+                              genomeMatrices = NULL) {
+  sample <- sub("\\.allCells\\.csv$", "", grep("\\.allCells\\.csv$", list.files(directory), value = TRUE))
+  metadata <- read.csv(paste0(directory, "/", sample, ".allCells.csv"), row.names = "cell_id") |> dplyr::filter(pass == "pass")
+
+  obj <- createObject(
+    metadata = metadata,
+    h5paths = data.frame(row.names = rownames(metadata), paths = file.path(directory, "methylation_coverage", "amethyst", sample, paste0(sample, ".", metadata$tgmt_well, "_cov.h5")))
+  )
+
+  if (!is.null(genomeMatrices)) {
+    for (i in 1:length(genomeMatrices)) {
+      mtx <- as.array(Matrix::readMM(file.path(directory, "genome_bin_matrix", paste0(sample, ".", genomeMatrices[[i]], ".mtx.gz"))))
+      features <- data.table::fread(file.path(directory, "genome_bin_matrix", paste0(sample, ".CG.features.tsv")), header = FALSE)
+      dimnames(mtx) <- list(features$V1, rownames(metadata))
+      obj@genomeMatrices[[genomeMatrices[[i]]]] <- as.data.frame(mtx)
+    }
+  }
+  return(obj)
+}
 
 ############################################################################################################################
 #' @title extractAttributes
