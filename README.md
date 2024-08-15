@@ -39,13 +39,13 @@ devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 
 Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
 
-If you are using the Scale Biosciences pipeline, we have written a helper function to generate an Amethyst object from the output. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
+If you are using the Scale Biosciences pipeline, we have written a helper function to load the output into an Amethyst object. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
 
 ```{r}
 obj <- createScaleObject(directory = "path/to/scalebio/output/folder")
 ```
 
-You may also want to load the automatically generated matrices. Below is an example of how to load the "CG.score" matrix. However, please make sure your computational resources are equipped to handle the entire matrix size first.
+You may also wish to load any pre-generated matrices, which would allow one to skip past the makeWindows step in the vignette. Below is an example of how to load the "CG.score" matrix. Double-check your computational resources are capable of handling the entire matrix size first.
 
 ```{r}
 obj <- createScaleObject(directory = "path/to/scalebio/output/folder", genomeMatrices = c("CG.score"))
@@ -66,4 +66,5 @@ Amethyst is still a work in progress. Please let us know if any [issues](https:/
 ## License
 
 Amethyst is distributed under the MIT License. Please see LICENSE.txt for further information. 
+
 
