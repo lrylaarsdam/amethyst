@@ -27,7 +27,7 @@ BiocManager::install()
 
 library(BiocManager)
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "methods", 
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", 
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 
@@ -35,7 +35,23 @@ devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 ```
 
-## Usage
+## Getting Started
+
+Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available here: [Premethyst](https://github.com/adeylab/premethyst). Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
+
+If you are using the Scale Biosciences pipeline, we have written a helper function to generate an Amethyst object from the output. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
+
+```{r}
+obj <- createScaleObject(directory = "path/to/scalebio/output/folder")
+```
+
+You may also want to load the automatically generated matrices. Below is an example of how to load the "CG.score" matrix. However, please make sure your computational resources are equipped to handle the entire matrix size first.
+
+```{r}
+obj <- createScaleObject(directory = "path/to/scalebio/output/folder", genomeMatrices = c("CG.score"))
+```
+
+## Vignettes
 
 To become familiar with the Amethyst workflow, we recommend beginning with the [pbmc vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/pbmc_vignette/pbmc_vignette.html), which is focused on CG methylation and applicable to any tissue. 
 
