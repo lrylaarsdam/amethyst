@@ -115,7 +115,7 @@ makeRef <- function(ref,
   } else if (ref == "mm10") {
     options(timeout = 1000)
     gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
-  } else if (gtf) {
+  } else if (!is.null(gtf)) {
     gtf <- rtracklayer::readGFF(gtf)
   } else {
     print("Ref was different from default (hg38/mm10) but not provided. Please provide unzipped gtf reference annotation file.")
