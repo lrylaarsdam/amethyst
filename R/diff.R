@@ -155,6 +155,11 @@ calcSmoothedWindows <- function(
                124595110, 130694993, 122082543, 120129022, 120421639, 124902244, 104043685, 98207768,
                94987271, 90702639, 61431566, 171031299, 91744698))
 
+    # Apply the function to each chromosome and combine results
+    genomechunks <- do.call(rbind, lapply(1:nrow(chromosome_sizes), function(i) {
+      generate_windows(chromosome_sizes$chromosome[i], chromosome_sizes$size[i])
+    }))
+
   } else if (!(species %in% c("human", "mouse"))) {
     stop("Only human and mouse data can be processed at this time.")
   }
