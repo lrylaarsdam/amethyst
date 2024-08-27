@@ -63,6 +63,11 @@ Additional vignettes for doublet detection, batch integration, subsetting, and o
 
 Amethyst is still a work in progress. Please let us know if any [issues](https://github.com/lrylaarsdam/amethyst/issues) come up. 
 
+## Updates
+
+- Aug 27 2024: Added compatibility for more genome builds. 
+  Affected functions: makeRef, fetchMarkers, makeWindows, calcSmoothedWindows
+
 ## License
 
 Amethyst is distributed under the MIT License. Please see LICENSE.txt for further information. 
