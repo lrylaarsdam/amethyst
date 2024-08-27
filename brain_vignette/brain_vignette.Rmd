@@ -1,7 +1,14 @@
+---
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+---
 ########################################################################################################
 ### PACKAGE INSTALLATION ###
 
 If you are new to R, you may need to install some of the dependencies:
+
 ```{r eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
@@ -9,14 +16,14 @@ BiocManager::install()
 
 library(BiocManager)
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "methods", 
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", 
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 ```
 
 Next, install a few additional dependencies found on Github, including amethyst itself.
 
-```{r eval=FALSE}
+```{r, eval=FALSE}
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 devtools::install_github("lrylaarsdam/amethyst")
@@ -24,7 +31,7 @@ devtools::install_github("lrylaarsdam/amethyst")
 
 Now load libraries into R:
 
-```{r message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(amethyst)
 library(data.table)
 library(ggplot2)
@@ -82,7 +89,7 @@ head(obj@metadata)
 While not essential, it can be helpful to filter cells right away so downstream functions don't perform calculations
 For cells that will not be used. This can easily be done with dplyr logic.
 
-```{r}
+```{r, fig.width=5, fig.height=4}
 ggplot(obj@metadata, aes(x = cov)) + geom_histogram(bins = 10) 
 obj@metadata <- obj@metadata |> dplyr::filter(cov > 1000000 & mch_pct < 12)
 ```
@@ -93,9 +100,9 @@ Initial indexing helps reduce the computational load by determining the location
 *** Note: The output of these steps is already in your workspace. You can run them again if you want, but prepare to wait a while.
 ```{r eval=FALSE}
 obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 1) # might take up to 5 minutes
-obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 1, index = "chr_cg", nmin = 2, species = "human") # might take 5-10 minutes
+obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score", threads = 1, index = "chr_cg", nmin = 2) # might take 5-10 minutes
 obj@index[["chr_ch"]] <- indexChr(obj, type = "CH", threads = 1)
-obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 1, species = "human", index = "chr_ch", nmin = 5)
+obj@genomeMatrices[["ch_100k_pct"]] <- makeWindows(obj, stepsize = 100000, type = "CH", metric = "percent", threads = 1, index = "chr_ch", nmin = 5)
 ```
 
 Next, perform dimensionality reduction with irlba.  In this example, the number of requested output dimensions is low because brain_vignette.h5 has 50 cells. If you are unsure how many dimensions to use, the dimEstimate function can help estimate the number needed to explain the desired variance threshold. 
@@ -179,7 +186,6 @@ The first step is to load an annotation file for the reference genome so amethys
 
 ```{r}
 obj@ref <- makeRef("hg38") 
-head(obj@ref)
 ```
 
 Next, calculate methylation levels in short genomic windows for each cluster. We recommend 500bp windows, but 1kb are used here since the dataset is smaller.
@@ -191,7 +197,7 @@ cluster1kbwindows <- calcSmoothedWindows(obj,
                                          threads = 1,
                                          step = 1000,
                                          smooth = 3,
-                                         species = "human",
+                                         genome = "hg38",
                                          index = "chr_cg",
                                          groupBy = "cluster_id",
                                          returnSumMatrix = TRUE, # save sum matrix for DMR analysis
@@ -235,7 +241,7 @@ Unlike mCG, this unique methylation signature accumulates across gene bodies and
 First calculate the mCH levels over a subset of genes that were shown to have differential methylation in the brain (PMCID: PMC8494641)
 *** Note: The output of these steps is already in your workspace. You can run them again if you want, but prepare to wait a while.
 ```{r eval=FALSE}
-obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = fetchMarkers("hg38", "brain"), type = "CH", metric = "percent", threads = 10, species = "human", index = "chr_ch", nmin = 2) # already run and in workspace
+obj@genomeMatrices[["gene_ch"]] <- makeWindows(obj, genes = fetchMarkers("human", "brain"), type = "CH", metric = "percent", threads = 10, index = "chr_ch", nmin = 2) # already run and in workspace
 ```
 
 Then plot the mCH levels over gene bodies with functions like dotM:
@@ -307,7 +313,7 @@ setnames(obj@genomeMatrices[["cg_type_tracks"]], c("chr", "start", "end", "Astro
 heatMap(obj, 
         genes = c("AQP4", "SLC17A7","DLX1", "C1QA", "MOG"), 
         matrix = "cg_type_tracks", 
-        nrow = 4,
+        nrow = 3,
         legend = FALSE,
         width = 1000)
 ```
