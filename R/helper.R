@@ -19,7 +19,7 @@
 #' @return Returns a data frame with columns as cells and rows as either genes or genomic windows
 #' @export
 #' @examples makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), metric = "percent")
-#' @importFrom data.table data.table tstrsplit := setorder setDT
+#' @importFrom data.table data.table tstrsplit := setorder setDT rbindlist
 #' @importFrom dplyr pull filter select mutate
 #' @importFrom furrr future_map
 #' @importFrom future plan multicore sequential
@@ -63,12 +63,9 @@ makeWindows <- function(
     }
   }
 
-  # get barcodes and paths from amethyst object
+  # check paths exist
   if (is.null(obj@h5paths)) {
     stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
-  } else {
-    barcodes <- as.list(rownames(obj@h5paths))
-    paths <- as.list(obj@h5paths$paths)
   }
 
   # check index
@@ -101,6 +98,10 @@ makeWindows <- function(
 
       # get index positions
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
+
+      # get paths
+      barcodes <- as.list(rownames(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]))
+      paths <- as.list(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]$paths)
 
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
@@ -138,7 +139,7 @@ makeWindows <- function(
       cat("\nCompleted ", chr,"\n")
     }
 
-    windows_merged <- do.call(rbind, by_chr)
+    windows_merged <- data.table::rbindlist(by_chr, fill = TRUE, use.names = TRUE)
     data.table::setorder(windows_merged, chr, start)
     windows_merged <- windows_merged[, window := paste0(chr, "_", start, "_", end)]
     windows_merged[, c("chr", "start", "end") := NULL]
@@ -150,8 +151,13 @@ makeWindows <- function(
   if (!is.null(stepsize)) {
 
     for (chr in chr_groups) {
+
       # get index positions
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
+
+      # get paths
+      barcodes <- as.list(rownames(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]))
+      paths <- as.list(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]$paths)
 
       windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
         if (futureType == "multisession") {
@@ -191,7 +197,7 @@ makeWindows <- function(
       cat("\nCompleted ", chr,"\n")
     }
 
-    windows_merged <- do.call(rbind, by_chr)
+    windows_merged <- data.table::rbindlist(by_chr, fill = TRUE, use.names = TRUE)
 
     # sort by chr and start just in case
     windows_merged <- windows_merged[, c("chr", "start", "end") := {
@@ -239,6 +245,10 @@ makeWindows <- function(
       # get index positions
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
 
+      # get paths
+      barcodes <- as.list(rownames(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]))
+      paths <- as.list(obj@h5paths[rownames(obj@h5paths) %in% sites$cell_id, , drop = FALSE]$paths)
+
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
         tryCatch({
@@ -268,7 +278,7 @@ makeWindows <- function(
       cat(paste0("\nCompleted ", bed[[chr]][["gene"]], " in ", chr))
     }
 
-    windows_merged <- do.call(rbind, by_chr)
+    windows_merged <- data.table::rbindlist(by_chr, fill = TRUE, use.names = TRUE)
     windows_merged <- windows_merged |> tibble::column_to_rownames(var = "gene")
 
   }
