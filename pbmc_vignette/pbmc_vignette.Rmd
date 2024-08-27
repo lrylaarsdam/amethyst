@@ -123,7 +123,7 @@ obj@genomeMatrices[["cg_100k_score"]] <- obj@genomeMatrices[["cg_100k_score"]][r
 ```
 
 Next, perform dimensionality reduction with irlba. If you are unsure how many dimensions to use, the dimEstimate function can estimate the number needed to explain the desired variance threshold.
-*Note: In this example, the number of requested output dimensions is low because brain_vignette.h5 has 50 cells. 
+*Note: In this example, the number of requested output dimensions is low because pbmc_vignette.h5 has 50 cells. 
 
 ```{r}
 dimEstimate(obj, genomeMatrices = c("cg_100k_score"), dims = c(10), threshold = 0.95)
@@ -138,7 +138,7 @@ obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba") 
 ```
 
 Now determine cluster membership using the Rphenograph package.
-*Note: In this example, k_phenograph and neighbors parameters are low because brain_vignette.h5 has 50 cells.
+*Note: In this example, k_phenograph and neighbors parameters are low because pbmc_vignette.h5 has 50 cells.
 
 ```{r}
 set.seed(111)
