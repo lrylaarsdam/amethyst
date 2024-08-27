@@ -1,3 +1,9 @@
+---
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+---
 ########################################################################################################
 ### PACKAGE INSTALLATION ###
 
@@ -9,7 +15,7 @@ BiocManager::install()
 
 library(BiocManager)
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "methods", 
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", 
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 ```
@@ -54,7 +60,7 @@ download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_
 
 ```{r, include=FALSE}
 # Loading local workspace to speed up each knitr iteration
-load("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/pbmc_vignette/pbmc_vignette_workspace.RData")
+load("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/pbmc_vignette/pbmc_vignette_workspace.RData")
 ```
 
 ########################################################################################################
@@ -78,7 +84,7 @@ While not essential, it can be helpful to filter cells with outlying coverage va
 
 * Note: vignette data has been pre-filtered. We recommend cells have a minimum of 1M cytosines covered.
 
-```{r}
+```{r, fig.width=5, fig.height=4}
 ggplot(obj@metadata, aes(x = cov)) + geom_histogram(bins = 10) 
 obj@metadata <- obj@metadata |> dplyr::filter(cov > 100000 & cov < 40000000)
 ```
@@ -106,15 +112,14 @@ obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj,
                                                      metric = "score", 
                                                      threads = 1, 
                                                      index = "chr_cg", 
-                                                     nmin = 2, 
-                                                     species = "human") 
+                                                     nmin = 2) 
 ```
 
 You may want to remove windows where many values are NA. The appropriate threshold will highly depend on how big the windows are and how many cells you have.
 In this case, since the vignette data is high coverage and the genomic windows are large, I am going to filter for at least 90% of the cells have values in that window.
 
 ```{r, eval = FALSE}
-obj@genomeMatrices[["cg_100k_score"]] <- obj@genomeMatrices[["cg_100k_score"]][rowSums(!is.na(obj@genomeMatrices[["cg_100k_score"]])) >= 45, ]
+obj@genomeMatrices[["cg_100k_score"]] <- obj@genomeMatrices[["cg_100k_score"]][rowSums(!is.na(obj@genomeMatrices[["cg_100k_score"]])) >= nrow(obj@metadata)*.9, ]
 ```
 
 Next, perform dimensionality reduction with irlba. If you are unsure how many dimensions to use, the dimEstimate function can estimate the number needed to explain the desired variance threshold.
@@ -165,8 +170,8 @@ Here is another clustering example using a set of pre-identified PBMC differenti
 
 ```{r, message=FALSE, eval = FALSE}
 download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_dmr.bed") 
-obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2, species = "human")
-obj@genomeMatrices[["pbmc_dmrs"]] <- obj@genomeMatrices[["pbmc_dmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_dmrs"]])) >= 10, ] 
+obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2)
+obj@genomeMatrices[["pbmc_dmrs"]] <- obj@genomeMatrices[["pbmc_dmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_dmrs"]])) >= nrow(obj@metadata)*.2, ] 
 ```
 
 Now re-run irlba with the DMR-based windows:
@@ -240,7 +245,7 @@ cluster1kbwindows <- calcSmoothedWindows(obj,
                                          threads = 1,
                                          step = 1000,
                                          smooth = 3,
-                                         species = "human",
+                                         genome = "hg38",
                                          index = "chr_cg",
                                          groupBy = "cluster_id",
                                          returnSumMatrix = TRUE, # save sum matrix for DMR analysis
@@ -280,8 +285,7 @@ obj@genomeMatrices[["cg_promoter"]] <- makeWindows(obj,
                                                      metric = "percent", 
                                                      threads = 1, 
                                                      index = "chr_cg", 
-                                                     nmin = 2, 
-                                                     species = "human") 
+                                                     nmin = 2) 
 # subsetting to genes with values in at least 5 cells
 obj@genomeMatrices[["cg_promoter"]] <- obj@genomeMatrices[["cg_promoter"]][rowSums(!is.na(obj@genomeMatrices[["cg_promoter"]])) >= 10, ]
 ```

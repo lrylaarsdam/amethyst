@@ -469,8 +469,7 @@ obj@genomeMatrices[[&quot;cg_100k_score&quot;]] &lt;- makeWindows(obj,
                                                      metric = &quot;score&quot;, 
                                                      threads = 1, 
                                                      index = &quot;chr_cg&quot;, 
-                                                     nmin = 2, 
-                                                     species = &quot;human&quot;) </code></pre>
+                                                     nmin = 2) </code></pre>
 <p>You may want to remove windows where many values are NA. The
 appropriate threshold will highly depend on how big the windows are and
 how many cells you have. In this case, since the vignette data is high
@@ -501,8 +500,8 @@ obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&q
 ##   -k is set to 10</code></pre>
 <pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
 ##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
-##   Build undirected graph from the weighted links...DONE ~ 0.007 s
-##   Run louvain clustering on the graph ...DONE ~ 0.002 s</code></pre>
+##   Build undirected graph from the weighted links...DONE ~ 0.008 s
+##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
 <pre><code>## Run Rphenograph DONE, totally takes 0.0109999999999992s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.5290332 
@@ -531,7 +530,7 @@ levels over a bed file or genes (not recommended unless you are
 calculating %mCH.) Here is another clustering example using a set of
 pre-identified PBMC differentially methylated regions (DMRs).</p>
 <pre class="r"><code>download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_highconfidence_dmrs.bed&quot;, &quot;~/Downloads/pbmc_dmr.bed&quot;) 
-obj@genomeMatrices[[&quot;pbmc_dmrs&quot;]] &lt;- makeWindows(obj, bed = &quot;~/Downloads/pbmc_dmr.bed&quot;, type = &quot;CG&quot;, metric = &quot;percent&quot;, threads = 1, index = &quot;chr_cg&quot;, nmin = 2, species = &quot;human&quot;)
+obj@genomeMatrices[[&quot;pbmc_dmrs&quot;]] &lt;- makeWindows(obj, bed = &quot;~/Downloads/pbmc_dmr.bed&quot;, type = &quot;CG&quot;, metric = &quot;percent&quot;, threads = 1, index = &quot;chr_cg&quot;, nmin = 2)
 obj@genomeMatrices[[&quot;pbmc_dmrs&quot;]] &lt;- obj@genomeMatrices[[&quot;pbmc_dmrs&quot;]][rowSums(!is.na(obj@genomeMatrices[[&quot;pbmc_dmrs&quot;]])) &gt;= nrow(obj@metadata)*.2, ] </code></pre>
 <p>Now re-run irlba with the DMR-based windows:</p>
 <pre class="r"><code>dimEstimate(obj, genomeMatrices = c(&quot;pbmc_dmrs&quot;), dims = c(10), threshold = 0.90)</code></pre>
@@ -547,10 +546,10 @@ obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&q
 ##   -Input data of 50 rows and 8 columns
 ##   -k is set to 10</code></pre>
 <pre><code>##   Finding nearest neighbors...DONE ~ 0 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.002 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
 ##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
-<pre><code>## Run Rphenograph DONE, totally takes 0.004999999999999s.</code></pre>
+<pre><code>## Run Rphenograph DONE, totally takes 0.00400000000000134s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.5210422 
 ##   -Number of clusters: 4</code></pre>
@@ -603,7 +602,7 @@ dataset is smaller.</p>
                                          threads = 1,
                                          step = 1000,
                                          smooth = 3,
-                                         species = &quot;human&quot;,
+                                         genome = &quot;hg38&quot;,
                                          index = &quot;chr_cg&quot;,
                                          groupBy = &quot;cluster_id&quot;,
                                          returnSumMatrix = TRUE, # save sum matrix for DMR analysis
@@ -635,8 +634,7 @@ obj@genomeMatrices[[&quot;cg_promoter&quot;]] &lt;- makeWindows(obj,
                                                      metric = &quot;percent&quot;, 
                                                      threads = 1, 
                                                      index = &quot;chr_cg&quot;, 
-                                                     nmin = 2, 
-                                                     species = &quot;human&quot;) 
+                                                     nmin = 2) 
 # subsetting to genes with values in at least 5 cells
 obj@genomeMatrices[[&quot;cg_promoter&quot;]] &lt;- obj@genomeMatrices[[&quot;cg_promoter&quot;]][rowSums(!is.na(obj@genomeMatrices[[&quot;cg_promoter&quot;]])) &gt;= 10, ]</code></pre>
 <p>Now you can view average %mCG of marker gene promoters by
