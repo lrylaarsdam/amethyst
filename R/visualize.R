@@ -403,6 +403,10 @@ histograM <- function(obj,
     pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
   }
 
+  if (is.null(obj@ref)) {
+    stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
+  }
+
   p <- vector("list", length(genes)) # empty plot list
   for (i in 1:length(genes)) {
 
@@ -476,6 +480,10 @@ heatMap <- function(obj,
     pal <- colors
   } else {
     pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+  }
+
+  if (is.null(obj@ref)) {
+    stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
   }
 
   if (!is.null(genes)) {

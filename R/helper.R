@@ -12,14 +12,13 @@
 #' @param threads Enables multithreading
 #' @param index If calculating genomic windows, specify the name of the chr index in the index slot.
 #' This index should contain the coordinates in the hdf5 file corresponding to each chromosome. Reduces memory constraints.
-#' @param species "human" or "mouse". This determines which chromosome list is used.
 #' @param futureType Method of parallelization, i.e. "multicore" (recommended) or "multisession". Multisession is more
 #' memory-efficient, but make sure your workspace is as small as possible before using.
 #' @param nmin Minimum number of observations for the window to be included.
 #' @param save Boolean indicating whether to save the intermediate output by chromosome. Good for very large datasets.
 #' @return Returns a data frame with columns as cells and rows as either genes or genomic windows
 #' @export
-#' @examples makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), species = "human", metric = "percent")
+#' @examples makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), metric = "percent")
 #' @importFrom data.table data.table tstrsplit := setorder setDT
 #' @importFrom dplyr pull filter select mutate
 #' @importFrom furrr future_map
@@ -36,7 +35,6 @@ makeWindows <- function(
     bed = NULL,
     metric = "percent",
     index = paste0("chr_", tolower(type)),
-    species = "human",
     groupBy = NULL,
     threads = 1,
     futureType = "multicore",
@@ -73,19 +71,14 @@ makeWindows <- function(
     paths <- as.list(obj@h5paths$paths)
   }
 
-  #define chr groups
-  if (species == "human") {
-    chr_groups <- c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX")
-  } else if (species == "mouse") {
-    chr_groups <- c("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chrX")
-  } else if (!(species %in% c("human", "mouse"))) {
-    stop("Species options are only human or mouse at this time.")
-  }
-
   # check index
   if (is.null(obj@index[[index]])) {
     stop("Please index which rows in the h5 files correspond to each chromosome using indexChr.")
   }
+
+
+  #define chr groups
+  chr_groups <- as.list(names(obj@index[[index]]))
 
   by_chr <- list()
 
@@ -217,7 +210,7 @@ makeWindows <- function(
 
   if (!is.null(genes)) {
     if (is.null(obj@ref)) {
-      obj@ref <- makeRef(ref = ifelse(species == "human", "hg38", "mm10"))
+      stop("Please add a genome annotation file to the obj@ref slot using the makeRef function. \nMake sure the build is the same as what was used for alignment.")
     }
 
     if (!promoter) {

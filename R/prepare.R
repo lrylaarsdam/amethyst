@@ -95,36 +95,40 @@ extractAttributes <- function(gtf_attributes,
 
 ############################################################################################################################
 #' @title makeRef
-#' @description Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded.
-#' Please provide the gtf if analyzing other species.
+#' @description Generate an genome annotation file.
 #'
-#' @param ref Reference genome, i.e. "hg38" or "mm10"
-#' @param gtf If not using hg38 or mm10, please provide the gtf.gz file path
+#' @param genome Reference genome, e
+#' @param gtf If not using hg19, hg38, mm10, or mm39, please provide the gtf.gz file path
 #' @param attributes Information to extract from the gtf file. Must be a column name
 #' @return Returns an annotated reference of gene locations
 #' @importFrom dplyr mutate
 #' @importFrom rtracklayer readGFF
 #' @export
-#' @examples ref <- makeRef(ref = "hg38")
-makeRef <- function(ref,
+#' @examples ref <- makeRef(genome = "hg38")
+makeRef <- function(genome,
                     gtf = NULL,
                     attributes = c("gene_name", "exon_number")) {
-  if (ref == "hg38") {
+  if (genome == "hg38") {
     options(timeout = 1000)
     gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.annotation.gtf.gz")
-  } else if (ref == "mm10") {
+  } else if (genome == "hg19") {
+    options(timeout = 1000)
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz")
+  } else if (genome == "mm10") {
     options(timeout = 1000)
     gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
+  } else if (genome == "mm39") {
+    options(timeout = 1000)
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/latest_release/gencode.vM35.annotation.gtf.gz")
   } else if (!is.null(gtf)) {
     gtf <- rtracklayer::readGFF(gtf)
   } else {
-    print("Ref was different from default (hg38/mm10) but not provided. Please provide unzipped gtf reference annotation file.")
+    stop("Ref was different from defaults but not provided. Please provide unzipped gtf reference annotation file.")
   }
   for (i in attributes) {
     gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
   }
-  gtf <- gtf |>
-    dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
+  gtf <- gtf |> dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
 }
 
 ############################################################################################################################
@@ -132,12 +136,12 @@ makeRef <- function(ref,
 #' @description Fetch a pre-selected list of key marker genes
 #' Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
 #'
-#' @param ref If using "hg38" or "mm10"
-#' @param type Tissue type of interest. For now, "brain" and "pbcm" are options.
+#' @param species Human or mouse. Determines gene case.
+#' @param type Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added.
 #' @return Returns a character vector of key marker genes.
 #' @export
-#' @examples markerGenes <- fetchMarkers(ref = "hg38", type = "brain")
-fetchMarkers <- function(ref,
+#' @examples markerGenes <- fetchMarkers(species = "human", type = "brain")
+fetchMarkers <- function(species,
                          type) {
   if (type == "brain") {
     markerGenes <- c("Abat", "Abca12","Abca13","Abhd2","Ablim1","Ablim2", "Ablim3","Acan","Acsf3","Adamts15", "Adcy8","Adcyap1r1","Adgrf5","Adgrg4", "Adgrl2","Adora2a","Adra1a","Afap1","Aff2", "Ajap1","Ak5","Akap13","Ankk1","Ano1", "Aplnr","Aqp4","Arhgap15","Arhgap22","Arhgap25",
@@ -165,11 +169,12 @@ fetchMarkers <- function(ref,
                      "Trabd2b","Trim2","Trim9","Trpc3","Trpc4", "Trpc7","Trps1","Tshz1","Tshz2","Tshz3", "Tspan11","Tspan14","Tspan5","Tspan9","Ttc39c","Ttr","Tunar","Ubn2","Ubtd1","Unc13c", "Unc5b","Unc5c","Uox","Upp1","Usp6nl", "Vat1l","Vav2","Vgll4","Vip","Vps13d",
                      "Vstm2b","Vwc2l","Whamm","Whrn","Wnt3", "Wnt9b","Wwc2","Wwp2","Xkr6","Xkr7","Xpr1", "Xxylt1","Xylt1","Zdhhc14","Zeb2","Zfand4","Zfp366","Zfp385b","Zfp423","Zfp462", "Zfp536","Zfp618","Zfp710","Zfp804a", "Zfp827","Zfpm2","Zhx2","Zmat4","Zmiz1")
   } else if (type == "pbmc") {
-
+    markerGenes <- c("Spi1", "Cd19", "Cd2", "Cd6", "Cd8a", "Cd4", "Csf1r", "S100a8", "Gata1", "Cd79a", "Cd3g", "Elane", "Mpo", "Itgam", "Retnlg",
+                     "Ly6g", "S100a8", "Mpeg1", "Fn1", "Irf8", "Lyz2", "Cd74", "Rora", "Gzmk", "Cd3e", "Cd3d", "Meis1", "Kir2dl4", "Klrb1")
   }
-  if (ref == "hg38") {
+  if (species == "human") {
     markerGenes <- toupper(markerGenes)
-  } else if (ref == "mm10") {
+  } else if (species == "mouse") {
     markerGenes <- markerGenes
   }
 }
