@@ -4,12 +4,12 @@
 \alias{makeRef}
 \title{makeRef}
 \usage{
-makeRef(ref, gtf = NULL, attributes = c("gene_name", "exon_number"))
+makeRef(genome, gtf = NULL, attributes = c("gene_name", "exon_number"))
 }
 \arguments{
-\item{ref}{Reference genome, i.e. "hg38" or "mm10"}
+\item{genome}{Reference genome, e}
 
-\item{gtf}{If not using hg38 or mm10, please provide the gtf.gz file path}
+\item{gtf}{If not using hg19, hg38, mm10, or mm39, please provide the gtf.gz file path}
 
 \item{attributes}{Information to extract from the gtf file. Must be a column name}
 }
@@ -17,9 +17,8 @@ makeRef(ref, gtf = NULL, attributes = c("gene_name", "exon_number"))
 Returns an annotated reference of gene locations
 }
 \description{
-Generate an annotation file from a gtf. Paths to mm10 and hg38 are hard-coded.
-Please provide the gtf if analyzing other species.
+Generate an genome annotation file.
 }
 \examples{
-ref <- makeRef(ref = "hg38")
+ref <- makeRef(genome = "hg38")
 }

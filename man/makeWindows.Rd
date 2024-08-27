@@ -13,7 +13,6 @@ makeWindows(
   bed = NULL,
   metric = "percent",
   index = paste0("chr_", tolower(type)),
-  species = "human",
   groupBy = NULL,
   threads = 1,
   futureType = "multicore",
@@ -37,8 +36,6 @@ makeWindows(
 \item{index}{If calculating genomic windows, specify the name of the chr index in the index slot.
 This index should contain the coordinates in the hdf5 file corresponding to each chromosome. Reduces memory constraints.}
 
-\item{species}{"human" or "mouse". This determines which chromosome list is used.}
-
 \item{groupBy}{Optional metadata parameter to group cells by. If included, the function will calculate mean methylation of a given window over the group}
 
 \item{threads}{Enables multithreading}
@@ -57,5 +54,5 @@ Returns a data frame with columns as cells and rows as either genes or genomic w
 Calculate methylation levels across a fixed genomic window, bed file coordinates, or gene body.
 }
 \examples{
-makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), species = "human", metric = "percent")
+makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), metric = "percent")
 }

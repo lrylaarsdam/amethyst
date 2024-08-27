@@ -10,7 +10,7 @@ calcSmoothedWindows(
   threads = 1,
   step = 500,
   smooth = 3,
-  species = "human",
+  genome = "hg38",
   index = "chr_cg",
   futureType = "multicore",
   groupBy = "cluster_id",
@@ -30,7 +30,7 @@ calcSmoothedWindows(
 \item{smooth}{Number of windows to include surrounding the target region; i.e. produces a sliding window matrix.
 Default parameter is 3, resulting in a 1500 x 500 bp sliding window matrix.}
 
-\item{species}{Species of the organism(s) being analyzed. Options are currently "human" or "mouse".}
+\item{genome}{Genome build of the organism(s) being analyzed. Options are currently "hg19", "hg38", "mm10", or "mm39".}
 
 \item{index}{Name of chr index in the index slot.
 This reduces memory constraints by processing one chromosome at a time.}
