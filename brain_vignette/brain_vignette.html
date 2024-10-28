@@ -422,7 +422,7 @@ the h5 file as well as a lot of other information that will be
 calculated downstream. This has already been initialized with the
 createObject command in the process of pre-running mCH data. Load the
 workspace to see a summary of the object so far.</p>
-<pre class="r"><code># obj &lt;- createObject
+<pre class="r"><code># obj &lt;- createObject()
 load(&quot;~/Downloads/brain_vignette_workspace.RData&quot;)
 summary(obj)</code></pre>
 <pre><code>##   Length    Class     Mode 
@@ -479,11 +479,11 @@ obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&q
 <pre><code>## Run Rphenograph starts:
 ##   -Input data of 50 rows and 10 columns
 ##   -k is set to 10</code></pre>
-<pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
-##   Build undirected graph from the weighted links...DONE ~ 0.006 s
-##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
-<pre><code>## Run Rphenograph DONE, totally takes 0.00899999999999856s.</code></pre>
+<pre><code>##   Finding nearest neighbors...DONE ~ 0.002 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.002 s
+##   Build undirected graph from the weighted links...DONE ~ 0.007 s
+##   Run louvain clustering on the graph ...DONE ~ 0.003 s</code></pre>
+<pre><code>## Run Rphenograph DONE, totally takes 0.0140000000000065s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.6575309 
 ##   -Number of clusters: 5</code></pre>

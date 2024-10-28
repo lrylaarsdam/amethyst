@@ -70,7 +70,7 @@ First, we must construct an amethyst object, which stores the path to the h5 fil
 This has already been initialized with the createObject command in the process of pre-running mCH data. Load the workspace to see a summary of the object so far.
 
 ```{r}
-# obj <- createObject
+# obj <- createObject()
 load("~/Downloads/brain_vignette_workspace.RData")
 summary(obj)
 ```
