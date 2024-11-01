@@ -43,7 +43,7 @@ findClusterMarkers <- function(
             mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
             mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
           ) |> dplyr::mutate(
-            logFC = log2(mean_2 / mean_1),
+            logFC = log2(mean_1 / mean_2),
             direction = ifelse(mean_1 > mean_2, "hypermethylated", "hypomethylated")
           )
         },
