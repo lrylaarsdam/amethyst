@@ -14,9 +14,11 @@ histograM(
   ncol = length(genes),
   legend = TRUE,
   removeNA = TRUE,
-  width = 500,
   trackScale = 1.5,
-  colorMax = 100
+  arrowScale = 0.025,
+  colorMax = 100,
+  order = NULL,
+  baseline = 0
 )
 }
 \arguments{
@@ -38,14 +40,23 @@ histograM(
 
 \item{removeNA}{Boolean indicating whether to remove NA values as opposed to plotting them grey}
 
-\item{width}{Width of the tiles, which should correspond to the step size calculated with calcSmoothedWindows}
+\item{trackScale}{Enables adjustment of gene track height}
+
+\item{arrowScale}{Enables adjustment of gene directional arrow size}
+
+\item{colorMax}{Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value}
+
+\item{order}{Arrange the order of groups}
+
+\item{baseline}{0 or "mean". Define whether the histogram baseline starts at 0 or the mean global \% methylation of the group.}
 }
 \value{
-A ggplot geom_tile object with colors indicating \% methylation over 500 bp windows and the gene of interest beneath
+A ggplot geom_tile object with colors indicating \% methylation over tiled windows and the gene of interest beneath
 }
 \description{
 Plot methylation levels over a gene body in histogram format
 }
 \examples{
-histograM(obj, genes = c("SATB2", "BCL11B"), matrix = "cluster_cg_500_slidingwindows", legend = F)
+histograM(brain, genes = "SATB2", matrix = "cg_type_tracks")
+histograM(brain, genes = "SATB2", matrix = "ch_type_tracks", baseline = "mean", arrowScale = .03, trackScale = .5, colors = c("#ff4a74", "grey20", "#71e300"), colorMax = 12, trackOverhang = 50000, order = rev(c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4")))
 }

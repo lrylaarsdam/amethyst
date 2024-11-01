@@ -4,7 +4,7 @@
 \alias{dotM}
 \title{dotM}
 \usage{
-dotM(obj, genes, groupBy, matrix)
+dotM(obj, genes, groupBy, splitBy = NULL, nrow = NULL, colors = NULL, matrix)
 }
 \arguments{
 \item{obj}{The amethyst object to plot}
@@ -12,6 +12,12 @@ dotM(obj, genes, groupBy, matrix)
 \item{genes}{List of genes to plot methylation on the x axis}
 
 \item{groupBy}{A categorical variable contained in the metadata to group cells by on the y axis}
+
+\item{splitBy}{Optional additional facet level}
+
+\item{nrow}{If splitBy is specified, this option controls the number of rows the facets are distributed across}
+
+\item{colors}{Option to override default viridis scale}
 
 \item{matrix}{Name of a pre-calculated methylation levels over genes of interest contained in the genomeMatrices slot}
 }
@@ -22,5 +28,6 @@ Returns a ggplot object displaying average methylation values for each gene by t
 Generates a dot plot of percent methylation over a gene body
 }
 \examples{
-dotM(obj,  genes = c("GRM8", "SATB2", "LINGO1"), matrix = "gene_ch", groupBy = "cluster_id")
+dotM(brain, genes = c("SATB2", "GAD1", "LINGO1"), matrix = "gene_ch", groupBy = "type")
+dotM(brain, genes = c("SATB2", "GAD1", "LINGO1"), matrix = "gene_ch", groupBy = "type", splitBy = "batch", colors = c("black", "red", "yellow"), nrow = 1)
 }

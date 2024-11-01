@@ -12,10 +12,13 @@ heatMap(
   colors = NULL,
   trackOverhang = 5000,
   arrowOverhang = 3000,
-  nrow = max(length(genes), length(regions)),
   legend = TRUE,
   removeNA = TRUE,
-  width = 500
+  trackScale = 0.07,
+  arrowScale = 0.25,
+  colorMax = 100,
+  order = NULL,
+  nrow = max(length(genes), length(regions))
 )
 }
 \arguments{
@@ -34,20 +37,27 @@ Any genes or exons that fall within the region will be plotted below.}
 
 \item{arrowOverhang}{Number of base pairs the track arrow should extend beyond the gene}
 
-\item{nrow}{When multiple genes or regions are plotted, number of rows the output is divided across.}
-
 \item{legend}{Boolean indicating whether to plot the color legend}
 
 \item{removeNA}{Boolean indicating whether to remove NA values as opposed to plotting them grey}
 
-\item{width}{Width of the tiles, which should correspond to the step size calculated with calcSmoothedWindows.}
+\item{trackScale}{Enables adjustment of gene track height}
+
+\item{arrowScale}{Enables adjustment of gene directional arrow size}
+
+\item{colorMax}{Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value}
+
+\item{order}{Arrange the order of groups}
+
+\item{nrow}{When multiple genes or regions are plotted, number of rows the output is divided across.}
 }
 \value{
-A ggplot geom_tile object with colors indicating \% methylation over 500 bp windows and the gene of interest beneath
+A ggplot geom_tile object with colors indicating \% methylation over tiled windows and the gene of interest beneath
 }
 \description{
 Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
 }
 \examples{
-heatMap(obj, matrix = "cluster_cg_500_slidingwindows", regions = "chr11_47369500_47420000")
+heatMap(brain, genes = c("SLC17A7"), matrix = "cg_type_tracks")
+heatMap(brain, regions = c("chr2_199230000_199520000"), matrix = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
 }

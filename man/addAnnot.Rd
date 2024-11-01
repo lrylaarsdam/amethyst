@@ -4,14 +4,14 @@
 \alias{addAnnot}
 \title{addAnnot}
 \usage{
-addAnnot(obj, file, name)
+addAnnot(obj, file, names)
 }
 \arguments{
 \item{obj}{Amethyst object to add metadata to}
 
 \item{file}{Path to .annot file}
 
-\item{name}{Column name to add in the metadata}
+\item{names}{Column name(s) to add in the metadata}
 }
 \value{
 Updates obj to contain the new metadata concatenated to the old metadata
