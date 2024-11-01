@@ -65,9 +65,9 @@ Amethyst is still a work in progress. Please let us know if any [issues](https:/
 
 ## Updates
 
-- Aug 27 2024: Added compatibility for more genome builds. 
+- Aug 27 2024: Added compatibility for more genome builds 
   Affected functions: makeRef, fetchMarkers, makeWindows, calcSmoothedWindows
-- Nov 1 2024: Added flexibility with visualization parameters.
+- Nov 1 2024: Added flexibility with visualization parameters
 	- Affected functions: histograM, heatMap, dotM
   - Examples:
       - histograM baseline can either be 0 or mean methylation (credit: Ryan Mulqueen, PhD)
