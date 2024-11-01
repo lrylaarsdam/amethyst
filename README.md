@@ -67,6 +67,14 @@ Amethyst is still a work in progress. Please let us know if any [issues](https:/
 
 - Aug 27 2024: Added compatibility for more genome builds. 
   Affected functions: makeRef, fetchMarkers, makeWindows, calcSmoothedWindows
+- Nov 1 2024: Added flexibility with visualization parameters.
+	- Affected functions: histograM, heatMap, dotM
+  - Examples:
+      - histograM baseline can either be 0 or mean methylation (credit: Ryan Mulqueen, PhD)
+      - heatMap color scale and max value can be adjusted
+      - dotM can be further faceted by a variable in the metadata
+- Nov 1 2024: switched to logFC = log2(mean_1 / mean_2) (credit: Joe Verity-Legg)
+	- Affected functions: findClusterMarkers
 
 ## License
 
