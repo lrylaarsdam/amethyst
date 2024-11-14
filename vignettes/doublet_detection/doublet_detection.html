@@ -385,8 +385,8 @@ library(harmony)</code></pre>
 <p>Next, download the example brain vignette data (this only needs to be
 done once; ignore if you went through the vignette).</p>
 <pre class="r"><code>download.file(&quot;https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData&quot;, &quot;~/Downloads/brain_vignette_workspace.RData&quot;, method = &quot;curl&quot;) 
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette_cellInfo.txt&quot;, &quot;~/Downloads/brain_vignette_cellInfo.txt&quot;)
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette.annot&quot;, &quot;~/Downloads/brain_vignette.annot&quot;, method = &quot;curl&quot;)</code></pre>
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt&quot;, &quot;~/Downloads/brain_vignette_cellInfo.txt&quot;)
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot&quot;, &quot;~/Downloads/brain_vignette.annot&quot;, method = &quot;curl&quot;)</code></pre>
 <p>Build the object according to steps in the brain vignette to obtain
 cell type annotations. If you have already followed the brain vignette,
 this step can be skipped if the data is still in your work space.</p>
@@ -402,9 +402,9 @@ set.seed(111)
 obj@reductions[[&quot;irlba_regressed&quot;]] &lt;- regressCovBias(obj, reduction = &quot;irlba&quot;)
 set.seed(111)
 obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&quot;) # consider increasing k_phenograph to 50 for larger datasets</code></pre>
-<pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.002 s
-##   Build undirected graph from the weighted links...DONE ~ 0.006 s
+<pre><code>##   Finding nearest neighbors...DONE ~ 0.002 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
+##   Build undirected graph from the weighted links...DONE ~ 0.007 s
 ##   Run louvain clustering on the graph ...DONE ~ 0.001 s
 ##   Return a community class
 ##   -Modularity value: 0.6575309 
@@ -457,10 +457,10 @@ dbobj &lt;- runCluster(dbobj, k_phenograph = 10, reduction = &quot;irlba&quot;) 
 ##   -Input data of 65 rows and 5 columns
 ##   -k is set to 10</code></pre>
 <pre><code>##   Finding nearest neighbors...DONE ~ 0 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.003 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
-##   Run louvain clustering on the graph ...DONE ~ 0 s</code></pre>
-<pre><code>## Run Rphenograph DONE, totally takes 0.00300000000000011s.</code></pre>
+##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
+<pre><code>## Run Rphenograph DONE, totally takes 0.00599999999999667s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.7295535 
 ##   -Number of clusters: 5</code></pre>
@@ -498,10 +498,10 @@ singlets &lt;- runCluster(singlets, k_phenograph = 10, reduction = &quot;irlba&q
 ##   -Input data of 48 rows and 5 columns
 ##   -k is set to 10</code></pre>
 <pre><code>##   Finding nearest neighbors...DONE ~ 0 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.002 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
 ##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
-<pre><code>## Run Rphenograph DONE, totally takes 0.00400000000000489s.</code></pre>
+<pre><code>## Run Rphenograph DONE, totally takes 0.00500000000000611s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.6866387 
 ##   -Number of clusters: 5</code></pre>

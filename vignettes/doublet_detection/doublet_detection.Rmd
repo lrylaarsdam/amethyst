@@ -37,8 +37,8 @@ Next, download the example brain vignette data (this only needs to be done once;
 
 ```{r, eval=FALSE}
 download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "~/Downloads/brain_vignette_workspace.RData", method = "curl") 
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
 ```
 
 Build the object according to steps in the brain vignette to obtain cell type annotations. 
