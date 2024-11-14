@@ -9,6 +9,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
+<meta name="author" content="Lauren Rylaarsdam" />
 
 <meta name="date" content="2024-11-11" />
 
@@ -350,6 +351,7 @@ display: none;
 
 
 <h1 class="title toc-ignore">Batch Correction</h1>
+<h4 class="author">Lauren Rylaarsdam</h4>
 <h4 class="date">2024-11-11</h4>
 
 </div>
@@ -382,8 +384,8 @@ library(harmony)</code></pre>
 <p>Next, download the example brain vignette data (this only needs to be
 done once; ignore if you went through the vignette).</p>
 <pre class="r"><code>download.file(&quot;https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData&quot;, &quot;~/Downloads/brain_vignette_workspace.RData&quot;, method = &quot;curl&quot;) 
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette_cellInfo.txt&quot;, &quot;~/Downloads/brain_vignette_cellInfo.txt&quot;)
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette.annot&quot;, &quot;~/Downloads/brain_vignette.annot&quot;, method = &quot;curl&quot;)</code></pre>
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt&quot;, &quot;~/Downloads/brain_vignette_cellInfo.txt&quot;)
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot&quot;, &quot;~/Downloads/brain_vignette.annot&quot;, method = &quot;curl&quot;)</code></pre>
 <p>Build the object according to steps in the brain vignette to obtain
 cell type annotations. If you have already followed the brain vignette,
 this step can be skipped if the data is still in your work space.</p>
@@ -399,7 +401,7 @@ set.seed(111)
 obj@reductions[[&quot;irlba_regressed&quot;]] &lt;- regressCovBias(obj, reduction = &quot;irlba&quot;)
 set.seed(111)
 obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&quot;) # consider increasing k_phenograph to 50 for larger datasets</code></pre>
-<pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
+<pre><code>##   Finding nearest neighbors...DONE ~ 0 s
 ##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.006 s
 ##   Run louvain clustering on the graph ...DONE ~ 0.001 s
@@ -457,8 +459,8 @@ obj@reductions[[&quot;irlba&quot;]] &lt;- runIrlba(obj, genomeMatrices = c(&quot
 obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_regressed&quot;) # consider increasing k_phenograph to 50 for larger datasets</code></pre>
 <pre><code>##   Finding nearest neighbors...DONE ~ 0 s
 ##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
-##   Build undirected graph from the weighted links...DONE ~ 0.003 s
-##   Run louvain clustering on the graph ...DONE ~ 0 s
+##   Build undirected graph from the weighted links...DONE ~ 0.002 s
+##   Run louvain clustering on the graph ...DONE ~ 0.001 s
 ##   Return a community class
 ##   -Modularity value: 0.6575309 
 ##   -Number of clusters: 5</code></pre>
@@ -475,7 +477,7 @@ obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_batch&quot;
 <pre><code>##   Finding nearest neighbors...DONE ~ 0 s
 ##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
-##   Run louvain clustering on the graph ...DONE ~ 0.001 s
+##   Run louvain clustering on the graph ...DONE ~ 0 s
 ##   Return a community class
 ##   -Modularity value: 0.5449189 
 ##   -Number of clusters: 5</code></pre>
@@ -557,7 +559,7 @@ obj@genomeMatrices[[&quot;ch_100k_pct_batch_highSD&quot;]] &lt;- obj@genomeMatri
 obj@reductions[[&quot;irlba_highSD&quot;]] &lt;- runIrlba(obj, genomeMatrices = c(&quot;ch_100k_pct_batch_highSD&quot;), dims = c(5), replaceNA = c(0))
 set.seed(111)
 obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_highSD&quot;) # consider increasing k_phenograph to 50 for larger datasets</code></pre>
-<pre><code>##   Finding nearest neighbors...DONE ~ 0 s
+<pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
 ##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
 ##   Run louvain clustering on the graph ...DONE ~ 0.001 s
@@ -598,11 +600,11 @@ obj &lt;- runCluster(obj, k_phenograph = 10, reduction = &quot;irlba_highN&quot;
 <pre><code>## Run Rphenograph starts:
 ##   -Input data of 50 rows and 5 columns
 ##   -k is set to 10</code></pre>
-<pre><code>##   Finding nearest neighbors...DONE ~ 0.001 s
-##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.001 s
+<pre><code>##   Finding nearest neighbors...DONE ~ 0 s
+##   Compute jaccard coefficient between nearest-neighbor sets...DONE ~ 0.002 s
 ##   Build undirected graph from the weighted links...DONE ~ 0.002 s
-##   Run louvain clustering on the graph ...DONE ~ 0 s</code></pre>
-<pre><code>## Run Rphenograph DONE, totally takes 0.00400000000000134s.</code></pre>
+##   Run louvain clustering on the graph ...DONE ~ 0.001 s</code></pre>
+<pre><code>## Run Rphenograph DONE, totally takes 0.004999999999999s.</code></pre>
 <pre><code>##   Return a community class
 ##   -Modularity value: 0.6094059 
 ##   -Number of clusters: 5</code></pre>
