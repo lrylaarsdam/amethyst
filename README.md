@@ -37,7 +37,7 @@ devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 
 ## Getting Started
 
-Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
+Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
 
 If you are using the Scale Biosciences pipeline, we have written a helper function to load the output into an Amethyst object. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
 
