@@ -20,5 +20,9 @@
 	- Affected functions: makeRef, fetchMarkers, makeWindows, calcSmoothedWindows
 - Nov 1 2024: switched to logFC = log2(mean_1 / mean_2) (credit: Joe Verity-Legg)
 	- Affected functions: findClusterMarkers
+- Nov 14: Vignettes added
+  - Doublet detection
+  - Batch integration
+  - Additional utilities: subsetting, merging, imputation
 
 ### Security
