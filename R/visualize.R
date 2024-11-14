@@ -543,6 +543,8 @@ heatMap <- function(obj,
         dplyr::mutate(trackHeight = ngroups * label * trackScale,
                       ymin = -(trackHeight - (ngroups * 0.03)),
                       ymax = -(trackHeight + (ngroups * 0.03)))
+       
+      trackHeight <- mean(ref$trackHeight)  
 
       toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "group", values_to = "pct_m") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
       if (removeNA) {
