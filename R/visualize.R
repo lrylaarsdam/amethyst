@@ -536,8 +536,7 @@ heatMap <- function(obj,
 
       aggregated <- obj@genomeMatrices[[matrix]]
       toplot <- aggregated[(chr == chrom & start >= min & end <= max)]
-      ngroups <- ncol(toplot) - 3
-      trackHeight <- ngroups * trackScale  
+      ngroups <- ncol(toplot) - 3 
 
       ref <- obj@ref |> dplyr::filter(seqid == chrom & start >= min & end <= max & type %in% c("gene", "exon")) |>
         dplyr::distinct(gene_name, start, end, type, strand) |> dplyr::group_by(gene_name) |> dplyr::mutate(label = dplyr::cur_group_id()) |>
