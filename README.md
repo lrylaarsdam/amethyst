@@ -37,7 +37,7 @@ devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
 
 ## Getting Started
 
-Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
+Amethyst begins with base-level methylation calls per cell wrapped into .h5 files. If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
 
 If you are using the Scale Biosciences pipeline, we have written a helper function to load the output into an Amethyst object. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
 
@@ -53,14 +53,14 @@ obj <- createScaleObject(directory = "path/to/scalebio/output/folder", genomeMat
 
 ## Vignettes
 
-To become familiar with the Amethyst workflow, we recommend beginning with the [pbmc vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/pbmc_vignette/pbmc_vignette.html), which is focused on CG methylation and applicable to any tissue. 
+To become familiar with the Amethyst workflow, we recommend beginning with the [pbmc vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html), which is focused on CG methylation and applicable to any tissue. 
 
-Certain tissues - such as the brain and stem cells - also contain high levels of non-CG methylation and necessitate a very different workflow. After completing the pbmc vignette, we recommend going over the [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/brain_vignette/brain_vignette.html) for CH-specific analysis.
+Certain tissues - such as the brain and stem cells - also contain high levels of non-CG methylation and necessitate a very different workflow. After completing the pbmc vignette, we recommend going over the [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html) for CH-specific analysis.
 
 In addition to these general workflow examples, we have specific vignettes for:
-- [Doublet detection](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/doublet_detection.html)
-- [Batch integration](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/batch_correction.html)
-- [Additional utilities: subsetting, merging, imputation](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/additional_utilities.html)
+- [Doublet detection](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/doublet_detection.html)
+- [Batch integration](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/batch_correction.html)
+- [Additional utilities: subsetting, merging, imputation](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/additional_utilities.html)
 
 ## Issues
 
@@ -79,9 +79,10 @@ Amethyst is still a work in progress. Please let us know if any [issues](https:/
 - Nov 1 2024: switched to logFC = log2(mean_1 / mean_2) (credit: Joe Verity-Legg)
 	- Affected functions: findClusterMarkers
 - Nov 14: Vignettes added
-  - [Doublet detection](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/doublet_detection.html)
-  - [Batch integration](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/batch_correction.html)
-  - [Additional utilities: subsetting, merging, imputation](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/HEAD/vignettes/additional_utilities.html)
+  - [Doublet detection](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/doublet_detection.html)
+  - [Batch integration](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/batch_correction.html)
+  - [Additional utilities: subsetting, merging, imputation](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/additional_utilities.html)
+
 
 ## License
 
