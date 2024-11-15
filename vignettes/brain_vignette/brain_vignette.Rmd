@@ -9,7 +9,7 @@ output:
 
 If you are new to R, you may need to install some of the dependencies:
 
-```{r eval=FALSE}
+```{r, eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
 BiocManager::install()
@@ -53,14 +53,14 @@ This vignette comes with a toy dataset of 50 high-coverage cells derived from th
 
 * Note: By default, data will download to the ~/Downloads folder. Change if a different directory is desired.
 
-```{r eval=FALSE}
+```{r, eval=FALSE}
 # h5 file containing base-level CG methylation information. This file is 11 GB and not necessarily needed for this tutorial, but available if desired.
 # download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette.h5", "./brain_vignette.h5", method = "curl") 
 # workspace containing initial CH processing steps
 download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "~/Downloads/brain_vignette_workspace.RData", method = "curl") 
 # metadata files
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
 ```
 
 ########################################################################################################
@@ -218,8 +218,7 @@ heatMap(obj,
         genes = c("SLC17A7", "DLX1", "GAD1", "C1QA", "MOG", "SLC1A3"), 
         matrix = "cg_cluster_tracks", 
         nrow = 3,
-        legend = FALSE,
-        width = 1000) # Width of the genome step, which should be equivalent to the "step" parameter in cluster1kbwindows
+        arrowScale = 1)
 ```
 
 As you can see from the heatMaps, promoters are often universally hypomethylated or not at the predicted site. 
@@ -230,8 +229,7 @@ In addition to heatMap, this can also be done with the histograM function:
 histograM(obj, 
         genes = c("SLC17A7", "DLX1", "MOG"), 
         matrix = "cg_cluster_tracks", 
-        legend = FALSE,
-        width = 1000)
+        legend = FALSE)
 ```
 
 Looking at mCG patterns over key marker genes in this manner can provide sufficient information for cell type annotation. 
@@ -274,7 +272,7 @@ While few exist, there are high-quality references available for brain data.
 We have aggregated mCH across key genes from PMC9004682. This reference can be downloaded from Github.
 
 ```{r}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/brain_vignette/PMC9004682_5972genes_BA10_ref.RData", "~/Downloads/PMC9004682_5972genes_BA10_ref.RData", method = "curl")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/PMC9004682_5972genes_BA10_ref.RData", "~/Downloads/PMC9004682_5972genes_BA10_ref.RData", method = "curl")
 ref <- readRDS("~/Downloads/PMC9004682_5972genes_BA10_ref.RData")
 obj@genomeMatrices[["gene_ch_cluster"]] <- aggregateMatrix(obj, matrix = "gene_ch", groupBy = "cluster_id")
 ```
@@ -314,8 +312,7 @@ heatMap(obj,
         genes = c("AQP4", "SLC17A7","DLX1", "C1QA", "MOG"), 
         matrix = "cg_type_tracks", 
         nrow = 3,
-        legend = FALSE,
-        width = 1000)
+        arrowScale = 1)
 ```
 
 ########################################################################################################
@@ -391,7 +388,12 @@ top_dmrs <- collapsed_dmrs |>
 Plotting top hypomethylated regions for each group demonstrates that top DMRs often fall over canonical marker genes:
 
 ```{r, fig.width=12, fig.height=10}
-heatMap(obj, matrix = "cg_type_tracks", regions = top_dmrs$location[top_dmrs$direction == "hypo"], nrow = 3, legend = FALSE, width = 1000, arrowOverhang = 0)
+heatMap(obj, 
+        matrix = "cg_type_tracks", 
+        regions = top_dmrs$location[top_dmrs$direction == "hypo"], 
+        nrow = 3, 
+        arrowOverhang = 0,
+        arrowScale = 1)
 ```
 
 ########################################################################################################
