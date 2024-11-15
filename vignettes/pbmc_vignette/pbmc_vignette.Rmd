@@ -54,13 +54,13 @@ First, download the practice data. This vignette comes with site-level CpG methy
 
 ```{r, eval=FALSE}
 download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "~/Downloads/pbmc_vignette.h5", method = "curl") # Contains site-level methylation information for each cell
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette_cellInfo.txt", "~/Downloads/pbmc_vignette_cellInfo.txt") # Summary QC statistics for each cell
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_vignette.annot", "~/Downloads/pbmc_vignette.annot") # Simulated batch metadata
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo.txt", "~/Downloads/pbmc_vignette_cellInfo.txt") # Summary QC statistics for each cell
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette.annot", "~/Downloads/pbmc_vignette.annot") # Simulated batch metadata
 ```
 
 ```{r, include=FALSE}
 # Loading local workspace to speed up each knitr iteration
-load("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/pbmc_vignette/pbmc_vignette_workspace.RData")
+load("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/pbmc_vignette/pbmc_vignette_workspace.RData")
 ```
 
 ########################################################################################################
@@ -169,7 +169,7 @@ The makeWindows function can also calculate methylation levels over a bed file o
 Here is another clustering example using a set of pre-identified PBMC differentially methylated regions (DMRs).
 
 ```{r, message=FALSE, eval = FALSE}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_dmr.bed") 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_dmr.bed") 
 obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2)
 obj@genomeMatrices[["pbmc_dmrs"]] <- obj@genomeMatrices[["pbmc_dmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_dmrs"]])) >= nrow(obj@metadata)*.2, ] 
 ```
@@ -188,7 +188,7 @@ Now re-run clustering and UMAP:
 ```{r, fig.width=5, fig.height=4}
 set.seed(111)
 obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
-set.seed(111)
+set.seed(123)
 obj <- runUmap(obj, neighbors = 5, dist = 0.05, method = "euclidean", reduction = "irlba_regressed") 
 dimFeature(obj, colorBy = cluster_id, reduction = "umap")
 ```
@@ -253,7 +253,7 @@ cluster1kbwindows <- calcSmoothedWindows(obj,
 obj@genomeMatrices[["cg_cluster_tracks"]] <- cluster1kbwindows[["pct_matrix"]]
 ```
 
-Now you can view methylation patterns over key marker genes:
+Now you can view methylation patterns over key marker genes, where pink is hypomethylated:
 
 ```{r, fig.width=15, fig.height=10}
 heatMap(obj, 
@@ -261,8 +261,8 @@ heatMap(obj,
            "S100A8", "MPEG1", "IRF8", "CD74", "GZMK", "CD3E", "CD3D", "KIR2DL4", "KLRB1"), 
         matrix = "cg_cluster_tracks", 
         nrow = 4,
-        legend = FALSE,
-        width = 1000)
+        arrowScale = 1,
+        legend = F)
 ```
 
 As you can see from the heatMaps, promoters are often universally hypomethylated or not at the predicted site. 
@@ -270,7 +270,10 @@ Because of this it is often more informative to look at mCG over the entire gene
 In addition to heatMap, this can also be done with the histograM function:
 
 ```{r, fig.width=15, fig.height=7}
-histograM(obj, genes = c("ELANE", "MPEG1", "SPI1", "CD2", "CD3D"), matrix = "cg_cluster_tracks", legend = F, width = 1000)
+histograM(obj, 
+          genes = c("ELANE", "MPEG1", "SPI1", "CD2", "CD3D"), 
+          matrix = "cg_cluster_tracks",
+          legend = F)
 ```
 
 However, it can still be useful to look at aggregated promoter metrics. 
@@ -327,7 +330,7 @@ While few exist, we have put aggregated methylation levels per group over high-c
 First download this data and calculate average methylation levels per cluster for each DMR (windows or any feature can also work)
 
 ```{r}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData") 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData") 
 ref <- readRDS("~/Downloads/pbmc_ref.RData")
 
 obj@genomeMatrices[["pbmc_dmrs_aggregated"]] <- aggregateMatrix(obj, matrix = "pbmc_dmrs", groupBy = "cluster_id")
@@ -366,8 +369,8 @@ heatMap(obj,
            "S100A8", "MPEG1", "IRF8", "CD74", "GZMK", "CD3E", "CD3D", "KIR2DL4", "KLRB1"), 
         matrix = "cg_type_tracks", 
         nrow = 4,
-        legend = FALSE,
-        width = 1000)
+        arrowScale = 1,
+        legend = F)
 ```
 
 ########################################################################################################
@@ -422,7 +425,7 @@ dmrs <- testDMR(sumMatrix = cluster1kbwindows[["sum_matrix"]], comparisons = com
 
 First, let's look at how many DMRs were identified in each group:
 
-```{r, message=FALSE, fig.height=5, fig.width=5}
+```{r, message=FALSE, fig.height=4, fig.width=5}
 ggplot(collapsed_dmrs |> dplyr::group_by(type, direction) |> dplyr::summarise(n = n()), 
        aes(y = type, x = n, fill = type)) + geom_col() + 
   facet_grid(vars(direction), scales = "free_y") + scale_fill_manual(values = pal) + theme_classic()
@@ -443,8 +446,13 @@ top_dmrs <- collapsed_dmrs |>
 
 Plotting top hypomethylated regions for each group shows expected patterns based on known marker genes:
 
-```{r, fig.height=8, fig.width=15}
-heatMap(obj, matrix = "cg_type_tracks", regions = top_dmrs$location[top_dmrs$direction == "hypo"], nrow = 2, legend = FALSE, width = 1000, arrowOverhang = 0)
+```{r, fig.height=6, fig.width=15}
+heatMap(obj, 
+        matrix = "cg_type_tracks", 
+        regions = top_dmrs$location[top_dmrs$direction == "hypo"], 
+        nrow = 2, 
+        arrowOverhang = 0,
+        legend = F)
 ```
 
 ########################################################################################################
