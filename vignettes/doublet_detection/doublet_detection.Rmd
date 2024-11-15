@@ -1,0 +1,153 @@
+---
+title: "Doublet Detection"
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+date: "2024-11-12"
+author: "Lauren Rylaarsdam"
+---
+
+Multiplets occur when two or more cells receive the same molecular identifier. High doublet rates can
+complicate analysis as they dilute cell type-specific methylation patterns. We have developed an approach
+for doublet removal by first simulating artificial doublets, constructing a Random Forest-based model to 
+predict doublets, and removing cells from the original object exceeding the doublet score threshold.
+
+The following vignette demonstrates how to apply this doublet removal approach using the brain vignette data.
+
+########################################################################################################
+## Loading libraries and example data
+
+If you haven't already, load necessary libraries.
+
+```{r, message=FALSE, warning=FALSE}
+library(amethyst)
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(tibble)
+library(tidyr)
+library(plyr)
+library(cowplot)
+library(harmony)
+```
+
+Next, download the example brain vignette data (this only needs to be done once; ignore if you went through the vignette).
+
+```{r, eval=FALSE}
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "~/Downloads/brain_vignette_workspace.RData", method = "curl") 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
+```
+
+Build the object according to steps in the brain vignette to obtain cell type annotations. 
+If you have already followed the brain vignette, this step can be skipped if the data is still in your work space.
+
+```{r, fig.width=4, fig.height=3, message=FALSE}
+load("~/Downloads/brain_vignette_workspace.RData")
+obj <- addCellInfo(obj, file = "~/Downloads/brain_vignette_cellInfo.txt")
+obj <- addAnnot(obj, file = "~/Downloads/brain_vignette.annot", name = "method") 
+obj@h5paths <- data.frame(row.names = rownames(obj@metadata), 
+                          paths = rep("~/Downloads/brain_vignette.h5", length(rownames(obj@metadata))))
+obj@metadata <- obj@metadata |> dplyr::filter(cov > 1000000 & mch_pct < 12)
+set.seed(111)
+obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5), replaceNA = c("mch_pct", 0))
+set.seed(111)
+obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
+set.seed(111)
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+set.seed(111)
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_regressed") 
+obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["cluster_id"]],
+                                        "1" = "Astro", 
+                                        "2" = "Exc",
+                                        "3" = "Micro",
+                                        "4" = "Oligo",
+                                        "5" = "Inh")
+
+# define colors 
+pal <- makePalette(option = 13, n = 5) 
+
+# plot
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 1) +
+  geom_text_repel(aes(label = type), color = "black", data = obj@metadata |> 
+                    dplyr::group_by(type) |> 
+                    dplyr::summarise(umap_x = median(umap_x), umap_y = median(umap_y)))
+```
+
+########################################################################################################
+## Doublet detection
+
+First, we simulate a fraction of artificial doublets. Note that you may have to downsample large datasets
+to build the doublet model.
+
+```{r}
+# doublet calling
+set.seed(123)
+dbobj <- makeDoubletObject(obj, simFraction=0.30, threads = 1, genomeMatrices=c("cg_100k_score"))
+```
+
+Next, run IRLBA on the doublet-containing object.
+
+```{r, fig.width=4, fig.height=3}
+set.seed(123)
+dbobj@reductions[["irlba"]] <- runIrlba(dbobj, genomeMatrices=c("cg_100k_score"), dims=c(5))
+dbobj <- runCluster(dbobj, k_phenograph = 10, reduction = "irlba") # consider increasing k_phenograph to 50 for larger datasets
+dbobj <- runUmap(dbobj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba") 
+dimFeature(dbobj, colorBy = doublet_info, colors = c("#299388", "#F29C5F"), pointSize = 1)
+```
+
+Use the object containing simulated doublets to build a prediction model.
+
+```{r}
+set.seed(123)
+result <- buildDoubletModel(dbobj = dbobj, method="rf", reduction = "irlba")
+```
+
+Use the module to predict doublet scores.
+
+```{r, fig.width=4, fig.height=3}
+set.seed(123)
+dbobj <- predictDoubletScores(dbobj = dbobj, model = result$model, reduction = "irlba")
+ggplot(dbobj@metadata, aes(x = doublet_info, y = doublet_score, color = doublet_info, fill = doublet_info)) + 
+  geom_boxplot(alpha = 0.1, outlier.size = 0, outlier.alpha = 0, width = 0.5) + geom_jitter(width = 0.1, size = 0.5) + theme_classic()
+```
+
+Notice the two artificial doublet outliers with a low doublet score. 
+These doublets likely happened to be simulated from cells of the same type. 
+
+Based on this graph, an appropriate threshold is around 0.3. 
+Next we add the doublet scores to the original object and filter cells with a value exceeding our threshold.
+
+```{r}
+obj <- addDoubletScores(obj, dbobj)
+
+singlets <- rownames(obj@metadata[obj@metadata$doublet_score < 0.3, ])
+singlets <- subsetObject(obj, cells = singlets)
+```
+
+Now re-do clustering without the doublets.
+
+```{r, fig.width=4, fig.height=3}
+set.seed(123)
+singlets@reductions[["irlba"]] <- runIrlba(singlets, genomeMatrices=c("cg_100k_score"), dims=c(5))
+singlets <- runCluster(singlets, k_phenograph = 10, reduction = "irlba") # consider increasing k_phenograph to 50 for larger datasets
+singlets <- runUmap(singlets, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba") 
+dimFeature(singlets, colorBy = type, colors = pal, pointSize = 1) +
+  geom_text_repel(aes(label = type), color = "black", data = singlets@metadata |> 
+                    dplyr::group_by(type) |> 
+                    dplyr::summarise(umap_x = median(umap_x), umap_y = median(umap_y)))
+```
+
+Compare the clustering results from the singlets object compared to the object with 
+30% simulated doublets using the code below. Notice the clusters without doublets are tighter,
+and we even seem to have resolved an additional group of inhibitory neurons.
+
+```{r,  fig.width=8, fig.height=3}
+plot_grid(dimFeature(dbobj, colorBy = doublet_info, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("with doublets"),
+          dimFeature(singlets, colorBy = cluster_id, colors = c("#264653", "#2A9D8F", "#E9C46A", "#F4A261", "#E76F51"), pointSize = 1) + ggtitle("without doublets"))
+```
+
+We hope this helps! Feel free to reach out with any questions.
+

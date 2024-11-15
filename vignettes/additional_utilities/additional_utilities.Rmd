@@ -1,0 +1,192 @@
+---
+title: "Additional Utilties"
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+date: "2024-11-13"
+author: "Lauren Rylaarsdam"
+---
+
+Some Amethyst utilities were not covered in the brain and pbmc vignettes for the sake of clarity. In this vignette,
+we will cover those additional functions using example data from the brain vignette. Topics include:
+
+  * Subsetting objects
+  * Merging objects
+  * Imputation with [Rmagic](https://pubmed.ncbi.nlm.nih.gov/29961576/)
+  
+########################################################################################################
+## Loading libraries and example data
+
+If you haven't already, load necessary libraries.
+
+```{r, message=FALSE, warning=FALSE}
+library(amethyst)
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(tibble)
+library(tidyr)
+library(plyr)
+library(cowplot)
+library(Rmagic)
+```
+
+Next, download the example brain vignette data (this only needs to be done once; ignore if you went through the vignette).
+
+```{r, eval=FALSE}
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "~/Downloads/brain_vignette_workspace.RData", method = "curl") 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
+```
+
+Build the object according to steps in the brain vignette to obtain cell type annotations. 
+If you have already followed the brain vignette, this step can be skipped if the data is still in your work space.
+
+```{r, fig.width=4, fig.height=3, message=FALSE}
+load("~/Downloads/brain_vignette_workspace.RData")
+obj <- addCellInfo(obj, file = "~/Downloads/brain_vignette_cellInfo.txt")
+obj <- addAnnot(obj, file = "~/Downloads/brain_vignette.annot", name = "method") 
+obj@h5paths <- data.frame(row.names = rownames(obj@metadata), 
+                          paths = rep("~/Downloads/brain_vignette.h5", length(rownames(obj@metadata))))
+obj@metadata <- obj@metadata |> dplyr::filter(cov > 1000000 & mch_pct < 12)
+set.seed(111)
+obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5), replaceNA = c("mch_pct", 0))
+set.seed(111)
+obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
+set.seed(111)
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+set.seed(111)
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_regressed") 
+obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["cluster_id"]],
+                                        "1" = "Astro", 
+                                        "2" = "Exc",
+                                        "3" = "Micro",
+                                        "4" = "Oligo",
+                                        "5" = "Inh")
+
+# define colors 
+pal <- makePalette(option = 13, n = 5) 
+
+# plot
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 1) +
+  geom_text_repel(aes(label = type), color = "black", data = obj@metadata |> 
+                    dplyr::group_by(type) |> 
+                    dplyr::summarise(umap_x = median(umap_x), umap_y = median(umap_y)))
+```
+
+########################################################################################################
+## Subsetting objects
+
+It is often useful to generate a smaller object with a subset of cells. Let's make two separate objects
+with just inhibitory and excitatory neurons, respectively.
+
+```{r, warning=FALSE, message=FALSE}
+# obtain cell barcodes
+exc_ids <- rownames(obj@metadata |> dplyr::filter(type == "Exc"))
+inh_ids <- rownames(obj@metadata |> dplyr::filter(type == "Inh"))
+
+# subset
+exc <- subsetObject(obj, cells = exc_ids)
+inh <- subsetObject(obj, cells = inh_ids)
+```
+
+That's it! You might find it necessary to re-run dimensionality reduction on the subset.
+
+```{r, fig.width=4, fig.height=3}
+set.seed(111)
+exc@reductions[["irlba"]] <- runIrlba(exc, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5), replaceNA = c("mch_pct", 0))
+set.seed(111)
+exc <- runCluster(exc, k_phenograph = 2, reduction = "irlba") # k is very small because there are only 13 excitatory neurons
+set.seed(100)
+exc <- runUmap(exc, neighbors = 3, dist = 0.01, method = "euclidean", reduction = "irlba") 
+
+dimFeature(exc, colorBy = cluster_id, pointSize = 1, colors = sample(pal))
+```
+
+Now you can see that three excitatory neuron subpopulations have been further resolved. 
+
+########################################################################################################
+## Merging objects
+
+In other contexts, it is helpful to merge objects. In this example we will merge the two neuron objects 
+back together.
+
+```{r, warning=FALSE, message=FALSE}
+neurons <- combineObject(objList = list(exc, inh), genomeMatrices = c("ch_100k_pct", "cg_100k_score", "gene_ch"))
+```
+
+Now re-run dimensionality reduction:
+
+```{r, warning=FALSE, message=FALSE, fig.width=4, fig.height=3}
+set.seed(111)
+neurons@reductions[["irlba"]] <- runIrlba(neurons, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5), replaceNA = c("mch_pct", 0))
+set.seed(111)
+neurons <- runCluster(neurons, k_phenograph = 3, reduction = "irlba") # increase k for larger datasets
+set.seed(111)
+neurons <- runUmap(neurons, neighbors = 3, dist = 0.01, method = "euclidean", reduction = "irlba") 
+
+dimFeature(neurons, colorBy = type, pointSize = 1, colors = c("#E76F51", "#264653"))
+```
+
+Things to note when combining objects:
+
+  * Make sure barcodes are unique when combining objects.
+  * Dimensionality reduction should always be re-run after merging.
+  * Aggregated matrices, such as cluster tracks used to visualize methylation patterns over a gene, 
+    will also need to be re-run.
+
+########################################################################################################
+## Imputation with Rmagic
+
+Methylation data is often sparse, especially over shorter genomic regions like promoters or gene bodies. 
+For certain applications, imputation can help smooth the noise introduced by this sparsity. Below is an 
+example of how imputation with [Rmagic](https://pubmed.ncbi.nlm.nih.gov/29961576/) smooths visualization of the mutually exclusive mCH 
+accumulation over GAD1 and SATB2 in excitatory and inhibitory neurons respectively. A larger dataset 
+is used as more information increases the accuracy of the imputation.
+
+Without imputation, visualizing the %mCH over GAD1 and SATB2 is noisy. 
+
+```{r, eval=FALSE}
+dimM(atlas, genes = c("GAD1", "SATB2"), matrix = "gene_ch", pointSize = .1, colors = c("#dbdbdb", "#cccccc", "#265A61", "#0C1E20"), squish = 8)
+```
+
+![](/Users/rylaarsd/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/additional_utilities/noimputation.png)
+The impute function utilizes the Markov Affinity-based Graph Imputation of Cells algorithm from the 
+Rmagic package. 
+
+```{r, eval=FALSE}
+atlas@genomeMatrices[["gene_ch_imputed"]] <- impute(atlas, matrix = "gene_ch")
+```
+
+After imputation, the same pattern is observable, but it is a lot less noisy.
+
+```{r, eval=FALSE}
+dimM(atlas, genes = c("GAD1", "SATB2"), matrix = "gene_ch_imputed", pointSize = .1, colors = c("#dbdbdb", "#cccccc", "#265A61", "#0C1E20"), squish = 8)
+```
+
+![](/Users/rylaarsd/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/additional_utilities/withimputation.png)
+
+########################################################################################################
+## A word of caution when using Rmagic for methylation data
+
+I have found this to be most helpful for reducing noise in visualizations where the pattern is also clear WITHOUT imputation. 
+I would not recommend using imputation for DMR analysis, cluster marker identification, etc. as it would be quite easy to get 
+artifact-driven results. For example: using imputation on this small vignette dataset results in universal smoothing of gene 
+values, obscuring the difference between SATB2 and GAD1.
+
+```{r, fig.width=8, fig.height=4}
+set.seed(111)
+neurons@genomeMatrices[["gene_ch_imputed"]] <- impute(obj, matrix = "gene_ch")
+
+p1 <- violinM(neurons, genes = c("GAD1", "SATB2"), matrix = "gene_ch", groupBy = "type") + 
+  ggtitle("Not imputed")
+p2 <- violinM(neurons, genes = c("GAD1", "SATB2"), matrix = "gene_ch_imputed", groupBy = "type") + 
+  ggtitle("Imputed")
+plot_grid(p1, p2)
+```
+
+
+
+

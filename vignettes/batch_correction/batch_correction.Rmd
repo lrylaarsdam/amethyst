@@ -1,0 +1,260 @@
+---
+title: "Batch Correction"
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+date: "2024-11-11"
+author: "Lauren Rylaarsdam"
+---
+
+Single-cell analysis often involves integrating data from multiple contexts. Sometimes, artifacts can be 
+introduced that reflect technical biases instead of true biological differences. While the binary nature 
+of methylation makes it less susceptible to batch variability compared to RNA or ATAC-seq data, it is still 
+important to assess if your dimensionality reduction is reflecting what is known of the biology. 
+
+We will give an example for how to batch integrate using the brain vignette data. 
+
+########################################################################################################
+## Loading libraries and example data
+
+If you haven't already, load necessary libraries.
+
+```{r, message=FALSE, warning=FALSE}
+library(amethyst)
+library(data.table)
+library(ggplot2)
+library(ggrepel)
+library(dplyr)
+library(tibble)
+library(tidyr)
+library(plyr)
+library(cowplot)
+library(harmony)
+```
+
+Next, download the example brain vignette data (this only needs to be done once; ignore if you went through the vignette).
+
+```{r, eval=FALSE}
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/brain_vignette_workspace.RData", "~/Downloads/brain_vignette_workspace.RData", method = "curl") 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette_cellInfo.txt", "~/Downloads/brain_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/brain_vignette.annot", "~/Downloads/brain_vignette.annot", method = "curl")
+```
+
+Build the object according to steps in the brain vignette to obtain cell type annotations. 
+If you have already followed the brain vignette, this step can be skipped if the data is still in your work space.
+
+```{r, fig.width=4, fig.height=3, message=FALSE}
+load("~/Downloads/brain_vignette_workspace.RData")
+obj <- addCellInfo(obj, file = "~/Downloads/brain_vignette_cellInfo.txt")
+obj <- addAnnot(obj, file = "~/Downloads/brain_vignette.annot", name = "method") 
+obj@h5paths <- data.frame(row.names = rownames(obj@metadata), 
+                          paths = rep("~/Downloads/brain_vignette.h5", length(rownames(obj@metadata))))
+obj@metadata <- obj@metadata |> dplyr::filter(cov > 1000000 & mch_pct < 12)
+set.seed(111)
+obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct", "cg_100k_score"), dims = c(5, 5), replaceNA = c("mch_pct", 0))
+set.seed(111)
+obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
+set.seed(111)
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+set.seed(111)
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_regressed") 
+obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["cluster_id"]],
+                                        "1" = "Astro", 
+                                        "2" = "Exc",
+                                        "3" = "Micro",
+                                        "4" = "Oligo",
+                                        "5" = "Inh")
+
+# define colors 
+pal <- makePalette(option = 13, n = 5) 
+
+# plot results
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 1) +
+  geom_text_repel(aes(label = type), color = "black", data = obj@metadata |> 
+                    dplyr::group_by(type) |> 
+                    dplyr::summarise(umap_x = median(umap_x), umap_y = median(umap_y)))
+```
+
+########################################################################################################
+## Simulate a batch effect
+
+Now that we know the cell type identities, generate a simulated "batch" variable with roughly equal cell type composition.
+
+```{r, fig.width=3, fig.height=3, message=FALSE, warning=FALSE}
+set.seed(100)
+obj@metadata <- obj@metadata |> tibble::rownames_to_column(var = "cell_id") |> 
+  dplyr::group_by(type) |> 
+  dplyr::mutate(batch = as.character(sample(c("A", "B"), n(), replace = T))) |> 
+  tibble::column_to_rownames(var = "cell_id") 
+sampleComp(obj, groupBy = "batch", colorBy = "type", colors = pal)
+```
+
+For this example, batch "B" will have sparser coverage than batch "A". 
+Remove values from a subset of windows in batch "B" using the commands below.
+
+```{r, message=FALSE, warning=FALSE}
+set.seed(100)
+windows <- order(sample(1:nrow(obj@genomeMatrices[["ch_100k_pct"]]), size = 1000, replace = F))
+cells <- rownames(obj@metadata |> dplyr::filter(batch == "B"))
+
+obj@genomeMatrices[["ch_100k_pct_batch"]] <- obj@genomeMatrices[["ch_100k_pct"]]
+obj@genomeMatrices[["ch_100k_pct_batch"]][windows, cells] <- NA
+```
+
+We will just use the CH matrix from here on for simplicity, so re-run dimensionality reduction with and without the batch effect.
+Notice the shift introduced by the sparsity in batch "B".
+
+```{r, fig.width=10, fig.height=3, message=FALSE, warning=FALSE}
+# dimensionality reduction without batch effect
+set.seed(111)
+obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct"), dims = c(5), replaceNA = c(0))
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_regressed") 
+
+# plot results
+p1 <- dimFeature(obj, colorBy = batch, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("No batch effect")
+p2 <- sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) + ggtitle("")
+
+# dimensionality reduction with batch effect
+set.seed(111)
+obj@reductions[["irlba_batch"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct_batch"), dims = c(5), replaceNA = c(0))
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_batch") # consider increasing k_phenograph to 50 for larger datasets
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_batch") 
+
+# plot results
+p3 <- dimFeature(obj, colorBy = batch, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("With batch effect")
+p4 <- sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) + ggtitle("")
+plot_grid(p1, p2, p3, p4, nrow = 1, rel_widths = c(2.5, 1.6, 2.5, 1.6))
+```
+
+We will explore three ways to ameliorate this simulated batch effect.
+
+########################################################################################################
+## Method 1: Integration with Harmony 
+
+The first method we use for batch correction is Harmony, a robust package for integration of single-cell data developed by Korsunsky et al. <doi:10.1038/s41592-019-0619-0>
+Harmony is quite simple to implement by passing the parameter to be reconciled in the metadata to the irlba matrix. 
+See ?RunHarmony.default for a thorough explanation of available parameters.
+
+```{r, fig.width=5, fig.height=3, message=FALSE, warning=FALSE}
+set.seed(111)
+obj@reductions[["irlba_harmony"]] <- RunHarmony(obj@reductions[["irlba_batch"]], obj@metadata, c("batch"), sigma = 1)
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_harmony") # consider increasing k_phenograph to 50 for larger datasets
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_harmony") 
+
+# plot results
+p5 <- dimFeature(obj, colorBy = batch, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("Method 1: Harmony")
+p6 <- sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) + ggtitle("")
+plot_grid(p5, p6, rel_widths = c(2.5, 2))
+```
+
+Since we are using the mCH matrix only, this worked better for integrating neurons versus glia, but hopefully
+the illustration is clear. A larger dataset should improve results as well.
+
+########################################################################################################
+## Method 2: Subset biologically relevant highly variable features
+
+If batch effects are clearly driving your clustering, it can sometimes be useful to enrich for features containing relevant biological variability. 
+While, this does require some prior knowledge of your system, often metadata parameters can be used (like age or tissue origin). 
+In this context, we will select for genomic windows with high %mCH standard deviation across cell types.
+
+```{r, fig.width=5, fig.height=3, message=FALSE, warning=FALSE}
+# determine genomic windows with high standard deviation in mean %mCH between cell types
+ch_window_values <- merge(obj@metadata |> dplyr::select(type), 
+                          t(obj@genomeMatrices[["ch_100k_pct_batch"]]), by = 0) |> 
+  dplyr::rename("cell_id" = "Row.names") |> 
+  tidyr::pivot_longer(-c("cell_id", "type"), names_to = "window", values_to = "m") |> 
+  dplyr::filter(m != 0)
+ch_window_sd <- ch_window_values |> dplyr::group_by(window, type) |> 
+  dplyr::filter(n() > 5) |> # make sure there are enough values to obtain a reasonable mean
+  dplyr::summarise(type_mean = mean(m, na.rm = TRUE)) |> # calculate the mean %mCH for each window across each subtype
+  dplyr::group_by(window) |> dplyr::filter(n() > 3) |> # make sure most cell types are represented
+  dplyr::mutate(type_sd = sd(type_mean, na.rm = TRUE)) 
+
+top_ch_window_sd <- ch_window_sd |> 
+  dplyr::distinct(window, type_sd) |> 
+  dplyr::ungroup() |> 
+  slice_max(order_by = type_sd, n = 5000) |> 
+  dplyr::pull(window)
+
+# subset the original matrix to the windows with high SD 
+obj@genomeMatrices[["ch_100k_pct_batch_highSD"]] <- obj@genomeMatrices[["ch_100k_pct_batch"]][top_ch_window_sd, ]
+
+# perform dimensionality reduction
+obj@reductions[["irlba_highSD"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct_batch_highSD"), dims = c(5), replaceNA = c(0))
+set.seed(111)
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_highSD") # consider increasing k_phenograph to 50 for larger datasets
+set.seed(111)
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_highSD") 
+
+# plot results
+p7 <- dimFeature(obj, colorBy = batch, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("Method 2: High SD windows")
+p8 <- sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) + ggtitle("")
+plot_grid(p7, p8, rel_widths = c(2.5, 2))
+
+```
+
+########################################################################################################
+## Method 3: Perform dimensionality reduction on windows containing values in most cells
+
+Since methylation data is typically binary in nature, we often see batch effects related to sparsity or coverage. 
+In this context, we can alleviate the sparsity bias by only performing dimensionality reduction on windows 
+containing values for the majority of cells.  
+
+```{r, fig.width=5, fig.height=3, warning=FALSE}
+# sometimes removing Y chromosome windows can remove major sources of sample variability
+obj@genomeMatrices[["ch_100k_pct_batch_highN"]] <- obj@genomeMatrices[["ch_100k_pct_batch"]][!grepl("chrY", rownames(obj@genomeMatrices[["ch_100k_pct_batch"]])), ]
+# remove windows with values in < 80% of the cells
+obj@genomeMatrices[["ch_100k_pct_batch_highN"]] <- obj@genomeMatrices[["ch_100k_pct_batch_highN"]][rowSums(!is.na(obj@genomeMatrices[["ch_100k_pct_batch_highN"]])) >= nrow(obj@metadata)*.80, ]
+
+# double-check you didn't lose all your windows during subsetting. If you have small windows, you will probably need a lower threshold.
+nrow(obj@genomeMatrices[["ch_100k_pct_batch_highN"]])
+
+# run dimensionality reduction
+set.seed(111)
+obj@reductions[["irlba_highN"]] <- runIrlba(obj, genomeMatrices = c("ch_100k_pct_batch_highN"), dims = c(5), replaceNA = c(0))
+obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_highN") # consider increasing k_phenograph to 50 for larger datasets
+obj <- runUmap(obj, neighbors = 5, dist = 0.01, method = "euclidean", reduction = "irlba_highN") 
+
+# plot results
+p9 <- dimFeature(obj, colorBy = batch, colors = c("#264653", "#E76F51"), pointSize = 1) + ggtitle("Method 3: High n windows")
+p10 <- sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) + ggtitle("")
+plot_grid(p9, p10, rel_widths = c(2.5, 2))
+```
+
+########################################################################################################
+## Troubleshooting
+
+If none of these methods removes suspected sources of technical bias, it can also be very informative to manually
+investigate sources of variability in the matrix you are using for dimensionality reduction. In the example below,
+I am plotting values in batch A versus batch B with point size reflective of the number of observations.
+
+```{r, fig.width=10, fig.height=4}
+# convert matrix to ggplot-conducive format
+ch_window_values <- merge(obj@metadata |> dplyr::select(type, batch), t(obj@genomeMatrices[["ch_100k_pct_batch"]]), by = 0) |> 
+  dplyr::rename("cell_id" = "Row.names") |> 
+  tidyr::pivot_longer(-c("cell_id", "type", "batch"), names_to = "window", values_to = "m") |> 
+  dplyr::filter(!is.na(m)) |> 
+  dplyr::group_by(window, type, batch) |>
+  dplyr::summarise(m = mean(m, na.rm = TRUE), n = n()) |>
+  tidyr::pivot_wider(names_from = batch, values_from = c(m, n)) |>
+  dplyr::mutate(total_n = sum(n_A, n_B, na.rm = T))
+
+# plot window values in A vs B. facet by cell type. larger dots have fewer values.
+ggplot(ch_window_values, aes(x = m_A, y = m_B, color = total_n, size = (1/total_n), alpha = (1/total_n))) + 
+  geom_point() +  theme_classic() +
+  scale_size_continuous(range = c(0.01, 8)) +
+  facet_wrap(vars(type), nrow = 1) + 
+  scale_color_gradientn(colors = c("red", "grey20"))
+
+```
+
+You will notice that in general, discordant values have a low number of observations. Also, over 5k
+observations dropped out of the plot. This suggests stricter thresholds for window inclusion may alleviate
+batch effects. We saw this to be the case in the above examples.
+
+Hopefully this vignette helps you get on the right track for removal of technical artifacts in your
+single-cell methylation data. Please reach out if you have any questions.
+
+
