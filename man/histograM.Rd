@@ -6,35 +6,40 @@
 \usage{
 histograM(
   obj,
-  genes = NULL,
   matrix,
+  genes = NULL,
+  regions = NULL,
   colors = NULL,
   trackOverhang = 5000,
   arrowOverhang = 3000,
-  ncol = length(genes),
   legend = TRUE,
   removeNA = TRUE,
-  trackScale = 1.5,
-  arrowScale = 0.025,
-  colorMax = 100,
+  trackScale = 0.07,
+  arrowScale = NULL,
+  colorMax = NULL,
   order = NULL,
-  baseline = 0
+  extraTracks = NULL,
+  remove = NULL,
+  baseline = "mean",
+  nrow = max(length(genes), length(regions)),
+  orientation = "rows"
 )
 }
 \arguments{
 \item{obj}{Object containing the matrix to plot}
 
+\item{matrix}{Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output}
+
 \item{genes}{Gene list to plot}
 
-\item{matrix}{Matrix contained in the genomeMatrices slot; pct matrix output of calcSmoothedWindows}
+\item{regions}{Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
+Any genes or exons that fall within the region will be plotted below.}
 
 \item{colors}{Optional list of colors to include}
 
 \item{trackOverhang}{Number of base pairs to extend beyond the gene}
 
 \item{arrowOverhang}{Number of base pairs the track arrow should extend beyond the gene}
-
-\item{ncol}{Number of columns to distribute results across. Defaults to number of input genes}
 
 \item{legend}{Boolean indicating whether to plot the color legend}
 
@@ -48,15 +53,26 @@ histograM(
 
 \item{order}{Arrange the order of groups}
 
-\item{baseline}{0 or "mean". Define whether the histogram baseline starts at 0 or the mean global \% methylation of the group.}
+\item{extraTracks}{Optional; include additional tracks (like regulatory elements) below gene tracks.
+Input should be a named list of coordinate files containing chr, start, and end columns.}
+
+\item{remove}{Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
+Helpful when plotting very large regions.}
+
+\item{baseline}{Option for histogram to begin at 0 or at the "mean" methylation values for that group.}
+
+\item{nrow}{When multiple genes or regions are plotted, number of rows the output is divided across.}
+
+\item{orientation}{Defines whether groups are plotted in "rows" or "cols".}
 }
 \value{
-A ggplot geom_tile object with colors indicating \% methylation over tiled windows and the gene of interest beneath
+A ggplot object with color and bar height indicating \% methylation over windows.
+Genes and any imported tracks (optional) are plotted beneath.
 }
 \description{
-Plot methylation levels over a gene body in histogram format
+Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
 }
 \examples{
-histograM(brain, genes = "SATB2", matrix = "cg_type_tracks")
-histograM(brain, genes = "SATB2", matrix = "ch_type_tracks", baseline = "mean", arrowScale = .03, trackScale = .5, colors = c("#ff4a74", "grey20", "#71e300"), colorMax = 12, trackOverhang = 50000, order = rev(c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4")))
+histograM(brain, matrix = "ch_type_tracks", genes = "SATB2")
+histograM(brain, matrix = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
 }

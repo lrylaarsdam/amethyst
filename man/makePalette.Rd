@@ -4,7 +4,7 @@
 \alias{makePalette}
 \title{makePalette}
 \usage{
-makePalette(option, n)
+makePalette(option, n, sample = T)
 }
 \arguments{
 \item{option}{Which palette to choose out of options 1-30. Use testPalette to see the colors in each.}

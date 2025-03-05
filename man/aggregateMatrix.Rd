@@ -4,7 +4,7 @@
 \alias{aggregateMatrix}
 \title{aggregateMatrix}
 \usage{
-aggregateMatrix(obj, matrix, groupBy)
+aggregateMatrix(obj, matrix, groupBy, nmin = 5)
 }
 \arguments{
 \item{obj}{Amethyst object containing the matrix to be aggregated}
@@ -12,6 +12,8 @@ aggregateMatrix(obj, matrix, groupBy)
 \item{matrix}{Name of matrix contained in the genomeMatrices slot to aggregate}
 
 \item{groupBy}{Parameter in the metadata to aggregate over}
+
+\item{nmin}{Minimum number of cells in group to include in the result}
 }
 \value{
 Returns a matrix containing the mean value per group

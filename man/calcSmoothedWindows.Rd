@@ -15,7 +15,8 @@ calcSmoothedWindows(
   futureType = "multicore",
   groupBy = "cluster_id",
   returnSumMatrix = TRUE,
-  returnPctMatrix = TRUE
+  returnPctMatrix = TRUE,
+  save = FALSE
 )
 }
 \arguments{

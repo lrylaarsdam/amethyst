@@ -6,30 +6,33 @@
 \usage{
 heatMap(
   obj,
+  matrix,
   genes = NULL,
   regions = NULL,
-  matrix,
   colors = NULL,
   trackOverhang = 5000,
   arrowOverhang = 3000,
   legend = TRUE,
   removeNA = TRUE,
   trackScale = 0.07,
-  arrowScale = 0.25,
-  colorMax = 100,
+  arrowScale = NULL,
+  colorMax = NULL,
   order = NULL,
+  extraTracks = NULL,
+  remove = NULL,
   nrow = max(length(genes), length(regions))
 )
 }
 \arguments{
 \item{obj}{Object containing the matrix to plot}
 
+\item{matrix}{Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output}
+
 \item{genes}{Gene list to plot}
 
 \item{regions}{Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
-Any genes or exons that fall within the region will be plotted below.}
-
-\item{matrix}{Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output}
+Any genes or exons that fall within the region will be plotted below.
+Also, can specify "genome". This option is meant to be run with large genomic windows.}
 
 \item{colors}{Optional list of colors to include}
 
@@ -48,6 +51,12 @@ Any genes or exons that fall within the region will be plotted below.}
 \item{colorMax}{Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value}
 
 \item{order}{Arrange the order of groups}
+
+\item{extraTracks}{Optional; include additional tracks (like regulatory elements) below gene tracks.
+Input should be a named list of coordinate files containing chr, start, and end columns.}
+
+\item{remove}{Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
+Helpful when plotting very large regions.}
 
 \item{nrow}{When multiple genes or regions are plotted, number of rows the output is divided across.}
 }
