@@ -80,6 +80,7 @@ makeWindows <- function(
   by_chr <- list()
 
   if (!is.null(bed)) {
+    file_name <- sub(".*/(.*)\\.bed$", "\\1", as.character(bed))
 
     if (sum(class(bed) %in% "character") > 0) {
       bed <- data.table::data.table(read.table(bed))
@@ -110,7 +111,7 @@ makeWindows <- function(
           barcode_name <- sub("\\..*$", "", barcode)
 
           meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
-          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
+          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
                                                      start = sites$start[sites$cell_id == barcode],
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
 
@@ -135,6 +136,9 @@ makeWindows <- function(
       windows <- split(windows, ceiling(seq_along(windows)/1000))
       windows_merged <- Reduce(function(x, y) merge(x, y, by = c("chr", "start", "end"), all = TRUE, sort = FALSE),
                                furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = c("chr", "start", "end"), all = TRUE, sort = FALSE), .x), .progress = TRUE))
+      if (save) {
+        saveRDS(windows_merged, paste0("tmp_", type, "_", metric, "_", chr, "_", file_name, "_nmin", nmin, ".RData"))
+      }
       by_chr[[chr]] <- windows_merged
       cat("\nCompleted ", chr,"\n")
     }
@@ -164,7 +168,7 @@ makeWindows <- function(
           options(scipen = 999)
         }
         tryCatch({
-          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
+          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
                                                      start = sites$start[sites$cell_id == barcode],
                                                      count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
           h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
@@ -254,7 +258,7 @@ makeWindows <- function(
         tryCatch({
           bed_tmp <- copy(bed[[chr]])
           barcode_name <- sub("\\..*$", "", barcode)
-          data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
+          data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
                                                        start = sites$start[sites$cell_id == barcode],
                                                        count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
           result <- data[bed_tmp, on = .(chr = chr, pos >= start, pos <= end), nomatch = 0L, .(chr, start, end, pos = x.pos, c, t, gene)]
@@ -274,6 +278,9 @@ makeWindows <- function(
       windows <- split(windows, ceiling(seq_along(windows)/1000))
       windows_merged <- Reduce(function(x, y) merge(x, y, by = c("gene"), all = TRUE, sort = FALSE),
                                furrr::future_map(windows, ~ Reduce(function(x, y) merge(x, y, by = c("gene"), all = TRUE, sort = FALSE), .x), .progress = TRUE))
+      if (save) {
+        saveRDS(windows_merged, paste0("tmp_", type, "_", metric, "_", chr, "_", length(genes), "genes_nmin", nmin, ".RData"))
+      }
       by_chr[[chr]] <- windows_merged
       cat(paste0("\nCompleted ", bed[[chr]][["gene"]], " in ", chr))
     }
@@ -342,7 +349,7 @@ addMetadata <- function(obj,
 #'
 #' @param file Path to .annot file
 #' @param obj Amethyst object to add metadata to
-#' @param name Column name to add in the metadata
+#' @param names Column name(s) to add in the metadata
 #'
 #' @return Updates obj to contain the new metadata concatenated to the old metadata
 #' @export
@@ -351,14 +358,9 @@ addMetadata <- function(obj,
 #' @importFrom tibble column_to_rownames rownames_to_column
 addAnnot <- function(obj,
                      file,
-                     name) {
+                     names) {
   annot <- utils::read.table(file, sep = "\t", header = F)
-  if (ncol(annot) == 2) {
-    colnames(annot) <- c("cell_id", name)
-  } else if (ncol(annot) > 2) {
-    cat("\nAdditional annot columns will need to be renamed.\n")
-    colnames(annot) <- c("cell_id", name)
-  }
+  colnames(annot) <- c("cell_id", names)
   if (is.null(obj@metadata)) {
     obj@metadata <- annot |> tibble::column_to_rownames(var = "cell_id")
   } else {
@@ -452,7 +454,9 @@ impute <- function(obj,
 #'
 #' @param obj Amethyst object containing the matrix to be aggregated
 #' @param matrix Name of matrix contained in the genomeMatrices slot to aggregate
+#' @param nmin Minimum number of cells in group to include in the result
 #' @param groupBy Parameter in the metadata to aggregate over
+#'
 #' @return Returns a matrix containing the mean value per group
 #' @export
 #' @examples cluster_ch_100k_pct <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = "cluster_id")
@@ -461,24 +465,37 @@ impute <- function(obj,
 #' @importFrom tibble rownames_to_column column_to_rownames
 aggregateMatrix <- function(obj,
                             matrix,
-                            groupBy) {
+                            groupBy,
+                            nmin = 5) {
 
   matrix <- obj@genomeMatrices[[matrix]]
   membership <- obj@metadata |> dplyr::select(groupBy)
   colnames(membership) <- "membership"
   groups <- as.list(unique(membership$membership))
   aggregated <- list()
+  num_members <- membership |> dplyr::group_by(membership) |> dplyr::summarise(n = n())
 
   for (i in groups) {
-    members <- rownames(membership |> dplyr::filter(membership == i))
-    aggregated[[i]] <- as.data.frame(rowMeans(matrix[, members], na.rm = TRUE))
-    colnames(aggregated[[i]]) <- paste0(i)
-    aggregated[[i]] <- aggregated[[i]] |> tibble::rownames_to_column(var = "window")
+    # Check if n is greater than or equal to nmin
+    if (num_members[num_members$membership == i, "n"] >= nmin) {
+      if (num_members[num_members$membership == i, "n"] > 1) {
+        members <- rownames(membership |> dplyr::filter(membership == i))
+        aggregated[[i]] <- as.data.frame(rowMeans(matrix[, members], na.rm = TRUE))
+        colnames(aggregated[[i]]) <- paste0(i)
+        aggregated[[i]] <- aggregated[[i]] |> tibble::rownames_to_column(var = "window")
+      } else if (num_members[num_members$membership == i, "n"] == 1) {
+        members <- rownames(membership |> dplyr::filter(membership == i))
+        aggregated[[i]] <- as.data.frame(matrix[, members, drop = FALSE]) |> tibble::rownames_to_column(var = "window")
+      }
+    } else {
+      # Optionally, you can add a message or log when skipping a group.
+      message("Skipping group ", i, " because n < nmin.")
+    }
   }
   aggregated <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE), aggregated)
 
   # reorder if genomic windows
-  if (sum(grepl("chr", aggregated$window)) > 0) {
+  if (all(grepl("chr", aggregated$window) & grepl("_", aggregated$window))) {
     # order
     data.table::setDT(aggregated)
     aggregated <- aggregated[!grepl("([^_]*_){3,}", window)] # removes alternative loci
@@ -648,7 +665,7 @@ getGeneM <- function(obj,
   gene_m <- furrr::future_pmap(
     .l = list(paths, barcodes), .f = function(path, bar) {
       tryCatch({
-        dataset_name <- paste0(type, "/", bar)
+        dataset_name <- paste0(type, "/", bar, "/1")
         start <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(start)
         count <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(count)
         rhdf5::h5read(path, name = dataset_name, start = start, count = count, stride = 1)

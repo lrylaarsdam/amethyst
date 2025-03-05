@@ -328,120 +328,13 @@ dotM <-  function(
     ggplot2::theme_classic() +
     {if (is.null(colors)) ggplot2::scale_color_viridis_c()} +
     {if (!is.null(colors)) ggplot2::scale_color_gradientn(colors = {{ colors }})} +
-    {if (!is.null(splitBy)) ggplot2::facet_wrap(vars(.data[[splitBy]]), nrow = nrow)} +
+    {if (!is.null(splitBy)) ggplot2::facet_wrap(vars(.data[[splitBy]]), nrow = nrow, scales = "free_y")} +
     ggplot2::theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1))
 
 }
 
 ############################################################################################################################
 #' @title histograM
-#' @description Plot methylation levels over a gene body in histogram format
-#'
-#' @param obj Object containing the matrix to plot
-#' @param genes Gene list to plot
-#' @param matrix Matrix contained in the genomeMatrices slot; pct matrix output of calcSmoothedWindows
-#' @param colors Optional list of colors to include
-#' @param trackOverhang Number of base pairs to extend beyond the gene
-#' @param legend Boolean indicating whether to plot the color legend
-#' @param removeNA Boolean indicating whether to remove NA values as opposed to plotting them grey
-#' @param ncol Number of columns to distribute results across. Defaults to number of input genes
-#' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
-#' @param trackScale Enables adjustment of gene track height
-#' @param arrowScale Enables adjustment of gene directional arrow size
-#' @param colorMax Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value
-#' @param order Arrange the order of groups
-#' @param baseline 0 or "mean". Define whether the histogram baseline starts at 0 or the mean global % methylation of the group.
-#' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
-#' @export
-#' @examples histograM(brain, genes = "SATB2", matrix = "cg_type_tracks")
-#' @examples histograM(brain, genes = "SATB2", matrix = "ch_type_tracks", baseline = "mean", arrowScale = .03, trackScale = .5, colors = c("#ff4a74", "grey20", "#71e300"), colorMax = 12, trackOverhang = 50000, order = rev(c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4")))
-#' @importFrom dplyr filter mutate rowwise
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit
-#' @importFrom gridExtra grid.arrange
-#' @importFrom scales squish
-#' @importFrom tidyr pivot_longer
-histograM <- function(obj,
-                      genes = NULL,
-                      matrix,
-                      colors = NULL,
-                      trackOverhang = 5000,
-                      arrowOverhang = 3000,
-                      ncol = length(genes),
-                      legend = TRUE,
-                      removeNA = TRUE,
-                      trackScale = 1.5,
-                      arrowScale = 0.025,
-                      colorMax = 100,
-                      order = NULL,
-                      baseline = 0) {
-
-  if (!is.null(colors)) {
-    pal <- colors
-  } else {
-    pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
-  }
-
-  if (is.null(obj@ref)) {
-    stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
-  }
-
-  if (is.null(obj@genomeMatrices[[matrix]])) {
-    stop("Specified matrix does not exist. Use names(obj@genomeMatrices) to check available matrices.")
-  }
-
-  p <- vector("list", length(genes)) # empty plot list
-  for (i in 1:length(genes)) {
-
-    ref <- obj@ref |> dplyr::filter(gene_name == genes[i])
-    aggregated <- obj@genomeMatrices[[matrix]]
-
-    toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] &
-                              aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) &
-                              aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
-    ngroups <- ncol(toplot) - 3
-    trackHeight <- ngroups * trackScale
-    toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "group", values_to = "pct_m") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
-
-    if (removeNA) {
-      toplot <- toplot |> dplyr::filter(!is.na(pct_m))
-    }
-
-    if (baseline == "mean") {
-      glob_m <- data.frame(group = colnames(aggregated[, 4:ncol(aggregated)]),
-                           glob_m = colMeans(aggregated[, 4:ncol(aggregated)], na.rm = T))
-      toplot <- dplyr::left_join(toplot, glob_m, by = "group")
-    }
-
-    if (!is.null(order)) {
-      toplot$group <- factor(toplot$group, levels = order)
-    }
-
-    p[[i]] <- ggplot2::ggplot() +
-
-      # plotting gene tracks
-      ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |>
-                           dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)),
-                                         promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
-                         ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight*2, ymax = -trackHeight)) +
-      ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"),
-                         ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight*2, ymax = -trackHeight)) +
-      ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang),
-                                            y = -(trackHeight*1.5),
-                                            xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang),
-                                            yend = -(trackHeight*1.5)), arrow = ggplot2::arrow(length = unit(trackHeight*arrowScale, "cm"))) + xlab(genes[i]) +
-
-      # plotting histogram
-      {if (baseline == 0)ggplot2::geom_col(data = toplot, ggplot2::aes(x = middle, y = pct_m, fill = pct_m), width = mean(toplot$end - toplot$start))} +
-      {if (baseline == "mean")ggplot2::geom_rect(data = toplot, ggplot2::aes(xmin = start, xmax = end, ymin = glob_m, ymax = pct_m, fill = pct_m))} + ggplot2::facet_grid(vars(group)) +
-      {if (!legend)ggplot2::theme(legend.position = "none")} +
-      ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax), oob = scales::squish) + theme(axis.title.y = element_blank()) +
-      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed"))
-  }
-  gridExtra::grid.arrange(grobs = p, ncol = ncol)
-}
-
-############################################################################################################################
-#' @title heatMap
 #' @description Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
 #'
 #' @param obj Object containing the matrix to plot
@@ -458,124 +351,523 @@ histograM <- function(obj,
 #' @param arrowScale Enables adjustment of gene directional arrow size
 #' @param colorMax Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value
 #' @param order Arrange the order of groups
+#' @param extraTracks Optional; include additional tracks (like regulatory elements) below gene tracks.
+#' Input should be a named list of coordinate files containing chr, start, and end columns.
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
+#' @param remove Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
+#' Helpful when plotting very large regions.
+#' @param baseline Option for histogram to begin at 0 or at the "mean" methylation values for that group.
+#' @param orientation Defines whether groups are plotted in "rows" or "cols".
+#'
+#' @return A ggplot object with color and bar height indicating % methylation over windows.
+#' Genes and any imported tracks (optional) are plotted beneath.
+#' @export
+#' @examples histograM(brain, matrix = "ch_type_tracks", genes = "SATB2")
+#' @examples histograM(brain, matrix = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
+#' @importFrom dplyr filter mutate rowwise cur_group_id
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
+#' @importFrom gridExtra grid.arrange
+#' @importFrom tidyr pivot_longer
+histograM <- function(obj,
+                      matrix,
+                      genes = NULL,
+                      regions = NULL,
+                      colors = NULL,
+                      trackOverhang = 5000,
+                      arrowOverhang = 3000,
+                      legend = TRUE,
+                      removeNA = TRUE,
+                      trackScale = .07,
+                      arrowScale = NULL,
+                      colorMax = NULL,
+                      order = NULL,
+                      extraTracks = NULL,
+                      remove = NULL,
+                      baseline = "mean",
+                      nrow = max(length(genes), length(regions)),
+                      orientation = "rows") {
+
+  # check correct matrix exists
+  if (is.null(obj@genomeMatrices[[matrix]])) {
+    stop("Specified matrix does not exist. Use names(obj@genomeMatrices) to check available matrices.")
+  }
+
+  # check to make sure reference is added
+  if (is.null(obj@ref)) {
+    stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
+  }
+
+  if (!"data.table" %in% class(obj@ref)) {
+    obj@ref <- data.table(obj@ref)
+  }
+
+  if (!is.null(remove)) {
+    obj@ref <- obj@ref[!grepl(x = obj@ref$gene_name, pattern = remove), ]
+  }
+
+  # check tracks are in proper format
+  if (!is.null(extraTracks)) {
+    for (i in 1:length(extraTracks)) {
+      if (!(all(c("chr", "start", "end") %in% names(extraTracks[[i]])))) {
+        stop("Please check each additional track contains chr, start, and end columns.")
+      }
+      if (!(is.numeric(extraTracks[[i]]$start) && is.numeric(extraTracks[[i]]$end))) {
+        stop("Please check all start and end columns contain numeric values.")
+      }
+    }
+  }
+
+  # convert genes to genome ranges
+  if (!is.null(regions)) {
+    ranges <- regions
+  }
+
+  if (!is.null(genes)) {
+    ref <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
+    ranges <- ref[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
+  }
+
+  # for each genome range...
+  p <- vector("list", length(ranges))
+  for (i in 1:length(ranges)) {
+
+    # get genome coordinates for this iteration
+    split_parts <- data.table::tstrsplit(ranges[[i]], "_", fixed = TRUE)
+    chrom = split_parts[[1]]
+    min = as.numeric(split_parts[[2]]) - trackOverhang
+    max = as.numeric(split_parts[[3]]) + trackOverhang
+
+    # get methylation values from genome matrix
+    values <- obj@genomeMatrices[[matrix]][(chr == chrom & start >= min & end <= max)]
+    ngroups <- ncol(values) - 3
+
+    # calculate track heights
+    if (!is.null(regions)) {
+      ref <- obj@ref |> dplyr::filter(seqid == chrom & start >= min & end <= max & type %in% c("gene", "exon")) |>
+        dplyr::distinct(gene_name, start, end, type, strand) |> dplyr::group_by(gene_name) |> dplyr::mutate(label = dplyr::cur_group_id()) |>
+        dplyr::mutate(trackHeight = ngroups * label * trackScale,
+                      ymin = -(trackHeight - (ngroups * 0.03)),
+                      ymax = -(trackHeight + (ngroups * 0.03)))
+    }
+
+    if (!is.null(genes)) {
+      ref <- obj@ref |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
+        dplyr::distinct(gene_name, start, end, type, strand) |>
+        dplyr::mutate(trackHeight = ngroups * trackScale,
+                      ymin = -(trackHeight - (ngroups * 0.03)),
+                      ymax = -(trackHeight + (ngroups * 0.03)))
+    }
+
+    # isolate gene coordinates to make plotting more legible
+    genenames <- ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1) |> dplyr::mutate(text_start = ifelse(strand == "+", (end + 2500), (end + 1000)))
+    genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end),
+                                                                      xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+    promoters <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end - 1500)),
+                                                                       promoter_end = ifelse(strand == "+", (start + 1500), (end + 1500)))
+    exons <- ref |> dplyr::filter(type == "exon")
+
+    if (!is.null(arrowScale)) {
+      arrowHeight <- arrowScale
+    } else {
+      arrowHeight <- ( 5 / (ngroups*nrow(genebody)))
+    }
+
+    values <- tidyr::pivot_longer(values, cols = c(4:ncol(values)), names_to = "group", values_to = "pct_m") |>
+      dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+
+    if (baseline == "mean") {
+      glob_m <- data.frame(group = colnames(obj@genomeMatrices[[matrix]][, 4:ncol(obj@genomeMatrices[[matrix]])]),
+                           glob_m = colMeans(obj@genomeMatrices[[matrix]][, 4:ncol(obj@genomeMatrices[[matrix]])], na.rm = T))
+      values <- dplyr::left_join(values, glob_m, by = "group")
+    }
+
+    if (removeNA) {
+      values <- values |> dplyr::filter(!is.na(pct_m))
+    }
+    if (!is.null(order)) {
+      values$group <- factor(values$group, levels = order)
+    }
+
+    # define other aesthetics that change based on data
+    trackHeight <- mean(ref$trackHeight, na.rm = T)
+    width = mean(values$end - values$start, na.rm = T)
+
+    if (!is.null(colors)) {
+      pal <- colors
+    } else if (is.null(colors)) {
+      pal <- c("#0073bf", "grey60", "#ffa600")
+    }
+
+    # define scale
+    if (!is.null(colorMax)) {
+      colorMax <- colorMax
+    } else if (is.null(colorMax)) {
+      if (mean(values$pct_m, na.rm = T) > 10) { # assume it's CG methylation; always use 100
+        colorMax <- 100
+      } else { # assume it's CH methylation
+        colorMax <- as.numeric(quantile(values$pct_m,probs=c(.999), na.rm = T))
+      }
+    }
+
+    p[[i]] <- ggplot2::ggplot() +
+
+      # plotting histogram
+      {if (baseline == 0) ggplot2::geom_col(data = values, ggplot2::aes(x = middle, y = pct_m, fill = pct_m), width = mean(toplot$end - toplot$start))} +
+      {if (baseline == "mean") ggplot2::geom_rect(data = values, ggplot2::aes(xmin = start, xmax = end, ymin = glob_m, ymax = pct_m, fill = pct_m))} +
+      {if (orientation == "rows") ggplot2::facet_grid(rows = vars(group))} +
+      {if (orientation == "cols") ggplot2::facet_grid(cols = vars(group))} +
+      {if (!legend) ggplot2::theme(legend.position = "none")} +
+      ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax), oob = scales::squish) + theme(axis.title.y = element_blank()) +
+      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed")) +
+
+      # plotting genes beneath
+      ggplot2::geom_rect(data = promoters, fill = "pink", ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
+      ggplot2::geom_rect(data = exons, fill = "black", ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
+      ggplot2::geom_segment(data = genebody, aes(x = x, xend = xend, y = - trackHeight, yend = - trackHeight),
+                            arrow = ggplot2::arrow(length = unit(trackHeight * arrowHeight , "cm"))) +
+      {if (!is.null(regions)) ggplot2::geom_text(data = genenames, aes(x = text_start, y = -trackHeight, label = gene_name), hjust = 0) } +
+
+      # dynamically add extra tracks
+      {
+        if (!is.null(extraTracks)) {
+          lapply(seq_along(extraTracks), function(j) {
+            track <- extraTracks[[j]] |>
+              dplyr::filter(chr == chrom & start >= min & end <= max) |>
+              dplyr::mutate(
+                trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                ymin = -(trackHeight - (ngroups * 0.03)),
+                ymax = -(trackHeight + (ngroups * 0.03)),
+                track_name = names(extraTracks[j])
+              )
+            set.seed(222)
+            ggplot2::geom_rect(data = track, fill = makePalette(option = 13, n = length(extraTracks))[j],
+                               ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax))
+          })
+        }
+      } +
+
+      # dynamically add names (for some reason couldn't combine)
+      {
+        if (!is.null(extraTracks) && !is.null(names(extraTracks))) {
+          trackNames <- data.frame(
+            min = min,
+            trackName = names(extraTracks),
+            trackHeight = seq_along(extraTracks) %>%
+              sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+          )
+          ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
+        }
+      } +
+
+      # define additional aesthetics
+      theme(legend.justification = "top") +
+      {if (!legend)ggplot2::theme(legend.position = "none")} +
+      ggplot2::theme(panel.background = element_blank(),
+                     axis.ticks = element_blank(),
+                     panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+      ggplot2::ylab("Group ID") +
+      ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
+      {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +
+      {if (!is.null(genes)) ggplot2::xlab(paste0(genes[i], " (", chrom, ")")) }
+
+  }
+  gridExtra::grid.arrange(grobs = p, nrow = nrow)
+}
+
+############################################################################################################################
+#' @title heatMap
+#' @description Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
+#'
+#' @param obj Object containing the matrix to plot
+#' @param genes Gene list to plot
+#' @param matrix Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output
+#' @param colors Optional list of colors to include
+#' @param trackOverhang Number of base pairs to extend beyond the gene
+#' @param regions Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
+#' Any genes or exons that fall within the region will be plotted below.
+#' Also, can specify "genome". This option is meant to be run with large genomic windows.
+#' @param nrow When multiple genes or regions are plotted, number of rows the output is divided across.
+#' @param legend Boolean indicating whether to plot the color legend
+#' @param removeNA Boolean indicating whether to remove NA values as opposed to plotting them grey
+#' @param trackScale Enables adjustment of gene track height
+#' @param arrowScale Enables adjustment of gene directional arrow size
+#' @param colorMax Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value
+#' @param order Arrange the order of groups
+#' @param extraTracks Optional; include additional tracks (like regulatory elements) below gene tracks.
+#' Input should be a named list of coordinate files containing chr, start, and end columns.
+#' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
+#' @param remove Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
+#' Helpful when plotting very large regions.
+#'
 #' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
 #' @export
 #' @examples heatMap(brain, genes = c("SLC17A7"), matrix = "cg_type_tracks")
 #' @examples heatMap(brain, regions = c("chr2_199230000_199520000"), matrix = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
 #' @importFrom dplyr filter mutate rowwise cur_group_id
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 heatMap <- function(obj,
+                    matrix,
                     genes = NULL,
                     regions = NULL,
-                    matrix,
                     colors = NULL,
                     trackOverhang = 5000,
                     arrowOverhang = 3000,
                     legend = TRUE,
                     removeNA = TRUE,
                     trackScale = .07,
-                    arrowScale = 0.25,
-                    colorMax = 100,
+                    arrowScale = NULL,
+                    colorMax = NULL,
                     order = NULL,
+                    extraTracks = NULL,
+                    remove = NULL,
                     nrow = max(length(genes), length(regions))) {
 
-  if (!is.null(colors)) {
-    pal <- colors
-  } else {
-    pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+  # check correct matrix exists
+  if (is.null(obj@genomeMatrices[[matrix]])) {
+    stop("Specified matrix does not exist. Use names(obj@genomeMatrices) to check available matrices.")
   }
 
-  if (is.null(obj@ref)) {
-    stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
-  }
-
-  if (!is.null(genes)) {
-    # make empty plot list
-    p <- vector("list", length(genes)) # empty plot list
-    for (i in 1:length(genes)) {
-
-      ref <- obj@ref |> dplyr::filter(gene_name == genes[i])
-      aggregated <- obj@genomeMatrices[[matrix]]
-
-      toplot <- aggregated[c((aggregated$chr == ref$seqid[ref$type == "gene"] & aggregated$start > (ref$start[ref$type == "gene"] - trackOverhang) & aggregated$end < (ref$end[ref$type == "gene"] + trackOverhang))), ]
-      ngroups <- ncol(toplot) - 3
-      trackHeight <- ngroups * trackScale
-      toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "group", values_to = "pct_m") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
-      if (removeNA) {
-        toplot <- toplot |> dplyr::filter(!is.na(pct_m))
-      }
-      if (!is.null(order)) {
-        toplot$group <- factor(toplot$group, levels = order)
-      }
-
-      p[[i]] <- ggplot2::ggplot() +
-        ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = group, fill = pct_m), width = mean(toplot$end - toplot$start)) +
-        ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
-                           ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = -trackHeight, ymax = 0)) +
-        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"), ggplot2::aes(xmin = start, xmax = end, ymin = -trackHeight, ymax = 0)) +
-        ggplot2::geom_segment(data = ref, aes(x = ifelse(strand == "+", (min(start) - arrowOverhang), (max(end)) + arrowOverhang), y = -(trackHeight/2), xend = ifelse(strand == "+", (max(end) + arrowOverhang), (min(start)) - arrowOverhang), yend = - (trackHeight/2)), arrow = arrow(length = unit(trackHeight*arrowScale, "cm"))) + xlab(genes[i]) +
-        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "gene"), ggplot2::aes(xmin = start, xmax = end, ymin = (-(trackHeight/2) -(trackHeight/20)), ymax = (-(trackHeight/2) + (trackHeight/20)))) +
-        {if (!legend)ggplot2::theme(legend.position = "none")} +
-        ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax), oob = scales::squish) +
-        ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(),  panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed")) + ggplot2::ylab("Group ID")
+  if (!is.null(regions) && "genome" %in% regions) {
+    if (ncol(obj@genomeMatrices[[matrix]]) > 1000) {
+      stop ("Please consider using an aggregated matrix (see aggregateMatrix) for genome-wide observation.")
     }
-  }
+    if (nrow(obj@genomeMatrices[[matrix]]) > 100000) {
+      cat("Warning: please consider using windows with a larger resolution.")
+    }
 
-  if (!is.null(regions)) {
-    p <- vector("list", length(regions))
-    for (i in 1:length(regions)) {
+    # get methylation values from genome matrix
+    values <- obj@genomeMatrices[[matrix]]
+    values$location <- rownames(values)
+    values <- as.data.table(values)
+    values <- values[, c("chr", "start", "end") := data.table::tstrsplit(location, "_", fixed = TRUE)][, location := NULL]
+    values <- values[, `:=`(start = as.numeric(start), end = as.numeric(end))][, `:=` (middle = (start + end) / 2)]
+    values <- values |>
+      tidyr::pivot_longer(cols = -c("chr", "start", "end", "middle"),  names_to = "group", values_to = "pct_m") |>
+      dplyr::filter(!is.na(pct_m))
 
-      # get genome location
-      split_parts <- data.table::tstrsplit(regions[[i]], "_", fixed = TRUE)
+    # sort chr levels
+    chr_levels <- unique(gsub("chr", "", values$chr))
+    values$chr <- factor(values$chr,
+                         levels = paste0("chr", c(sort(as.numeric(chr_levels[grepl("^[0-9]", chr_levels)])), chr_levels[!grepl("^[0-9]", chr_levels)])))
+
+    # sort groups
+    if (!is.null(order)) {
+      values$group <- factor(values$group, levels = order)
+    }
+
+    width = mean(values$end - values$start, na.rm = T)
+
+    # determine appropriate scale range
+    if (!is.null(colorMax)) {
+      range <- c(0, colorMax)
+    } else if (is.null(colorMax)) {
+      if (mean(values$pct_m, na.rm = T) > 10) { # assume it's CG methylation; always use 100
+        range <- c(0, 100)
+      } else if (mean(values$pct_m, na.rm = T ) < 10 && all(values$pct_m >= 0, na.rm = TRUE)) { # assume it's CH methylation
+        colorMax <- as.numeric(quantile(values$pct_m,probs=c(.999), na.rm = T))
+        range <- c(0, colorMax)
+      } else { # assume matrix is methylation score
+        range <- c(-1, 1)
+      }
+    }
+
+    # determine appropriate color palette
+    if (!is.null(colors)) {
+      pal <- colors
+    } else if (is.null(colors)) {
+      if (mean(values$pct_m, na.rm = T) > 10) { # assume it's CG methylation; always use 100
+        pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+      } else if (mean(values$pct_m, na.rm = T ) < 10 && all(values$pct_m >= 0, na.rm = TRUE)) { # assume it's CH methylation
+        pal <- c("black", "red", "yellow")
+      } else { # assume matrix is methylation score
+        pal <- c("#FF0082", "#dbdbdb", "#787878")
+      }
+    }
+
+    # plot
+    ggplot(values) +
+      ggplot2::geom_vline(xintercept = seq(0, max(values$middle), by = 10e6), color = "grey", linetype = "dashed", linewidth = 0.5, alpha = 0.5) +
+      ggplot2::geom_tile(ggplot2::aes(x = middle, y = group, fill = pct_m), width = 100000) +
+      ggplot2::theme_classic() +
+      ggplot2::scale_fill_gradientn(colors = pal,limits = range, oob = scales::squish) +
+      facet_grid(rows = vars(chr), space = "free")
+
+  } else { # if regions != genome
+    # check to make sure reference is added
+    if (is.null(obj@ref)) {
+      stop("Please make sure a genome annotation file has been added to the obj@ref slot with makeRef().")
+    }
+
+    if (!"data.table" %in% class(obj@ref)) {
+      obj@ref <- data.table(obj@ref)
+    }
+
+    if (!is.null(remove)) {
+      obj@ref <- obj@ref[!grepl(x = obj@ref$gene_name, pattern = remove), ]
+    }
+
+    # check tracks are in proper format
+    if (!is.null(extraTracks)) {
+      for (i in 1:length(extraTracks)) {
+        if (!(all(c("chr", "start", "end") %in% names(extraTracks[[i]])))) {
+          stop("Please check each additional track contains chr, start, and end columns.")
+        }
+        if (!(is.numeric(extraTracks[[i]]$start) && is.numeric(extraTracks[[i]]$end))) {
+          stop("Please check all start and end columns contain numeric values.")
+        }
+      }
+    }
+
+    # convert genes to genome ranges
+    if (!is.null(regions)) {
+      ranges <- regions
+    }
+
+    if (!is.null(genes)) {
+      ref <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
+      ranges <- ref[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
+    }
+
+    # for each genome range...
+    p <- vector("list", length(ranges))
+    for (i in 1:length(ranges)) {
+
+      # get genome coordinates for this iteration
+      split_parts <- data.table::tstrsplit(ranges[[i]], "_", fixed = TRUE)
       chrom = split_parts[[1]]
-      min = as.numeric(split_parts[[2]])
-      max = as.numeric(split_parts[[3]])
+      min = as.numeric(split_parts[[2]]) - trackOverhang
+      max = as.numeric(split_parts[[3]]) + trackOverhang
 
-      aggregated <- obj@genomeMatrices[[matrix]]
-      toplot <- aggregated[(chr == chrom & start >= min & end <= max)]
-      ngroups <- ncol(toplot) - 3 
+      # get methylation values from genome matrix
+      values <- obj@genomeMatrices[[matrix]][(chr == chrom & start >= min & end <= max)]
+      ngroups <- ncol(values) - 3
 
-      ref <- obj@ref |> dplyr::filter(seqid == chrom & start >= min & end <= max & type %in% c("gene", "exon")) |>
-        dplyr::distinct(gene_name, start, end, type, strand) |> dplyr::group_by(gene_name) |> dplyr::mutate(label = dplyr::cur_group_id()) |>
-        dplyr::mutate(trackHeight = ngroups * label * trackScale,
-                      ymin = -(trackHeight - (ngroups * 0.03)),
-                      ymax = -(trackHeight + (ngroups * 0.03)))
-       
-      trackHeight <- mean(ref$trackHeight)  
+      # calculate track heights
+      if (!is.null(regions)) {
+        ref <- obj@ref |> dplyr::filter(seqid == chrom & start >= min & end <= max & type %in% c("gene", "exon")) |>
+          dplyr::distinct(gene_name, start, end, type, strand) |> dplyr::group_by(gene_name) |> dplyr::mutate(label = dplyr::cur_group_id()) |>
+          dplyr::mutate(trackHeight = ngroups * label * trackScale,
+                        ymin = -(trackHeight - (ngroups * 0.03)),
+                        ymax = -(trackHeight + (ngroups * 0.03)))
+      }
 
-      trackHeight <- mean(ref$trackHeight)
+      if (!is.null(genes)) {
+        ref <- obj@ref |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
+          dplyr::distinct(gene_name, start, end, type, strand) |>
+          dplyr::mutate(trackHeight = ngroups * trackScale,
+                        ymin = -(trackHeight - (ngroups * 0.03)),
+                        ymax = -(trackHeight + (ngroups * 0.03)))
+      }
 
-      toplot <- tidyr::pivot_longer(toplot, cols = c(4:ncol(toplot)), names_to = "group", values_to = "pct_m") |> dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+      # isolate gene coordinates to make plotting more legible
+      genenames <- ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1) |> dplyr::mutate(text_start = ifelse(strand == "+", (end + 2500), (end + 1000)))
+      genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end),
+                                                                        xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+      promoters <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end - 1500)),
+                                                                         promoter_end = ifelse(strand == "+", (start + 1500), (end + 1500)))
+      exons <- ref |> dplyr::filter(type == "exon")
+
+      if (!is.null(arrowScale)) {
+        arrowHeight <- arrowScale
+      } else {
+        arrowHeight <- ( 5 / (ngroups*nrow(genebody)))
+      }
+
+      values <- tidyr::pivot_longer(values, cols = c(4:ncol(values)), names_to = "group", values_to = "pct_m") |>
+        dplyr::rowwise() |> dplyr::mutate(middle = mean(c(start, end), na.rm = TRUE))
+
       if (removeNA) {
-        toplot <- toplot |> dplyr::filter(!is.na(pct_m))
+        values <- values |> dplyr::filter(!is.na(pct_m))
       }
       if (!is.null(order)) {
-        toplot$group <- factor(toplot$group, levels = order)
+        values$group <- factor(values$group, levels = order)
+      }
+
+      # define other aesthetics that change based on data
+      trackHeight <- mean(ref$trackHeight, na.rm = T)
+      width = mean(values$end - values$start, na.rm = T)
+
+      if (!is.null(colors)) {
+        pal <- colors
+      } else if (is.null(colors)) {
+        if (mean(values$pct_m, na.rm = T) > 10) { # Assume it's CG methylation
+          pal <- c("#FF0082", "#dbdbdb", "#cccccc", "#999999")
+        } else { # Assume it's CH methylation
+          pal <- c("black", "red", "yellow")
+        }
+      }
+
+      # define scale
+      if (!is.null(colorMax)) {
+        colorMax <- colorMax
+      } else if (is.null(colorMax)) {
+        if (mean(values$pct_m, na.rm = T) > 10) { # assume it's CG methylation; always use 100
+          colorMax <- 100
+        } else { # assume it's CH methylation
+          colorMax <- as.numeric(quantile(values$pct_m,probs=c(.999), na.rm = T))
+        }
       }
 
       p[[i]] <- ggplot2::ggplot() +
-        ggplot2::geom_tile(data = toplot, ggplot2::aes(x = middle, y = group, fill = pct_m), width = mean(toplot$end - toplot$start)) +
-        {if (!legend)ggplot2::theme(legend.position = "none")} +
-        ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
-        ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(),  panel.grid.major.y = element_line(color = "#dbdbdb")) + ggplot2::ylab("Group ID") +
-        ggplot2::xlab(chrom) +
+
+        # plot methylation values per group
+        ggplot2::geom_tile(data = values, ggplot2::aes(x = middle, y = group, fill = pct_m), width = width) +
+
         # plotting genes beneath
-        ggplot2::geom_rect(fill = "pink", data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end + 1500)), promoter_end = ifelse(strand == "+", (promoter_start+3000), (promoter_start-3000))),
-                           ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
-        ggplot2::geom_rect(fill = "black", data = ref |> dplyr::filter(type == "exon"),
-                           ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
-        ggplot2::geom_segment(data = ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start - arrowOverhang, end + arrowOverhang),
-                                                                                           xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang)),
-                              aes(x = x, xend = xend, y = -trackHeight, yend = -trackHeight),
-                              arrow = ggplot2::arrow(length = unit(trackHeight*arrowScale, "cm"))) +
-        geom_text(data = ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1),
-                  aes(x = end + 100, y = -trackHeight, label = gene_name), hjust = 0)
+        ggplot2::geom_rect(data = promoters, fill = "pink", ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
+        ggplot2::geom_rect(data = exons, fill = "black", ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
+        ggplot2::geom_segment(data = genebody, aes(x = x, xend = xend, y = - trackHeight, yend = - trackHeight),
+                              arrow = ggplot2::arrow(length = unit(trackHeight * arrowHeight , "cm"))) +
+        {if (!is.null(regions)) ggplot2::geom_text(data = genenames, aes(x = text_start, y = -trackHeight, label = gene_name), hjust = 0) } +
+
+        # dynamically add extra tracks
+        {
+          if (!is.null(extraTracks)) {
+            lapply(seq_along(extraTracks), function(j) {
+              track <- extraTracks[[j]] |>
+                dplyr::filter(chr == chrom & start >= min & end <= max) |>
+                dplyr::mutate(
+                  trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                  ymin = -(trackHeight - (ngroups * 0.03)),
+                  ymax = -(trackHeight + (ngroups * 0.03)),
+                  track_name = names(extraTracks[j])
+                )
+              set.seed(222)
+              ggplot2::geom_rect(data = track, fill = makePalette(option = 13, n = length(extraTracks))[j],
+                                 ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax))
+            })
+          }
+        } +
+
+        # dynamically add names (for some reason couldn't combine)
+        {
+          if (!is.null(extraTracks) && !is.null(names(extraTracks))) {
+            trackNames <- data.frame(
+              min = min,
+              trackName = names(extraTracks),
+              trackHeight = seq_along(extraTracks) %>%
+                sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+            )
+            ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
+          }
+        } +
+
+        # define additional aesthetics
+        theme(legend.justification = "top") +
+        {if (!legend)ggplot2::theme(legend.position = "none")} +
+        ggplot2::theme(panel.background = element_blank(),
+                       axis.ticks = element_blank(),
+                       panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+        ggplot2::ylab("Group ID") +
+        ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
+        {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +
+        {if (!is.null(genes)) ggplot2::xlab(paste0(genes[i], " (", chrom, ")")) }
+
     }
+    gridExtra::grid.arrange(grobs = p, nrow = nrow)
   }
-  gridExtra::grid.arrange(grobs = p, nrow = nrow)
 }
 
 ######################################################################
@@ -590,7 +882,8 @@ heatMap <- function(obj,
 #' @importFrom grDevices colorRampPalette
 makePalette <- function(
     option,
-    n) {
+    n,
+    sample = T) {
   if (option == 1) {pal <- c("#004A4A", "#419e9e", "#75C8D2", "#aae3e3", "#cfe3dc", "#d4c8b2", "mistyrose1", "#ffdea3", "#FFD554", "#fcba2b", "#FFA976",  "#FF8B73", "#F05252", "#bd083e")}
   if (option == 2) {pal <- c("#d84c4b", "#15485d", "#439f9e", "#f2e5dd", "#f08e29", "#df431a")}
   if (option == 3) {pal <- c("#150808","#ec5151","#ffdd6d","#a8dadc")}
@@ -622,8 +915,10 @@ makePalette <- function(
   if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")}
   if (option == 30) {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")}
 
-  if (n < length(pal)) {
+  if (n < length(pal) && sample) {
     colors <- sample(pal, size = n)
+  } else if (n < length(pal) && !sample) {
+    colors <- pal[1:n]
   } else {
     colors <- grDevices::colorRampPalette(pal)(n)
   }

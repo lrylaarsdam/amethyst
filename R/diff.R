@@ -115,7 +115,8 @@ calcSmoothedWindows <- function(
     futureType = "multicore",
     groupBy = "cluster_id",
     returnSumMatrix = TRUE,
-    returnPctMatrix = TRUE) {
+    returnPctMatrix = TRUE,
+    save = FALSE) {
 
   # get barcodes and paths from amethyst object
   if (is.null(obj@h5paths)) {
@@ -207,7 +208,7 @@ calcSmoothedWindows <- function(
       member_results <- furrr::future_pmap(.l = list(member_paths, members), .f = function(path, barcode) {
         tryCatch({
           barcode_name <- sub("\\..*$", "", barcode)
-          data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode),
+          data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
                                                        start = sites$start[sites$cell_id == barcode],
                                                        count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
           data <- data[pos %% step == 0, pos := pos + 1] # add 1 to anything exactly divisible by window size otherwise it will be its own window
@@ -231,6 +232,10 @@ calcSmoothedWindows <- function(
     }, .progress = TRUE)
 
     by_chr[[chr]] <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), chr_group_results)
+
+    if (save) {
+      saveRDS(by_chr[[chr]], paste0("tmp_", type, "_", step, "bp_", chr, ".RData"))
+    }
 
     cat("\nCompleted ", chr,"\n")
   }
