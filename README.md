@@ -11,7 +11,7 @@ Single-cell sequencing technologies have revolutionized biomedical research by e
 
 ## Dev branch notes
 
-We are currently implementing many improvements to Amethyst. The biggest change is base-resolution methylation information is now expected to be stored in the h5 file under context/barcode/1. This structure will allow aggregated metrics to be stored in the same file: for example, methylation values over 100kb windows could be stored in context/barcode/100000. This change will 1) eliminate the need to store massive genomeMatrices within the amethyst object, and 2) allow the most computationally-heavy steps to be calculated outside of R.
+We are currently implementing widespread improvements to Amethyst. The biggest change is base-resolution methylation information is now expected to be stored in the h5 file under context/barcode/1. This structure will allow aggregated metrics to be stored in the same file: for example, methylation values over 100kb windows could be stored in context/barcode/100000. This change will 1) eliminate the need to store massive genomeMatrices within the amethyst object, and 2) allow the most computationally-heavy steps to be calculated outside of R. Users can still do all steps in R if desired, but this method will help accommodate efficient processing of very large datasets.
 
 We appreciate your patience as these changes are being incorporated.
 
