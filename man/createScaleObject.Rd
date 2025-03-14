@@ -20,5 +20,5 @@ Returns a populated amethyst object for futher analysis.
 Helper function for converting Scale Biosciences pipeline output into an Amethyst object
 }
 \examples{
-obj <- createScaleObject(directory = "~/Downloads/scalebio", genomeMatrices = c("CG.score"))
+obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
 }
