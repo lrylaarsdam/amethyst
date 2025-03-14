@@ -7,9 +7,10 @@
 createScaleObject(directory, genomeMatrices = NULL)
 }
 \arguments{
-\item{directory}{Path to the directory containing output from the Scale Biosciences computational pipeline.
-The folder is expected to contain an ".allCells.csv" file with metadata, a genome_bin_matrix folder with pre-constructed
-matrices, and a methylation_coverage folder containing .h5 files with base-level methylation information for each cell.}
+\item{directory}{Path to the directory containing sample output from the Scale Biosciences computational pipeline.
+Path should be structured as follows: "path_to_folder/ScaleMethyl.out/samples". The folder is expected to contain
+an ".allCells.csv" file with metadata, a genome_bin_matrix folder with pre-constructed matrices, and a
+methylation_coverage folder containing .h5 files with base-level methylation information for each cell.}
 
 \item{genomeMatrices}{Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.}
 }
