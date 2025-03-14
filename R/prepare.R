@@ -47,28 +47,52 @@ methods::setClass("amethyst", slots = c(
 #' matrices, and a methylation_coverage folder containing .h5 files with base-level methylation information for each cell.
 #' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
 #' @return Returns a populated amethyst object for futher analysis.
-#' @importFrom data.table fread
+#' @importFrom data.table fread setnames
 #' @importFrom dplyr filter
+#' @importFrom utils read.csv
 #' @importFrom Matrix readMM
 #' @export
-#' @examples obj <- createScaleObject(directory = "~/Downloads/scalebio", genomeMatrices = c("CG.score"))
+#' @examples obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
 createScaleObject <- function(directory,
                               genomeMatrices = NULL) {
-  sample <- sub("\\.allCells\\.csv$", "", grep("\\.allCells\\.csv$", list.files(directory), value = TRUE))
-  metadata <- read.csv(paste0(directory, "/", sample, ".allCells.csv"), row.names = "cell_id") |> dplyr::filter(pass == "pass")
+  samples <- sub("\\.allCells\\.csv$", "", grep("\\.allCells\\.csv$", list.files(directory), value = TRUE))
+
+  metadata <- list()
+  for (i in samples) {
+    metadata[[i]] <- read.csv(paste0(directory, "/", i, ".allCells.csv"), row.names = "cell_id") |> dplyr::filter(pass == "pass")
+  }
+
+  h5paths <- list()
+  for (i in samples) {
+    h5paths[[i]] <- data.frame(row.names = rownames(metadata[[i]]),
+                               paths = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
+  }
 
   obj <- createObject(
-    metadata = metadata,
-    h5paths = data.frame(row.names = rownames(metadata), paths = file.path(directory, "methylation_coverage", "amethyst", sample, paste0(sample, ".", metadata$tgmt_well, "_cov.h5")))
+    metadata = do.call(rbind, metadata),
+    h5paths = do.call(rbind, h5paths),
   )
 
   if (!is.null(genomeMatrices)) {
-    for (i in 1:length(genomeMatrices)) {
-      mtx <- as.array(Matrix::readMM(file.path(directory, "genome_bin_matrix", paste0(sample, ".", genomeMatrices[[i]], ".mtx.gz"))))
-      features <- data.table::fread(file.path(directory, "genome_bin_matrix", paste0(sample, ".CG.features.tsv")), header = FALSE)
-      dimnames(mtx) <- list(features$V1, rownames(metadata))
-      obj@genomeMatrices[[genomeMatrices[[i]]]] <- as.data.frame(mtx)
+    mtx <- list()
+    for (i in genomeMatrices) {
+      for (j in samples) {
+        mtx_path <- paste0(directory, "/genome_bin_matrix/", j, ".", i, ".mtx.gz")
+        if(length(k <- grep("CG", i))) {
+          feature_path <- paste0(directory, "/genome_bin_matrix/", j, ".CG.features.tsv")
+        } else if (length(k <- grep("CH", i))) {
+          feature_path <- paste0(directory, "/genome_bin_matrix/", j, ".CH.features.tsv")
+        }
+        features <- data.table::fread(feature_path, header = FALSE)
+        data.table::setnames(features, "features")
+
+        mtx[[i]][[j]] <- as.array(Matrix::readMM(mtx_path))
+        dimnames(mtx[[i]][[j]]) <- list(features$features, rownames(metadata[[j]]))
+        mtx[[i]][[j]] <- as.data.frame(mtx[[i]][[j]]) |> tibble::rownames_to_column(var = "window")
+      }
+      mtx[[i]] <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), mtx[[i]]) |> tibble::column_to_rownames(var = "window")
     }
+    obj@genomeMatrices <- mtx
   }
   return(obj)
 }
