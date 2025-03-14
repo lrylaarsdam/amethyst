@@ -42,9 +42,10 @@ methods::setClass("amethyst", slots = c(
 #' @title createScaleObject
 #' @description Helper function for converting Scale Biosciences pipeline output into an Amethyst object
 #'
-#' @param directory Path to the directory containing output from the Scale Biosciences computational pipeline.
-#' The folder is expected to contain an ".allCells.csv" file with metadata, a genome_bin_matrix folder with pre-constructed
-#' matrices, and a methylation_coverage folder containing .h5 files with base-level methylation information for each cell.
+#' @param directory Path to the directory containing sample output from the Scale Biosciences computational pipeline.
+#' Path should be structured as follows: "path_to_folder/ScaleMethyl.out/samples". The folder is expected to contain
+#' an ".allCells.csv" file with metadata, a genome_bin_matrix folder with pre-constructed matrices, and a
+#' methylation_coverage folder containing .h5 files with base-level methylation information for each cell.
 #' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
 #' @return Returns a populated amethyst object for futher analysis.
 #' @importFrom data.table fread setnames
@@ -88,6 +89,7 @@ createScaleObject <- function(directory,
 
         mtx[[i]][[j]] <- as.array(Matrix::readMM(mtx_path))
         dimnames(mtx[[i]][[j]]) <- list(features$features, rownames(metadata[[j]]))
+        colnames(mtx[[i]][[j]]) <- paste0(j, ".", colnames(mtx[[i]][[j]]))
         mtx[[i]][[j]] <- as.data.frame(mtx[[i]][[j]]) |> tibble::rownames_to_column(var = "window")
       }
       mtx[[i]] <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), mtx[[i]]) |> tibble::column_to_rownames(var = "window")
