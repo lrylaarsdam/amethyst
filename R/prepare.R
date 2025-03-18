@@ -48,7 +48,7 @@ methods::setClass("amethyst", slots = c(
 #' methylation_coverage folder containing .h5 files with base-level methylation information for each cell.
 #' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
 #' @return Returns a populated amethyst object for futher analysis.
-#' @importFrom data.table fread setnames
+#' @importFrom data.table fread setnames rbindlist
 #' @importFrom dplyr filter
 #' @importFrom utils read.csv
 #' @importFrom Matrix readMM
@@ -60,18 +60,18 @@ createScaleObject <- function(directory,
 
   metadata <- list()
   for (i in samples) {
-    metadata[[i]] <- read.csv(paste0(directory, "/", i, ".allCells.csv"), row.names = "cell_id") |> dplyr::filter(pass == "pass")
+    metadata[[i]] <- read.csv(paste0(directory, "/", i, ".allCells.csv")) |> dplyr::filter(pass == "pass")
   }
 
   h5paths <- list()
   for (i in samples) {
-    h5paths[[i]] <- data.frame(row.names = rownames(metadata[[i]]),
+    h5paths[[i]] <- data.frame(cell_id = metadata[[i]]$cell_id,
                                paths = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
   }
 
   obj <- createObject(
-    metadata = do.call(rbind, metadata),
-    h5paths = do.call(rbind, h5paths),
+    metadata = data.table::rbindlist(metadata) |> tibble::column_to_rownames(var = "cell_id"),
+    h5paths = data.table::rbindlist(h5paths) |> tibble::column_to_rownames(var = "cell_id"),
   )
 
   if (!is.null(genomeMatrices)) {
@@ -88,8 +88,7 @@ createScaleObject <- function(directory,
         data.table::setnames(features, "features")
 
         mtx[[i]][[j]] <- as.array(Matrix::readMM(mtx_path))
-        dimnames(mtx[[i]][[j]]) <- list(features$features, rownames(metadata[[j]]))
-        colnames(mtx[[i]][[j]]) <- paste0(j, ".", colnames(mtx[[i]][[j]]))
+        dimnames(mtx[[i]][[j]]) <- list(features$features, metadata[[j]]$cell_id)
         mtx[[i]][[j]] <- as.data.frame(mtx[[i]][[j]]) |> tibble::rownames_to_column(var = "window")
       }
       mtx[[i]] <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE, sort = FALSE), mtx[[i]]) |> tibble::column_to_rownames(var = "window")
