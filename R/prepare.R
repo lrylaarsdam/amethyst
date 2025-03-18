@@ -145,7 +145,7 @@ makeRef <- function(genome,
     gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M10/gencode.vM10.annotation.gtf.gz")
   } else if (genome == "mm39") {
     options(timeout = 1000)
-    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/latest_release/gencode.vM35.annotation.gtf.gz")
+    gtf <- rtracklayer::readGFF("https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M35/gencode.vM35.annotation.gtf.gz")
   } else if (!is.null(gtf)) {
     gtf <- rtracklayer::readGFF(gtf)
   } else {
