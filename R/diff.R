@@ -34,18 +34,22 @@ findClusterMarkers <- function(
       nonmembers <- rownames(membership |> dplyr::filter(cluster_id != id))
       tryCatch(
         {
-          gene_results[[id]] <- data.frame(
-            "p.val" = stats::wilcox.test(
-              x = genematrix[gene, members],
-              y = genematrix[gene, nonmembers])$p.value,
-            "gene" = gene,
-            "cluster_id" = id,
-            mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
-            mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
-          ) |> dplyr::mutate(
-            logFC = log2(mean_1 / mean_2),
-            direction = ifelse(mean_1 > mean_2, "hypermethylated", "hypomethylated")
-          )
+          if (length(members) | length(nonmembers) < 10) {
+            gene_results[[id]] <- NA
+          } else {
+            gene_results[[id]] <- data.frame(
+              "p.val" = stats::wilcox.test(
+                x = genematrix[gene, members],
+                y = genematrix[gene, nonmembers])$p.value,
+              "gene" = gene,
+              "cluster_id" = id,
+              mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
+              mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
+            ) |> dplyr::mutate(
+              logFC = log2(mean_2 / mean_1),
+              direction = ifelse(mean_2 > mean_1, "hypermethylated", "hypomethylated")
+            )
+          }
         },
         error = function(e) {
           cat("Error processing gene:", gene, "and cluster:", id, "\n")
@@ -85,7 +89,10 @@ findClusterMarkers <- function(
 #' @param futureType If using parallelization, should R multithread using "multicore" or "multisession".
 #' @param groupBy Parameter contained in the metadata over which to aggregate observations. Default is "cluster_id".
 #' @param returnSumMatrix Whether or not the function should return the matrix of summed c and t observations. Required for testDMR input.
+#' @param subset Optional; only calculate for portion of genome. Specify ranges like: "chr15_77563027_77870900"
+#' @param save Optional; save each chromosome output intermediate.
 #' @param returnPctMatrix Whether or not the function should calculate % methylation over each genomic window. Required for heatMap input.
+#'
 #' @return if returnSumMatrix = TRUE, returns a data.table with the genomic location as chr, start, and end columns,
 #' plus aggregated c and t observations for each groupBy value. If returnPctMatrix = TRUE, returns a data.table with the
 #' genomic location as chr, start, and end columns, plus one column of the mean % methylation for each window per groupBy value.
@@ -97,13 +104,13 @@ findClusterMarkers <- function(
 #' @importFrom furrr future_map future_pmap
 #' @importFrom plyr round_any .
 #' @importFrom tidyr separate
-#' @importFrom data.table setnames setDT tstrsplit := setorder data.table frollapply frollsum frollmean shift copy
+#' @importFrom data.table data.table setnames setDT tstrsplit := setorder data.table frollapply frollsum frollmean shift copy
 #' @importFrom purrr reduce
 #' @importFrom utils read.table
 #' @export
 #'
 #' @examples output <- calcSmoothedWindows(obj, returnSumMatrix = TRUE, returnPctMatrix = FALSE) # example to calculate testDMR input
-#' @examples output <- calcSmoothedWindows(obj, returnSumMatrix = FALSE, returnPctMatrix = TRUE) # example to calculate heatMap input
+#' @examples brain@tracks[["cg_highres_lingo1"]] <- calcSmoothedWindows(brain, type = "CG", threads = 20, step = 1, smooth = 1, genome = "hg38", subset = c("chr15_77563027_77870900"), groupBy = "type", returnSumMatrix = F)
 calcSmoothedWindows <- function(
     obj,
     type = "CG",
@@ -111,6 +118,7 @@ calcSmoothedWindows <- function(
     step = 500,
     smooth = 3,
     genome = "hg38",
+    subset = NULL,
     index = "chr_cg",
     futureType = "multicore",
     groupBy = "cluster_id",
@@ -167,10 +175,42 @@ calcSmoothedWindows <- function(
 
   chromosome_sizes <- data.frame(chromosome, size)
 
+  if (!is.null(subset)) {
+    subset_coords <- data.table::tstrsplit(subset, "_", fixed = TRUE)
+    subset_coords <- data.table(subset_chr = subset_coords[[1]], subset_start = as.integer(subset_coords[[2]]), subset_end = as.integer(subset_coords[[3]]))
+    data.table::setkey(subset_coords, subset_chr, subset_start, subset_end)
+
+    chromosome_sizes <- chromosome_sizes[chromosome_sizes$chromosome == subset_coords$subset_chr, ]
+  }
+
   # Apply the function to each chromosome and combine results
   genomechunks <- do.call(rbind, lapply(1:nrow(chromosome_sizes), function(i) {
     generate_windows(chromosome_sizes$chromosome[i], chromosome_sizes$size[i])
   }))
+
+  data.table::setDT(genomechunks)
+  genomechunks <- genomechunks[, window := paste0(chr, "_", start, "_", end)]
+  data.table::setkey(genomechunks, chr, start, end)
+
+  if (!is.null(subset)) {
+    filtered_chunks <- foverlaps(
+      x = genomechunks,
+      y = subset_coords,
+      by.x = c("chr", "start", "end"),
+      by.y = c("subset_chr", "subset_start", "subset_end"),
+      nomatch = 0L,  # drops non-overlapping rows
+      type = "any"   # any overlap is sufficient
+    )
+    genomechunks <- filtered_chunks[, .(chr, start, end, window)]
+  }
+
+  chr_groups <- as.list(unique(genomechunks$chr)) # store chr groups list to loop over
+
+  # get number of clusters
+  membership <- obj@metadata |> dplyr::select(groupBy)
+  colnames(membership) <- "membership"
+  groups <- as.list(unique(membership$membership))
+
 
   # set up multithreading
   if (threads > 1) {
@@ -183,16 +223,6 @@ calcSmoothedWindows <- function(
       stop("Options for parallelizing include multicore or multisession.")
     }
   }
-
-  data.table::setDT(genomechunks)
-  genomechunks <- genomechunks[, window := paste0(chr, "_", start, "_", end)]
-
-  chr_groups <- as.list(unique(genomechunks$chr)) # store chr groups list to loop over
-
-  # get number of clusters
-  membership <- obj@metadata |> dplyr::select(groupBy)
-  colnames(membership) <- "membership"
-  groups <- as.list(unique(membership$membership))
 
   by_chr <- list()
   for (chr in chr_groups) {
@@ -451,6 +481,7 @@ collapseDMR <- function(
     maxDist = 0,
     minLength = 1000,
     reduce = TRUE,
+    mergeDirections = FALSE,
     annotate = TRUE) {
 
   x <- data.table::copy(dmrMatrix)
@@ -459,25 +490,47 @@ collapseDMR <- function(
   collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(test, chr, direction)]
   data.table::setnames(collapsed, old = c("start", "end"), new = c("dmr_start", "dmr_end"))
 
-  output <- dmrMatrix[collapsed, on = .(chr = chr, direction = direction, test = test, start >= dmr_start, end <= dmr_end),
-                      .(chr,
-                        start = x.start,
-                        end = x.end,
-                        test,
-                        pval = x.pval,
-                        padj = x.padj,
-                        logFC = x.logFC,
-                        direction = direction,
-                        dmr_start = (dmr_start + maxDist),
-                        dmr_end = (dmr_end - maxDist),
-                        dmr_length = (width - (2 * maxDist) - 1))]
-  output <- output[, c("dmr_padj", "dmr_logFC") := list(min(padj),
-                                                        (ifelse(logFC < 0, min(logFC), max(logFC)))),
-                   by = .(test, direction, chr, dmr_start, dmr_end)]
-  output <- output[dmr_length >= minLength]
+  if (mergeDirections) {
+    output <- dmrMatrix[collapsed, on = .(chr = chr, test = test, start >= dmr_start, end <= dmr_end),
+                        .(chr,
+                          start = x.start,
+                          end = x.end,
+                          test,
+                          pval = x.pval,
+                          padj = x.padj,
+                          logFC = x.logFC,
+                          dmr_start = (dmr_start + maxDist),
+                          dmr_end = (dmr_end - maxDist),
+                          dmr_length = (width - (2 * maxDist) - 1))]
+    output <- output[, c("dmr_padj", "dmr_logFC") := list(mean(padj), mean(abs(logFC))),
+                     by = .(test, chr, dmr_start, dmr_end)]
+    output <- output[dmr_length >= minLength]
 
-  if (reduce) {
-    output <- unique(output[, .(chr, test, direction, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch= 0 ])
+    if (reduce) {
+      output <- unique(output[, .(chr, test, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch = 0 ])
+    }
+
+  } else {
+    output <- dmrMatrix[collapsed, on = .(chr = chr, direction = direction, test = test, start >= dmr_start, end <= dmr_end),
+                        .(chr,
+                          start = x.start,
+                          end = x.end,
+                          test,
+                          pval = x.pval,
+                          padj = x.padj,
+                          logFC = x.logFC,
+                          direction = direction,
+                          dmr_start = (dmr_start + maxDist),
+                          dmr_end = (dmr_end - maxDist),
+                          dmr_length = (width - (2 * maxDist) - 1))]
+    output <- output[, c("dmr_padj", "dmr_logFC") := list(mean(padj), mean(logFC)),
+                     by = .(test, direction, chr, dmr_start, dmr_end)]
+    output <- output[dmr_length >= minLength]
+
+    if (reduce) {
+      output <- unique(output[, .(chr, test, direction, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch= 0 ])
+    }
+
   }
 
   if (annotate) {
@@ -498,8 +551,6 @@ collapseDMR <- function(
     output <- merge(output, overlaps_unique, by = c("chr", "dmr_start", "dmr_end"), all.x = TRUE)  # Merge the gene names back into the original output data.table
 
   }
-
   return(output)
-
 }
 

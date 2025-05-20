@@ -19,7 +19,7 @@
 #' @return Returns a data frame with columns as cells and rows as either genes or genomic windows
 #' @export
 #' @examples makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), metric = "percent")
-#' @importFrom data.table data.table tstrsplit := setorder setDT rbindlist
+#' @importFrom data.table data.table tstrsplit := setorder setDT rbindlist copy
 #' @importFrom dplyr pull filter select mutate
 #' @importFrom furrr future_map
 #' @importFrom future plan multicore sequential
@@ -107,7 +107,7 @@ makeWindows <- function(
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
         tryCatch({
-          bed_tmp <- copy(bed[[chr]])
+          bed_tmp <- data.table::copy(bed[[chr]])
           barcode_name <- sub("\\..*$", "", barcode)
 
           meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
@@ -256,18 +256,25 @@ makeWindows <- function(
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes), .f = function(path, barcode) {
         tryCatch({
-          bed_tmp <- copy(bed[[chr]])
+          bed_tmp <- data.table::copy(bed[[chr]])
           barcode_name <- sub("\\..*$", "", barcode)
-          data <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
-                                                       start = sites$start[sites$cell_id == barcode],
-                                                       count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
-          result <- data[bed_tmp, on = .(chr = chr, pos >= start, pos <= end), nomatch = 0L, .(chr, start, end, pos = x.pos, c, t, gene)]
-          summary <- result[, .(cell_id =
-                                  round(((sum(c != 0) * 100 )/ (sum(c != 0) + sum(t != 0))), 2),
-                                n = sum(c + t, na.rm = TRUE)),
-                            by = .(gene)]
-          summary <- summary[n >= nmin, .(gene, cell_id)]
-          setnames(summary, "cell_id", barcode_name)
+
+          meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
+          h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
+                                                     start = sites$start[sites$cell_id == barcode],
+                                                     count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
+
+          meth_gene <- h5[bed_tmp, on = .(chr = chr, pos >= start, pos <= end), nomatch = 0L, .(chr, start, end, pos = x.pos, c, t, gene)]
+          meth_gene <- meth_gene[, .(value = round((sum(c != 0)/ (sum(c != 0) + sum(t != 0))), 4),
+                                     n = sum(c + t, na.rm = TRUE)), by = gene]
+          meth_gene <- meth_gene[n >= nmin, ][, n := NULL]
+
+          if (metric == "percent") { summary <- meth_gene[, value := (value * 100)] }
+          if (metric == "score") { summary <- meth_gene[, value := round((ifelse((value - meth_cell) > 0,
+                                                                                 (value - meth_cell)/(1 - meth_cell),
+                                                                                 (value - meth_cell)/meth_cell)), 3)] }
+          if (metric == "ratio") { summary <- meth_gene[, value := round(value / meth_cell, 3)] }
+          data.table::setnames(summary, "value", barcode_name)
         }, error = function(e) {
           cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
           return(NULL)  # Return NULL or any other value indicating failure
@@ -312,7 +319,6 @@ makeWindows <- function(
   return(windows_merged)
 
 }
-
 ############################################################################################################################
 #' @title addMetadata
 #' @description Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs
@@ -686,5 +692,78 @@ getGeneM <- function(obj,
     tibble::rownames_to_column(var = "cell_id") |>
     dplyr::mutate(cell_id = sub("\\..*$", "", cell_id))
   output <- gene_m
+}
+
+############################################################################################################################
+#' @title convertObject
+#' @description Shortcut for converting old amethyst object format to new.
+#' Adds "tracks" and "results" slots.
+#' @param obj Old amethyst object to convert
+#' @return Returns an updated amethyst object with slots:
+#' h5paths, genomeMatrices, tracks, reductions, index, metadata, ref, results
+#' @export
+#' @importFrom data.table data.table
+#' @example new_obj <- convertObject(old_obj)
+#'
+
+convertObject <- function(obj) {
+
+  methods::setClass("amethyst", slots = c(
+    h5paths = "ANY",
+    genomeMatrices = "ANY",
+    tracks = "ANY",
+    reductions = "ANY",
+    index = "ANY",
+    metadata = "ANY",
+    ref = "ANY",
+    results = "ANY"
+  ))
+
+  matrices <- obj@genomeMatrices[-(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
+  tracks <- obj@genomeMatrices[(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
+  ref <- data.table::data.table(obj@ref)
+
+  new_obj <- methods::new(Class = "amethyst",
+               h5paths = obj@h5paths,
+               genomeMatrices = matrices,
+               tracks = tracks,
+               reductions = obj@reductions,
+               index =  obj@index,
+               metadata = obj@metadata,
+               ref = ref,
+               results = NULL)
+
+  if (any(grepl("umap", colnames(obj@metadata)))) {
+    new_obj@reductions[["umap"]] <- obj@metadata[, c("umap_x", "umap_y")]
+    colnames(new_obj@reductions[["umap"]]) <- c("dim_x", "dim_y")
+  }
+
+  if (any(grepl("tsne", colnames(obj@metadata)))) {
+    new_obj@reductions[["tsne"]] <- obj@metadata[, c("tsne_x", "tsne_y")]
+    colnames(new_obj@reductions[["tsne"]]) <- c("dim_x", "dim_y")
+  }
+
+  return(new_obj)
+
+}
+
+
+############################################################################################################################
+#' @title getGeneCoords
+#' @description getGeneCoords fetches the appended chromosome, start, and end locations
+#' for a given gene of interest.
+#' @param ref Genome annotation file
+#' @param gene Name of gene for which to fetch coordinates
+#' @return Returns the appended chromosome, start, and end locations for a given gene, e.g. "chr2_199269505_199471266"
+#' @export
+#' @example getGeneCoords(ref = obj@ref, gene = "SATB2")
+#'
+getGeneCoords <- function(
+    ref,
+    gene) {
+
+  coords <- ref$location[ref$type == "gene" & ref$gene_name == gene]
+  return(coords)
+
 }
 
