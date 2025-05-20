@@ -4,10 +4,14 @@
 \alias{regressCovBias}
 \title{regressCovBias}
 \usage{
-regressCovBias(obj, reduction = "irlba")
+regressCovBias(obj, reduction = "irlba", method = "lm")
 }
 \arguments{
 \item{obj}{Amethyst object containing irlba matrix to regress coverage bias from}
+
+\item{reduction}{Name of dimensionality reduction to apply function over}
+
+\item{method}{Calculate residuals using "lm" or "gam" model}
 }
 \value{
 Returns the residuals

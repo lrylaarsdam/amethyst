@@ -10,6 +10,7 @@ collapseDMR(
   maxDist = 0,
   minLength = 1000,
   reduce = TRUE,
+  mergeDirections = FALSE,
   annotate = TRUE
 )
 }

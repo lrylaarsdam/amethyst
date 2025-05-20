@@ -4,10 +4,21 @@
 \alias{runCluster}
 \title{runCluster}
 \usage{
-runCluster(obj, k_phenograph = 50, reduction = "irlba")
+runCluster(
+  obj,
+  k = 50,
+  reduction = "irlba",
+  method = "louvain",
+  colname = "cluster_id"
+)
 }
 \arguments{
 \item{obj}{Amethyst object to perform clustering on}
+
+\item{reduction}{Name of dimensionality reduction to calculate over}
+
+\item{method}{Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;
+or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.}
 
 \item{k_phenograph}{integer; number of nearest neighbors}
 }

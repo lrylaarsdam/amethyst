@@ -6,7 +6,7 @@
 \usage{
 histograM(
   obj,
-  matrix,
+  track,
   genes = NULL,
   regions = NULL,
   colors = NULL,
@@ -14,7 +14,7 @@ histograM(
   arrowOverhang = 3000,
   legend = TRUE,
   removeNA = TRUE,
-  trackScale = 0.07,
+  trackScale = 1,
   arrowScale = NULL,
   colorMax = NULL,
   order = NULL,
@@ -28,7 +28,7 @@ histograM(
 \arguments{
 \item{obj}{Object containing the matrix to plot}
 
-\item{matrix}{Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output}
+\item{track}{Name of matrix containing pseudobulked methylation values calculated over small genomic windows}
 
 \item{genes}{Gene list to plot}
 
@@ -73,6 +73,6 @@ Genes and any imported tracks (optional) are plotted beneath.
 Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
 }
 \examples{
-histograM(brain, matrix = "ch_type_tracks", genes = "SATB2")
-histograM(brain, matrix = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
+histograM(brain, track = "ch_type_tracks", genes = "SATB2")
+histograM(brain, track = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
 }

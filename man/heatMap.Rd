@@ -6,7 +6,7 @@
 \usage{
 heatMap(
   obj,
-  matrix,
+  track = NULL,
   genes = NULL,
   regions = NULL,
   colors = NULL,
@@ -19,6 +19,7 @@ heatMap(
   colorMax = NULL,
   order = NULL,
   extraTracks = NULL,
+  extraTrackColors = NULL,
   remove = NULL,
   nrow = max(length(genes), length(regions))
 )
@@ -26,13 +27,12 @@ heatMap(
 \arguments{
 \item{obj}{Object containing the matrix to plot}
 
-\item{matrix}{Matrix contained in the genomeMatrices slot. Note: unlike other functions, designed for makeSlidingWindows output}
+\item{track}{Name of matrix containing pseudobulked methylation values calculated over small genomic windows}
 
 \item{genes}{Gene list to plot}
 
 \item{regions}{Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
-Any genes or exons that fall within the region will be plotted below.
-Also, can specify "genome". This option is meant to be run with large genomic windows.}
+Any genes or exons that fall within the region will be plotted below.}
 
 \item{colors}{Optional list of colors to include}
 
@@ -64,9 +64,9 @@ Helpful when plotting very large regions.}
 A ggplot geom_tile object with colors indicating \% methylation over tiled windows and the gene of interest beneath
 }
 \description{
-Plot methylation levels aggregated across smoothed genomic windows over a given gene body or genomic region
+Plot methylation levels aggregated across a given gene body or genomic region
 }
 \examples{
-heatMap(brain, genes = c("SLC17A7"), matrix = "cg_type_tracks")
-heatMap(brain, regions = c("chr2_199230000_199520000"), matrix = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
+heatMap(brain, genes = c("SLC17A7"), track = "cg_type_tracks")
+heatMap(brain, regions = c("chr2_199230000_199520000"), track = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
 }

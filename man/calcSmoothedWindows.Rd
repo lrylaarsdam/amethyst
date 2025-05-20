@@ -11,6 +11,7 @@ calcSmoothedWindows(
   step = 500,
   smooth = 3,
   genome = "hg38",
+  subset = NULL,
   index = "chr_cg",
   futureType = "multicore",
   groupBy = "cluster_id",
@@ -33,6 +34,8 @@ Default parameter is 3, resulting in a 1500 x 500 bp sliding window matrix.}
 
 \item{genome}{Genome build of the organism(s) being analyzed. Options are currently "hg19", "hg38", "mm10", or "mm39".}
 
+\item{subset}{Optional; only calculate for portion of genome. Specify ranges like: "chr15_77563027_77870900"}
+
 \item{index}{Name of chr index in the index slot.
 This reduces memory constraints by processing one chromosome at a time.}
 
@@ -43,6 +46,8 @@ This reduces memory constraints by processing one chromosome at a time.}
 \item{returnSumMatrix}{Whether or not the function should return the matrix of summed c and t observations. Required for testDMR input.}
 
 \item{returnPctMatrix}{Whether or not the function should calculate \% methylation over each genomic window. Required for heatMap input.}
+
+\item{save}{Optional; save each chromosome output intermediate.}
 }
 \value{
 if returnSumMatrix = TRUE, returns a data.table with the genomic location as chr, start, and end columns,
@@ -56,5 +61,5 @@ Optionally calculate the \% methylation for each window.
 }
 \examples{
 output <- calcSmoothedWindows(obj, returnSumMatrix = TRUE, returnPctMatrix = FALSE) # example to calculate testDMR input
-output <- calcSmoothedWindows(obj, returnSumMatrix = FALSE, returnPctMatrix = TRUE) # example to calculate heatMap input
+brain@tracks[["cg_highres_lingo1"]] <- calcSmoothedWindows(brain, type = "CG", threads = 20, step = 1, smooth = 1, genome = "hg38", subset = c("chr15_77563027_77870900"), groupBy = "type", returnSumMatrix = F)
 }

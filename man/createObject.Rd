@@ -7,10 +7,12 @@
 createObject(
   h5paths = NULL,
   genomeMatrices = NULL,
+  tracks = NULL,
   reductions = NULL,
   index = NULL,
   metadata = NULL,
-  ref = NULL
+  ref = NULL,
+  results = NULL
 )
 }
 \arguments{
@@ -33,5 +35,5 @@ Returns a single object of class amethyst with h5path, genomeMatrices, reduction
 Create object of class amethyst
 }
 \examples{
-obj <- createObject(h5paths = "~/Downloads/test.h5")
+obj <- createObject()
 }
