@@ -4,6 +4,7 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
+
 <p align="center">
   <img src="https://github.com/lrylaarsdam/amethyst/blob/main/images/amethyst.png?raw=true" alt="Amethyst" width="250" />
 </p>
@@ -56,7 +57,7 @@ library("remotes")
 remotes::install_github("lrylaarsdam/amethyst")
 ```
 
-## Getting Started
+## Getting started
 
 Amethyst begins with base-level methylation calls per cell wrapped into h5 files. The structure of the h5 file is illustrated in the diagram below. If desired, aggregate methylation levels over features can be calculated with [facet](https://pypi.org/project/amethyst-facet/) and stored in this h5 file as well. 
 
@@ -69,13 +70,13 @@ If you need to generate this file from your sequencing data, scripts for initial
 If you are using the Scale Biosciences pipeline, we have written a helper function to load the output into an Amethyst object. createScaleObject automatically populates the metadata and h5path slots for you. In its most basic form, all that is needed is the directory path:
 
 ```{r}
-obj <- createScaleObject(directory = "path/to/scalebio/output/folder")
+obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples")
 ```
 
 You may also wish to load any pre-generated matrices, which would allow one to skip past the makeWindows step in the vignette. Below is an example of how to load the "CG.score" matrix. Double-check your computational resources are capable of handling the entire matrix size first.
 
 ```{r}
-obj <- createScaleObject(directory = "path/to/scalebio/output/folder", genomeMatrices = c("CG.score"))
+obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
 ```
 
 
