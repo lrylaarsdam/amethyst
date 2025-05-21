@@ -6,6 +6,7 @@ Authors@R:
       person(given = "Stephen", family = "Coleman", email = "colemste@ohsu.edu", role = c("aut")),
       person(given = "Andrew", family = "Adey", email = "adey@ohsu.edu", role = c("aut"), comment = c(ORCID = "0000-0001-7648-8717")))
 Description: The goal of amethyst is to provide user-friendly tools for exploration, visualization, and analysis of single-cell methylation sequencing data. It is intended to be an interactive extension of initial processing steps described here: https://github.com/adeylab/sciMETv2.
+Imports: caret, cowplot, data.table, dplyr, FNN, furrr, future, future.apply, GenomicRanges, ggplot2, grDevices, gridExtra, igraph, IRanges, irlba, Matrix, methods, plotly, plyr, purrr, randomForest, rhdf5, Rmagic, Rphenograph, rtracklayer, Rtsne, scales, stats, stringr, tibble, tidyr, umap, utils
 License: MIT License
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
