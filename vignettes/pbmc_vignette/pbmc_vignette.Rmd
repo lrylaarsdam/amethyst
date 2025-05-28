@@ -3,11 +3,20 @@ output:
   html_document: default
   pdf_document: 
     latex_engine: xelatex
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
-########################################################################################################
-### PACKAGE INSTALLATION ###
+
+######################################################################################################## 
+# PBMC Vignette
+
+Welcome to Amethyst! The goal of Amethyst is to facilitate comprehensive analysis tools for single-cell methylation data. If you use this package or code on our Github for your work, please cite our [manuscript](https://www.biorxiv.org/content/10.1101/2024.08.13.607670v2).
+
+# PACKAGE INSTALLATION
 
 If you are new to R, you may need to install some of the dependencies:
+
 ```{r eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
@@ -15,8 +24,8 @@ BiocManager::install()
 
 library(BiocManager)
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", 
-  "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "scales", "stats", "stringr", 
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "leiden", "Matrix", "methods", "pheatmap",
+  "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 ```
 
@@ -25,10 +34,15 @@ Next, install a few additional dependencies found on Github, including amethyst 
 ```{r eval=FALSE}
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
+devtools::install_github("TomKellyGenetics/leiden")
 devtools::install_github("lrylaarsdam/amethyst")
 ```
 
 Now load libraries into R:
+
+```{r, include=FALSE}
+Sys.setenv(OMP_NUM_THREADS = "1") # Package "leiden" needed this for local vignette processing
+```
 
 ```{r message=FALSE, warning=FALSE}
 library(amethyst)
@@ -42,15 +56,16 @@ library(future)
 library(furrr)
 library(purrr)
 library(cowplot)
+library(leiden)
 library(pheatmap)
 ```
 
-########################################################################################################
-### LOADING PRACTICE DATA ###
+######################################################################################################## 
+# LOADING PRACTICE DATA
 
-First, download the practice data. This vignette comes with site-level CpG methylation information from 50 human banked PBMCs. Download the h5 file and associated metadata with the following commands.
+First, download the practice data. This vignette comes with site-level CpG methylation information from 50 human banked PBMCs. Download the h5 file and associated metadata with the following commands.  
 
-* Note: By default, data will download to the ~/Downloads folder. Change if a different directory is desired.
+*Note: By default, data will download to the "~/Downloads/" folder. Change if a different directory is desired.*
 
 ```{r, eval=FALSE}
 download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "~/Downloads/pbmc_vignette.h5", method = "curl") # Contains site-level methylation information for each cell
@@ -63,46 +78,86 @@ download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vigne
 load("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/pbmc_vignette/pbmc_vignette_workspace.RData")
 ```
 
-########################################################################################################
-### ASSEMBLING THE AMETHYST OBJECT ###
+Here is the structure of the h5 file:
 
-Now construct an amethyst object, which stores the path to the h5 file as well as a lot of other information that will be calculated downstream.
+```{r, echo=FALSE}
+knitr::include_graphics("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/readme/h5structure.png")
+```
 
-```{r, eval = FALSE}
+######################################################################################################## 
+# ASSEMBLING THE AMETHYST OBJECT
+
+Now construct an Amethyst object. This object is a convenient method for storing all our project information in one place. We will add paths to the h5 file, metadata, aggregated methylation values, results, and more. Each type of data goes in specific "slots" so Amethyst knows where to retrieve it. Generate an empty object with the *createObject* command.
+
+```{r, eval=FALSE}
 obj <- createObject()
 ```
 
-Next, we need to add metadata about each cell. Useful metadata includes quality control metrics contained in the .cellInfo.txt intermediate output or .annot files, if using the Adey lab Premethyst workflow.
+### Premethyst-specific assembly instructions
 
-```{r, eval = FALSE}
+If you used the Premethyst pipeline for initial processing, Amethyst has helper functions to add useful metadata about each cell from the intermediate output metric files. This includes quality control metrics contained in the .cellInfo.txt file or .annot files.
+
+```{r, eval=FALSE}
 obj <- addCellInfo(obj, file = "~/Downloads/pbmc_vignette_cellInfo.txt")
 obj <- addAnnot(obj, file = "~/Downloads/pbmc_vignette.annot", name = "batch") 
-head(obj@metadata)
 ```
 
-While not essential, it can be helpful to filter cells with outlying coverage values right away so downstream functions don't perform calculations for cells that will not be used. This can easily be done with dplyr logic. First, view the coverage distribution, then filter as necessary.
+Next, we need to specify the location of the h5 file containing site-level methylation data for each barcode. In this case, every barcode belongs to the same h5 file, but an unlimited number of h5 files can be used in the same object.  
 
-* Note: vignette data has been pre-filtered. We recommend cells have a minimum of 1M cytosines covered.
-
-```{r, fig.width=5, fig.height=4}
-ggplot(obj@metadata, aes(x = cov)) + geom_histogram(bins = 10) 
-obj@metadata <- obj@metadata |> dplyr::filter(cov > 100000 & cov < 40000000)
-```
-
-Next, we need to specify the location of the h5 file containing site-level methylation data for each barcode. In this case, every barcode belongs to the same h5 file, but an unlimited number of h5 files can be used in the same object. Row names are barcodes and the "paths" column specifies each path.
+*Note: If you are combining experiments with overlapping barcodes, please see our vignette for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
 
 ```{r}
-obj@h5paths <- data.frame(row.names = rownames(obj@metadata), paths = rep("~/Downloads/pbmc_vignette.h5", length(rownames(obj@metadata))))
+obj@h5paths <- data.frame(barcode = rownames(obj@metadata), path = rep("~/Downloads/pbmc_vignette.h5", length(rownames(obj@metadata))))
 head(obj@h5paths)
 ```
 
-########################################################################################################
-### CLUSTERING ###
+### ScaleMethyl-specific assembly instructions
 
-The next step is to cluster cells, which we typically do based on methylation values over fixed genomic windows. 
-An initial indexing helps reduce the computational load by determining the locations corresponding to each chromosome in every h5 file and only calculating across one at a time.
+Amethyst has a helper loading function for output of the ScaleMethyl pipeline. This will generate an amethyst object, add metadata, and load the specified matrices.  
 
-* Note: You may have to copy/paste any code reading the h5 file (e.g., makeWindows) directly into the console instead of running the chunk, if using the .Rmd template
+*Note: If you are combining experiments with overlapping barcodes, please see our vignette for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
+
+```{r, eval=FALSE}
+# This is just for real data illustration purposes - do not run if you are processing vignette data.
+obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+```
+
+### Instructions if using neither Premethyst nor ScaleMethyl
+
+Any pre-processing platform can be used. The important thing is that the data is in the expected structure. The diagram below illustrates each slot and its respective data contents.
+
+```{r, echo=FALSE}
+knitr::include_graphics("~/Library/CloudStorage/OneDrive-OregonHealth&ScienceUniversity/amethyst/github/vignettes/readme/objectstructure.png")
+```
+
+## Filtering
+
+It can be helpful to filter cells with outlying coverage values right away so downstream functions don't perform calculations for cells that will not be used. This can easily be done with dplyr logic. First, view the coverage distribution, then filter as necessary.  
+
+*Note: Vignette data has been pre-filtered. We recommend cells have a minimum of 1M cytosines covered, if possible. Filter by any additional metrics in your metadata as needed.*
+
+```{r, fig.width=5, fig.height=2.5}
+ggplot(obj@metadata, aes(x = cov)) + geom_histogram(bins = 10) + theme_classic()
+obj@metadata <- obj@metadata |> dplyr::filter(cov > 100000 & cov < 40000000)
+```
+
+######################################################################################################## 
+# CLUSTERING
+
+The next step is to cluster cells, which we typically do based on methylation values over fixed genomic windows. Depending on the size and depth of your dataset, calculating methylation levels over features can be a computationally intensive step. There are three ways to do this (only do one): 
+
+  1. Calculate genomic windows in R with *makeWindows* 
+  2. Use [Facet](https://pypi.org/project/amethyst-facet/) to pre-compute methylation levels over genomic regions and store in the h5 file 
+  3. Use a different method - like [MethSCAn](https://anders-biostat.github.io/MethSCAn/tutorial.html) - and add results to the Amethyst object
+  
+*Note: Clustering methods for single-cell methylation data, as a newer modality, will require more hands-on interpretation of results. Please thoroughly check that your results are not driven by technical issues (like coverage bias) and expect that this step will take some optimization.*
+
+### 1. Calculate methylation levels over genomic windows in R using Amethyst functions
+
+The most straightforward method is to calculate methylation levels over features with Amethyst in R. First, perform an initial indexing step, which determines the locations corresponding to each chromosome in every h5 file. This reduces the load by only calculating across one at a time.
+
+*Note: If you are using non-conventional chromosomes, please provide a whitelist (see function parameters).*  
+*Note: You may have to copy/paste any code reading the h5 file (e.g., makeWindows) directly into the console instead of running the chunk, if using the .Rmd template.*
 
 ```{r message=FALSE, warning=FALSE, eval = FALSE}
 obj@index[["chr_cg"]] <- indexChr(obj, type = "CG", threads = 1) 
@@ -115,232 +170,336 @@ obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj,
                                                      nmin = 2) 
 ```
 
-You may want to remove windows where many values are NA. The appropriate threshold will highly depend on how big the windows are and how many cells you have.
-In this case, since the vignette data is high coverage and the genomic windows are large, I am going to filter for at least 90% of the cells have values in that window.
+### 2. Calculate methylation levels over genomic windows using Facet
+
+*makeWindows* can be memory-intensive. If you have very large datasets, it may be preferable to apply [Facet](https://pypi.org/project/amethyst-facet/), a Python-based helper script to compute windows in a more efficient manner. Results are stored in the h5 file and loaded as needed. For installation instructions and examples, see [Facet](https://pypi.org/project/amethyst-facet/) documentation.  
+
+*Note: Skip to the "clustering continued" section if you used makeWindows to calculate 100kb window methylation score.*
+
+```{bash, eval = FALSE}
+# example of how to compute aggregated windows with facet
+facet agg -u 100000 brain_vignette_facet.h5
+```
+
+If pre-computed windows are stored in the h5 file, load to the genomeMatrices slot with *loadWindows*. An indexing step is not needed for Facet.
 
 ```{r, eval = FALSE}
+obj@genomeMatrices[["cg_100k_score_facet"]] <- loadWindows(obj, name = "100000", nmin = 2, metric = "score")
+```
+
+### 3. Integrate an alternative method
+
+There are many methods out there for clustering. One may wish to implement an alternative strategy, like clustering with MethSCAn variably methylated regions. This worked quite well for our small, high-coverage dataset. Results from other methods can easily be dropped in to an Amethyst object and analysis can proceed as normal. Please see our vignette for example alternative clustering methods. In the end, all you have to do is assign the output to a new **reductions** result:
+
+```{r, eval = FALSE}
+# theoretical example of 2D umap projection from methscan vmrs - do not run
+obj@reductions[["umap_methscan_vmrs"]] <- methscan_result
+colnames(obj@reductions[["umap_methscan_vmrs"]]) <- c("dim_x", "dim_y")
+```
+
+## Clustering with Amethyst or Facet - continued
+
+You may want to remove windows where most values are NA. In this case, since the vignette data is high coverage and the genomic windows are large, I am going to filter for at least 90% of the cells have values in that window. The appropriate threshold will highly depend on how big the windows are and how many cells you have.  
+
+*Note: Please adjust this threshold in a dataset-specific manner. If you use short windows, a 90% threshold is way too high.*
+
+```{r}
+# Check that you won't be filtering too many rows first
+nrow(obj@genomeMatrices[["cg_100k_score"]][rowSums(!is.na(obj@genomeMatrices[["cg_100k_score"]])) >= nrow(obj@metadata)*.9, ])
+
+# Proceed if the number passing is reasonable (this is somewhat subjective based on your dataset and windowing strategy)
 obj@genomeMatrices[["cg_100k_score"]] <- obj@genomeMatrices[["cg_100k_score"]][rowSums(!is.na(obj@genomeMatrices[["cg_100k_score"]])) >= nrow(obj@metadata)*.9, ]
 ```
 
-Next, perform dimensionality reduction with irlba. If you are unsure how many dimensions to use, the dimEstimate function can estimate the number needed to explain the desired variance threshold.
-*Note: In this example, the number of requested output dimensions is low because pbmc_vignette.h5 has 50 cells. 
+Next, perform dimensionality reduction. If you are unsure how many dimensions to use, the *dimEstimate* function can estimate the number needed to explain the desired variance threshold.  
+
+*Note: In this example, the number of requested output dimensions is low because pbmc_vignette.h5 has 50 cells. Adjust according to your data. Skip if it's not helpful.*
 
 ```{r}
 dimEstimate(obj, genomeMatrices = c("cg_100k_score"), dims = c(10), threshold = 0.95)
 ```
 
-As suggested, we will reduce the data from obj@genomeMatrices[["cg_100k_score"]] into seven dimensions using the irlba package, which performs fast truncated singular value decomposition.
+As suggested, we will reduce the data from "cg_100k_score" into seven dimensions using the *irlba* package, which performs fast truncated singular value decomposition. Feel free to implement alternative methods if desired.
 
 ```{r}
 set.seed(111)
-obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("cg_100k_score"), dims = c(7), replaceNA = c(0))
-obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba") # Optional; helps reduce coverage bias in clustering
+# name the result whatever you want. I like descriptive names, at the cost of length.
+obj@reductions[["irlba_cg_100k_score"]] <- runIrlba(obj, genomeMatrices = c("cg_100k_score"), dims = c(7), replaceNA = c(0))
+# Optional; helps reduce coverage bias in clustering. Run both ways and see if results are improved.
+obj@reductions[["irlba_cg_100k_score_gam"]] <- regressCovBias(obj, reduction = "irlba_cg_100k_score", method = "gam") 
 ```
 
-Now determine cluster membership using the Rphenograph package.
-*Note: In this example, k_phenograph and neighbors parameters are low because pbmc_vignette.h5 has 50 cells.
+Now determine cluster membership with *runCluster*. Either a Louvain-based or Leiden-based strategy can be used. Assign the output column name, which will be added to the metadata. This update was implemented so one can save multiple iterations within the same object. 
+
+*Note: In this example, k is low because pbmc_vignette.h5 has 50 cells. ****Increase to 50 or so for larger datasets***, *depending on number of cells and expected heterogeneity.*
+
+```{r, warning=FALSE}
+set.seed(111)
+# run clustering with louvain-based method
+obj <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score_gam", method = "louvain", colname = "louvain_cluster_100k") 
+# example: run leiden-based algorithm and store within the same object
+obj <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score_gam", method = "leiden", colname = "leiden_cluster_100k") 
+
+# look at how results are stored
+head(obj@metadata)
+```
+
+Next, project to 2D with *runUmap* and/or *runTsne*. Assign the output to a **reductions** slot. Like the *runCluster* update, this allows multiple projections to be stored within the same object.  
+
+*Note: Neighbors and perplexity values are small because this dataset is 50 cells.* ***Increase for larger datasets.***
 
 ```{r}
 set.seed(111)
-obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+# name the result whatever you want. I like descriptive names, at the cost of length.
+obj@reductions[["umap_irlba_cg_100k_score"]] <- runUmap(obj, neighbors = 5, dist = 0.05, 
+                                                        method = "euclidean", reduction = "irlba_cg_100k_score_gam") 
+obj@reductions[["tsne_irlba_cg_100k_score"]] <- runTsne(obj, perplexity = 5, method = "euclidean", 
+                                                        theta = 0.2, reduction = "irlba_cg_100k_score_gam") 
 ```
 
-Umap and tsne are dimensionality reduction techniques frequently used to collapse higher-order information into two or three
-coordinates for visualization of single-cell data. Either or both methods can be used as input for dimensionality reduction-
-based visualization functions like dimFeature. 
+## Visualizing the results
 
-```{r}
-set.seed(111)
-obj <- runUmap(obj, neighbors = 5, dist = 0.05, method = "euclidean", reduction = "irlba_regressed") 
-obj <- runTsne(obj, perplexity = 10, method = "euclidean", theta = 0.2, reduction = "irlba_regressed") 
-```
-
-### Visualizing the results ###
 First, plot the UMAP or TSNE coordinates of the cells with the color corresponding to cluster membership.
 
-```{r, fig.width=10, fig.height=4}
-p1 <- dimFeature(obj, colorBy = cluster_id, reduction = "umap") + ggtitle("UMAP")
-p2 <- dimFeature(obj, colorBy = cluster_id, reduction = "tsne") + ggtitle("TSNE")
+```{r, fig.width=8, fig.height=3}
+p1 <- dimFeature(obj, colorBy = louvain_cluster_100k, reduction = "umap_irlba_cg_100k_score", pointSize = .8) + ggtitle("UMAP CG 100k score")
+p2 <- dimFeature(obj, colorBy = louvain_cluster_100k, reduction = "tsne_irlba_cg_100k_score", pointSize = .8) + ggtitle("TSNE CG 100k score")
 plot_grid(p1, p2)
 ```
 
-You might find that fixed genomic windows don't give you good resolution of groups. Any feature set can be used for dimensionality reduction input.
-The makeWindows function can also calculate methylation levels over a bed file or genes (not recommended unless you are calculating %mCH.)
-Here is another clustering example using a set of pre-identified PBMC differentially methylated regions (DMRs).
+## Re-cluster if needed
+
+You might find that fixed genomic windows don't give you good resolution of groups. Any feature set can be used for dimensionality reduction input. The *makeWindows* function can also calculate methylation levels over a bed file or genes *(Note: Not recommended unless you are calculating %mCH.)* Here is another clustering example using a set of pre-identified PBMC variably methylated regions (VMRs).
 
 ```{r, message=FALSE, eval = FALSE}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_dmr.bed") 
-obj@genomeMatrices[["pbmc_dmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_dmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2)
-obj@genomeMatrices[["pbmc_dmrs"]] <- obj@genomeMatrices[["pbmc_dmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_dmrs"]])) >= nrow(obj@metadata)*.2, ] 
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_highconfidence_dmrs.bed", "~/Downloads/pbmc_vmr.bed") 
+obj@genomeMatrices[["pbmc_vmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_vmr.bed", type = "CG", metric = "percent", threads = 1, index = "chr_cg", nmin = 2)
+obj@genomeMatrices[["pbmc_vmrs"]] <- obj@genomeMatrices[["pbmc_vmrs"]][rowSums(!is.na(obj@genomeMatrices[["pbmc_vmrs"]])) >= nrow(obj@metadata)*.2, ] 
 ```
 
 Now re-run irlba with the DMR-based windows:
 
 ```{r}
-dimEstimate(obj, genomeMatrices = c("pbmc_dmrs"), dims = c(10), threshold = 0.90)
+dimEstimate(obj, genomeMatrices = c("pbmc_vmrs"), dims = c(10), threshold = 0.90)
 set.seed(111)
-obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("pbmc_dmrs"), dims = c(8), replaceNA = c(0))
-obj@reductions[["irlba_regressed"]] <- regressCovBias(obj, reduction = "irlba")
+obj@reductions[["irlba_cg_vmr_pct"]] <- runIrlba(obj, genomeMatrices = c("pbmc_vmrs"), dims = c(8), replaceNA = c(0))
 ```
 
 Now re-run clustering and UMAP:
 
-```{r, fig.width=5, fig.height=4}
+```{r, fig.width=4, fig.height=3}
 set.seed(111)
-obj <- runCluster(obj, k_phenograph = 10, reduction = "irlba_regressed") # consider increasing k_phenograph to 50 for larger datasets
+obj <- runCluster(obj, k = 10, reduction = "irlba_cg_vmr_pct", method = "louvain", colname = "louvain_vmr_cluster") # consider increasing k_phenograph to 50 for larger datasets
 set.seed(123)
-obj <- runUmap(obj, neighbors = 5, dist = 0.05, method = "euclidean", reduction = "irlba_regressed") 
-dimFeature(obj, colorBy = cluster_id, reduction = "umap")
+obj@reductions[["umap_irlba_cg_vmr_pct"]] <- runUmap(obj, neighbors = 5, dist = 0.05, method = "euclidean", reduction = "irlba_cg_vmr_pct") 
+dimFeature(obj, colorBy = louvain_vmr_cluster, reduction = "umap_irlba_cg_vmr_pct", pointSize = .8)
 ```
 
-In this context, DMRs worked much better than genomic windows for clustering.
-dimFeature uses ggplot logic, so you can easily modify plots as needed. For example:
+In this context, VMRs worked much better than genomic windows for clustering, so we will continue with this dimensionality reduction.
 
-```{r, fig.width=10, fig.height=4}
-dimFeature(obj, colorBy = cluster_id) + facet_wrap(vars(batch)) # Batch is simulated to illustrate function utility. Any column in the metadata will work.
+## Continue exploring clustering results
+
+*dimFeature* uses ggplot logic, so you can easily modify plots as needed.For example:
+
+```{r, fig.width=10, fig.height=3}
+dimFeature(obj, colorBy = louvain_vmr_cluster, reduction = "umap_irlba_cg_vmr_pct", pointSize = .8) + facet_wrap(vars(batch)) # Batch is simulated to illustrate function utility. Any column in the metadata will work.
 ```
 
-(Optional) If you want to make the umap/tsne plots look nicer, amethyst provides many built-in color palettes:
+Show the distribution of cluster membership between samples with sampleComp. Plots can be easily modified with ggplot command logic.  
+
+*Note: Since there are so few cells, the variation in proportion between batches is not concerning.*
+
+```{r, fig.width=4, fig.height=3}
+sampleComp(obj, groupBy = "batch", colorBy = "louvain_vmr_cluster") 
+```
+
+If you want to make the UMAP/TSNE plots look nicer, Amethyst provides many built-in color palettes:
 
 ```{r, fig.width=3, fig.height=5}
-testPalette(output = "swatch", n = length(unique(obj@metadata$cluster_id)))
+testPalette(output = "swatch", n = length(unique(obj@metadata$louvain_vmr_cluster)))
 ```
 
-```{r, fig.width=5, fig.height=4}
+```{r, fig.width=4, fig.height=3}
 pal <- c("#F9AB60", "#E7576E", "#630661", "#B5DCA5") # makePalette(option = 7, n = 4) 
-dimFeature(obj, colorBy = cluster_id, colors = pal, pointSize = 1)
-```
-
-Show the distribution of cluster membership between samples with sampleComp. Plots can be easily modified with ggplot command logic.
-
-```{r, fig.width=5, fig.height=5}
-sampleComp(obj, groupBy = "batch", colorBy = "cluster_id", colors = pal) 
+dimFeature(obj, colorBy = louvain_vmr_cluster, colors = pal, pointSize = .8, reduction = "umap_irlba_cg_vmr_pct")
 ```
 
 dimFeature is useful for visualizing how different parameters in the cellInfo file are distributed throughout the UMAP:
 
-```{r, fig.width=8, fig.height=4}
-p1 <- dimFeature(obj, colorBy = log(cov), pointSize = 1) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Coverage distribution")
-p2 <- dimFeature(obj, colorBy = mcg_pct, pointSize = 1) + scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Global %mCG distribution")
+```{r, fig.width=8, fig.height=3}
+p1 <- dimFeature(obj, reduction = "umap_irlba_cg_vmr_pct", colorBy = log(cov), pointSize = .8) + 
+  scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Coverage distribution")
+p2 <- dimFeature(obj, reduction = "umap_irlba_cg_vmr_pct", colorBy = mcg_pct, pointSize = .8) + 
+  scale_color_gradientn(colors = c("black", "turquoise", "gold", "red")) + ggtitle("Global %mCG distribution")
 plot_grid(p1, p2)
 ```
 
-########################################################################################################
-### ANNOTATION ###
+######################################################################################################## 
+# ANNOTATION
 
-Now that we have clusters, the next step is annotation. There are a couple ways to do this:
+Now that we have clusters, the next step is determining their biological identity. This can be quite challenging for a novel modality like methylation. There are a couple ways we recommend going about this:
 
-1) One useful method is to look at mCG hypomethylation over canonical marker genes. We recommend visualizing mCG patterns over the entire gene body. 
-The first step is to load an annotation file for the reference genome so amethyst knows the coordinates for each gene.
+  1. mCG hypomethylation over regulatory elements of canonical marker genes
+  2. Compare to a reference if possible
+
+### 1. Use mCG patterns over canonical marker genes
+
+If you have an in-depth knowledge of the system, one useful method is to look at mCG hypomethylation over canonical marker genes. The first step is to load an annotation file for the reference genome so Amethyst knows the coordinates for each gene.
 
 ```{r, eval = FALSE}
 obj@ref <- makeRef("hg38")
 ```
 
-Next, calculate methylation levels in short genomic windows for each cluster. We recommend 500bp windows, but 1kb are used here since the dataset is smaller.
+Next, calculate methylation levels in short genomic windows for each cluster. 
+***We recommend 500bp windows for real data, but 1000 are used here since the vignette dataset is only 50 cells.***   
+*Note: To avoid the hassle of recomputing these every time clusters are adjusted, one can also calculate sliding smoothed windows with Facet for each cell and store in the h5 file, then re-calculate/load more rapidly per group with loadSmoothedWindows. See ?loadSmoothedWindows for parameter specifications.*
 
 ```{r, message=FALSE, warning=FALSE, eval = FALSE}
 cluster1kbwindows <- calcSmoothedWindows(obj, 
                                          type = "CG", 
                                          threads = 1,
-                                         step = 1000,
+                                         step = 1000, # change to 500 for real data unless you have really low coverage
                                          smooth = 3,
                                          genome = "hg38",
                                          index = "chr_cg",
-                                         groupBy = "cluster_id",
+                                         groupBy = "louvain_vmr_cluster",
                                          returnSumMatrix = TRUE, # save sum matrix for DMR analysis
                                          returnPctMatrix = TRUE)
-obj@genomeMatrices[["cg_cluster_tracks"]] <- cluster1kbwindows[["pct_matrix"]]
+obj@tracks[["cg_cluster_tracks"]] <- cluster1kbwindows[["pct_matrix"]]
 ```
 
-Now you can view methylation patterns over key marker genes, where pink is hypomethylated:
+Now you can view methylation patterns over key marker genes:  
+
+*Note: Blue is hypomethylated. Legend has been ommitted for plot clarity. See legend with "legend = T".*
 
 ```{r, fig.width=15, fig.height=10}
 heatMap(obj, 
-        genes = c("SPI1", "CD2", "S100A8",  "CD79A", "CD3G", "ELANE", "MPO", 
-           "S100A8", "MPEG1", "IRF8", "CD74", "GZMK", "CD3E", "CD3D", "KIR2DL4", "KLRB1"), 
-        matrix = "cg_cluster_tracks", 
+        genes = c("SPI1", "CD2", "S100A8", "CD79A", "ELANE", "MPO", "MPEG1", "IRF8", "CD74", "CD3E", "CD3D", "KLRB1"), 
+        track = "cg_cluster_tracks", 
         nrow = 4,
-        arrowScale = 1,
         legend = F)
 ```
 
-As you can see from the heatMaps, promoters are often universally hypomethylated or not at the predicted site. 
-Because of this it is often more informative to look at mCG over the entire gene body.
-In addition to heatMap, this can also be done with the histograM function:
+If you want to simultaneously view another other information - like regulatory elements - these can be plotted as "tracks" below. In this example, we will use Encode candidate cis-regulatory elements (cCREs). The track structure should be a named list of data tables with chr, start, and end columns. First, download and split tracks into the expected structure.
+
+```{r, eval = FALSE}
+# note this is for hg38 build only
+library(rtracklayer)
+
+download.file("https://hgdownload.soe.ucsc.edu/gbdb/hg38/encode3/ccre/encodeCcreCombined.bb", "~/Downloads/encodeCcreCombined.bb") 
+ccre <- as.data.table(rtracklayer::import("~/Downloads/encodeCcreCombined.bb"))
+setnames(ccre, "seqnames", "chr")
+ccre_tracks <- split(ccre, ccre$ucscLabel)
+ccre_tracks <- lapply(ccre_tracks, function(x) {x[,.(chr, start, end)]})
+
+```
+
+Now plot tracks under the heatMaps:
+
+```{r, fig.width=15, fig.height=5}
+heatMap(obj, 
+        genes = c("CD2", "IRF8", "CD74"), 
+        track = "cg_cluster_tracks", 
+        nrow = 1,
+        legend = T,
+        extraTracks = ccre_tracks)
+```
+
+As you can see from the heatMaps, promoters are sometimes universally hypomethylated or not at the predicted site. Methylation patterns over gene bodies are highly complex. Because of this, we prefer these tools to visualize over the whole gene body and surrounding context as opposed to aggregated metrics. 
+
+If you want to view other overlapping genes, use the "regions" parameter of heatMap:
+
+```{r, fig.width=8, fig.height=5}
+heatMap(obj, 
+        regions = getGeneCoords(obj@ref, gene = "S100A8"), # getGeneCoords is a shortcut to produce "chr1_153390032_153391073"
+        trackOverhang = 10000,
+        remove = "ENS", # optional; uses grep to remove genes that may be outside the question of interest
+        track = "cg_cluster_tracks", 
+        extraTracks = ccre_tracks)
+```
+
+In addition to *heatMap*, you can also view methylation levels with the *histograM* function. Please see function documentation for a full list of which parameters can be changed.
 
 ```{r, fig.width=15, fig.height=7}
 histograM(obj, 
-          genes = c("ELANE", "MPEG1", "SPI1", "CD2", "CD3D"), 
-          matrix = "cg_cluster_tracks",
-          legend = F)
+          baseline = "mean", # can plot from either mean or 0; see documentation
+          orientation = "cols",
+          genes = "CD3D", 
+          track = "cg_cluster_tracks",
+          legend = F,
+          extraTracks = ccre_tracks)
 ```
 
-However, it can still be useful to look at aggregated promoter metrics. 
-To calculate %mCG for promoter regions (in this example all protein coding genes, but a subset can easily be used):
+However, it can still be useful to look at aggregated metrics, especially when analyzing brain data. In this example we will calculate %mCG for predicted promoter regions. As previously mentioned, this is fraught with caveats, but we will use here for illustration purposes. It works well for some genes. In this example we will use all protein coding genes, but a subset can easily be used.
 
 ```{r, message=FALSE, eval = FALSE}
 protein_coding <- unique(obj@ref |> dplyr::filter(type == "gene" & gene_type == "protein_coding" & seqid != "chrM") |> dplyr::pull(gene_name))
-obj@genomeMatrices[["cg_promoter"]] <- makeWindows(obj, 
+obj@genomeMatrices[["cg_promoters"]] <- makeWindows(obj, 
                                                      genes = protein_coding,
                                                      promoter = TRUE, 
                                                      type = "CG", 
                                                      metric = "percent", 
                                                      threads = 1, 
                                                      index = "chr_cg", 
-                                                     nmin = 2) 
-# subsetting to genes with values in at least 5 cells
-obj@genomeMatrices[["cg_promoter"]] <- obj@genomeMatrices[["cg_promoter"]][rowSums(!is.na(obj@genomeMatrices[["cg_promoter"]])) >= 10, ]
+                                                     nmin = 5) 
+
+# subsetting to genes with values in at least 5 cells (10%) to reduce matrix size
+obj@genomeMatrices[["cg_promoters"]] <- obj@genomeMatrices[["cg_promoters"]][rowSums(!is.na(obj@genomeMatrices[["cg_promoters"]])) >= nrow(obj@metadata) * 0.10, ]
 ```
 
-Now you can view average %mCG of marker gene promoters by cluster:
+Now you can view average %mCG of marker gene promoters by cluster with functions like *dotM*. This plotting tool accepts two modalities - one will determine dot size and the other color. We will calculate z score for color. 
 
-```{r, fig.height=3, fig.width=9, message=FALSE}
-genes <- c("SPI1", "CD19", "CD2", "CD6", "CD8A", "CD4", "CSF1R", "GATA1", "CD79A", "CD3G", "ELANE", "MPO", "ITGAM",
-           "S100A8", "MPEG1", "FN1", "IRF8", "CD74", "RORA", "GZMK", "CD3E", "CD3D", "MEIS1", "KIR2DL4")
-dotM(obj, genes = genes, groupBy = "cluster_id", matrix = "cg_promoter")
+```{r, fig.height=4, fig.width=5, message=FALSE, warning = FALSE}
+obj@genomeMatrices[["cg_promoters_z"]] <- as.data.frame(scale(obj@genomeMatrices[["cg_promoters"]], center = TRUE, scale = TRUE))
+genes <- c("SPI1", "CD2", "S100A8", "CD79A", "ELANE", "MPO", "MPEG1", "IRF8", "CD74", "CD3E", "CD3D", "KLRB1")
+dotM(obj, genes = genes, groupBy = "louvain_vmr_cluster", sizeMatrix = "cg_promoters", colorMatrix = "cg_promoters_z")
 ```
 
-Again, easily modify with ggplot logic as desired: 
+Again, easily modify with ggplot logic as desired:  
 
-```{r, fig.height=3, fig.width=9, message=FALSE}
-dotM(obj, genes = genes, groupBy = "cluster_id", matrix = "cg_promoter") + 
-  scale_color_gradientn(colors =  c("#FF0082", "#dbdbdb", "#cccccc", "#999999")) + scale_size(range = c(1, 8))
+*Note: In this small dataset, lack of dot means no value was collected*
+
+```{r, fig.height=4, fig.width=9, message=FALSE, warning = FALSE}
+dotM(obj, genes = genes, groupBy = "louvain_vmr_cluster", sizeMatrix = "cg_promoters", colorMatrix = "cg_promoters_z", splitBy = "batch") + 
+  scale_color_gradientn(colors =  c("#005eff", "grey60", "#ffa600")) + scale_size(range = c(1, 8))
 ```
 
-It can also be helpful to use a less directed approach when determining differences between groups. 
+It can also be helpful to use a less directed approach when determining differences between groups.
 For this vignette, we are just testing a subset of known marker genes, but for thorough data analysis it would better to test all protein coding genes.
 
-```{r fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
+```{r fig.height=4, fig.width=4, message=FALSE, warning=FALSE, eval = FALSE}
 cluster_promoter_markers <- findClusterMarkers(obj, 
-                                               matrix = "cg_promoter", 
-                                               genes = genes, 
+                                               nmin = 5, # increase to at least 10 for larger datasets
+                                               matrix = "cg_promoters", 
+                                               genes = genes, # short subset for illustration purposes
+                                               groupBy = "louvain_vmr_cluster",
+                                               method = "BH", # recommended to use "bonferroni" for real data
                                                threads = 1)
-cluster_promoter_markers <- cluster_promoter_markers |> dplyr::filter(p.adj < 0.05) # Not many results because it's a small dataset
-head(cluster_promoter_markers)
+cluster_promoter_markers <- cluster_promoter_markers |> dplyr::filter(p.adj < 0.1) # Hardly any results because of dataset size; lower p.adj threshold for larger datsets
 ```
 
-```{r fig.height=4, fig.width=4, message=FALSE, warning=FALSE}
-dotM(obj, genes = cluster_promoter_markers$gene, groupBy = "cluster_id", matrix = "cg_promoter") + 
-  scale_color_gradientn(colors =  c("#FF0082", "#dbdbdb", "#cccccc", "#999999")) + scale_size(range = c(1, 12))
+When plotting the result, we can indeed see that the promoter is hypomethylated in group 1.
+
+```{r fig.height=5, fig.width=3, message=FALSE, warning=FALSE}
+dotM(obj, genes = cluster_promoter_markers$gene, groupBy = "louvain_vmr_cluster", colorMatrix = "cg_promoters", sizeMatrix = "cg_promoters_z") + 
+  scale_color_gradientn(colors = c("#005eff", "grey60", "#ffa600")) + scale_size(range = c(1, 12))
 ```
 
-Another method one could use is by comparison to an annotated reference. 
-While few exist, we have put aggregated methylation levels per group over high-confidence PBMC DMRs on Github. 
-First download this data and calculate average methylation levels per cluster for each DMR (windows or any feature can also work)
+### 2. Compare to a reference if possible
 
-```{r}
-download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData") 
+Another method one could use is by comparison to an annotated reference. While few exist, we have put aggregated methylation levels per group over high-confidence PBMC VMRs on Github. First download this data and calculate average methylation levels per cluster for each DMR (windows or any feature can also work)
+
+```{r, eval = FALSE}
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData")
 ref <- readRDS("~/Downloads/pbmc_ref.RData")
-
-obj@genomeMatrices[["pbmc_dmrs_aggregated"]] <- aggregateMatrix(obj, matrix = "pbmc_dmrs", groupBy = "cluster_id")
+obj@genomeMatrices[["pbmc_vmrs_aggregated"]] <- aggregateMatrix(obj, matrix = "pbmc_vmrs", groupBy = "louvain_vmr_cluster", nmin = 2) # raise nmin for real data
 ```
 
 Now view correlation profiles
 
-```{r fig.height=4, fig.width=4}
+```{r fig.height=3, fig.width=4}
 cor <- cor(merge(ref, 
-                 obj@genomeMatrices[["pbmc_dmrs_aggregated"]], 
+                 obj@genomeMatrices[["pbmc_vmrs_aggregated"]], 
                  by = 0) |> tibble::column_to_rownames(var = "Row.names"), use = "pairwise.complete.obs")
 cor <- cor[c(1:ncol(ref)), c((ncol(ref) + 1)):ncol(cor)]
 pheatmap(cor)
@@ -348,62 +507,67 @@ pheatmap(cor)
 
 Based on all these annotation tools, we can rename our clusters according to broad class using dplyr logic:
 
-```{r, fig.height=4, fig.width=5}
-obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["cluster_id"]],
+```{r, fig.height=3, fig.width=4}
+obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["louvain_vmr_cluster"]],
                                              "1" = "T", 
                                              "2" = "NK", 
                                              "3" = "B",
                                              "4" = "Mono")
+
+group_labels <- merge(obj@metadata, obj@reductions[["umap_irlba_cg_vmr_pct"]], by = 0) |> dplyr::group_by(type) |> dplyr::summarise(dim_x = mean(dim_x), dim_y = mean(dim_y))
+  
 library(ggrepel)
-dimFeature(obj, colorBy = type, colors = pal, pointSize = 1)  +
-  geom_text_repel(aes(label = type), color = "black", data = obj@metadata |> dplyr::group_by(type) |> dplyr::summarise(umap_x = median(umap_x), umap_y = median(umap_y)))
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_irlba_cg_vmr_pct") +
+  geom_text_repel(data = group_labels, aes(x = dim_x, y = dim_y, label = type))
 ```
 
-You might also want cluster tracks with the group name:
+You might also want cluster tracks with the group name. Recalculate, or just copy our previous one:
 
-```{r, fig.height=10, fig.width=15}
-obj@genomeMatrices[["cg_type_tracks"]] <- copy(obj@genomeMatrices[["cg_cluster_tracks"]])
-setnames(obj@genomeMatrices[["cg_type_tracks"]], c("chr", "start", "end", "T", "NK", "B", "Mono"))
+```{r, eval = FALSE}
+obj@tracks[["cg_type_tracks"]] <- data.table::copy(obj@tracks[["cg_cluster_tracks"]])
+data.table::setnames(obj@tracks[["cg_type_tracks"]], c("chr", "start", "end", "T", "NK", "B", "Mono"))
+```
+
+Now heatMaps will be labeled with the corresponding population:
+
+```{r, fig.height=5, fig.width=15}
 heatMap(obj, 
-        genes = c("SPI1", "CD2", "S100A8",  "CD79A", "CD3G", "ELANE", "MPO", 
-           "S100A8", "MPEG1", "IRF8", "CD74", "GZMK", "CD3E", "CD3D", "KIR2DL4", "KLRB1"), 
-        matrix = "cg_type_tracks", 
-        nrow = 4,
-        arrowScale = 1,
-        legend = F)
+        genes = c("CD3D", "KIR2DL4", "MPO", "MPEG1"), 
+        track = "cg_type_tracks", 
+        nrow = 2,
+        legend = T)
 ```
 
-########################################################################################################
-### DIFFERENTIALLY METHYLATED REGION ANALYSIS ###
+######################################################################################################## 
+# DIFFERENTIALLY METHYLATED REGION (DMR) ANALYSIS
 
-There are two main formats to set up DMR analysis. The first is to test DMRs for each cluster against all others.
-Only the sum matrix (which we saved at the calcSmoothedWindows step) is needed, or regenerate with your annotated cell types:
+There are two main formats to set up DMR analysis. The first is to test DMRs for each cluster against all others. Only the sum matrix (which we saved at the calcSmoothedWindows step) is needed, or regenerate with your annotated cell types:
 
 ```{r}
-dmrs <- testDMR(cluster1kbwindows[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5) # or use cluster1kbwindows[["sum_matrix"]] and rename
+dmrs <- testDMR(cluster1kbwindows[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5) 
 ```
 
 Then expand and filter the resulting list according to the desired stringency.
 
 ```{r}
-dmrs <- filterDMR(dmrs, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 2)
+dmrs <- filterDMR(dmrs, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 1.5)
 head(dmrs)
 ```
 
-Especially since the matrix is smoothed, adjacent genomic windows may be significant. You can collapse them with the following function.
-If annotation = T, any overlapping genes will be noted in the results table.
+Especially since the matrix is smoothed, adjacent genomic windows may be significant. You can collapse them with the following function. If annotation = T, any overlapping genes will be noted in the results table.  
+
+*Note: Please pay attention to the maxDist and minLength parameters and decide if these are appropriate for your data. Here, we are combining any DMRs within 2kb of each other, and applying a minimum threshold of 2kb to count as a DMR.*
 
 ```{r}
-collapsed_dmrs <- collapseDMR(obj, dmrs, maxDist = 4000, minLength = 2000, reduce = T, annotate = T) 
+collapsed_dmrs <- collapseDMR(obj, dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T) 
 head(collapsed_dmrs)
 ```
 
-Note: The "test" column indicates which cluster is considered the member group. If you are testing a renamed matrix, you might want to add those names
-To your results instead of having the numerical order in which they were tested (which works ok for cluster DMRs). Change sumMatrix if necessary.
+The "test" column indicates which cluster is considered the member group. If you are testing a renamed matrix, you might want to add those names To your results instead of having the numerical order in which they were tested (which works ok for cluster DMRs). 
 
 ```{r}
 key <- data.frame(test = as.factor(1:4), 
-                type = c("T", "NK", "B", "Mono"))
+                type = names(obj@tracks[["cg_type_tracks"]])[4:ncol(obj@tracks[["cg_type_tracks"]])]) # or just specify manually, but that can get tedious
 collapsed_dmrs <- left_join(collapsed_dmrs, key, by = "test")
 head(collapsed_dmrs)
 ```
@@ -417,22 +581,27 @@ comparisons <- data.frame(
                  A = c("1,2,3", "1", "2,3"),
                  B = c("1,4", "2", "1")
 )
-dmrs <- testDMR(sumMatrix = cluster1kbwindows[["sum_matrix"]], comparisons = comparisons, nminTotal = 5, nminGroup = 5)
+example_dmrs <- testDMR(sumMatrix = cluster1kbwindows[["sum_matrix"]], comparisons = comparisons, nminTotal = 5, nminGroup = 5)
 ```
 
-########################################################################################################
-### INVESTIGATING DMR RESULTS ### 
+If desired, any results can be stored in the **results** slot of the Amethyst object. This helps organize all analysis in one structure.
+
+```{r, eval=FALSE}
+obj@results[["cg_collapsed_dmrs"]] <- collapsed_dmrs
+```
+
+######################################################################################################## 
+# EXPLORING DMR RESULTS
 
 First, let's look at how many DMRs were identified in each group:
 
-```{r, message=FALSE, fig.height=4, fig.width=5}
+```{r, message=FALSE, fig.height=3, fig.width=5}
 ggplot(collapsed_dmrs |> dplyr::group_by(type, direction) |> dplyr::summarise(n = n()), 
        aes(y = type, x = n, fill = type)) + geom_col() + 
   facet_grid(vars(direction), scales = "free_y") + scale_fill_manual(values = pal) + theme_classic()
 ```
 
-Isolate top results per group 
-We find it helpful to select by a combined metric of logFC and padj, but you can modify as necessary:
+Isolate top results per group We find it helpful to select by a combined metric of logFC and padj, but you can modify as necessary:
 
 ```{r}
 top_dmrs <- collapsed_dmrs |> 
@@ -446,24 +615,33 @@ top_dmrs <- collapsed_dmrs |>
 
 Plotting top hypomethylated regions for each group shows expected patterns based on known marker genes:
 
-```{r, fig.height=6, fig.width=15}
+```{r, fig.height=6, fig.width=12}
 heatMap(obj, 
-        matrix = "cg_type_tracks", 
+        track = "cg_type_tracks", 
         regions = top_dmrs$location[top_dmrs$direction == "hypo"], 
         nrow = 2, 
-        arrowOverhang = 0,
         legend = F)
 ```
+You can also turn the DMRs into tracks to plot the exact locations below:
 
-########################################################################################################
-### GO ANALYSIS ###
+```{r, fig.height=4, fig.width=5}
+dmr_tracks <- split(collapsed_dmrs |> dplyr::filter(direction == "hypo") |> ungroup() |> dplyr::select(chr, dmr_start, dmr_end, type) |> dplyr::rename(start = dmr_start, end = dmr_end) |> data.table(), collapsed_dmrs[collapsed_dmrs$direction == "hypo"]$type)
 
-Further interpretation of the results can be explored using a wide variety of packages available on R.
-In this example, we will use the topGO package to test for Gene Ontology (GO) term enrichments for genes with hypomethylated regions in the T cell group.
+heatMap(obj, 
+        track = "cg_type_tracks", 
+        regions = "chr14_99317000_99324000",
+        extraTracks = rev(dmr_tracks),
+        extraTrackColors = rev(pal))
+```
 
-```{r, message=FALSE}
+######################################################################################################## 
+## Gene ontology (GO) analysis
+
+Further interpretation of the results can be explored using a wide variety of packages available on R. In this example, we will use the topGO package to test for Gene Ontology (GO) term enrichments for genes with hypomethylated regions in the T cell group.
+
+```{r, message=FALSE, eval = FALSE}
 library(topGO)
-background <- rownames(obj@genomeMatrices[["cg_promoter"]]) # all genes tested 
+background <- rownames(obj@genomeMatrices[["cg_promoters"]]) # all genes tested 
 query <- unlist(strsplit(collapsed_dmrs$gene_names[collapsed_dmrs$type == "T" & collapsed_dmrs$direction == "hypo"], ", "))
 
 GOdata <- new("topGOdata", 
@@ -487,12 +665,15 @@ As expected, top results are strongly related to T cell processes:
 ggplot(resultElim, aes(x = fold_change, y = reorder(term, fold_change), fill = fisher)) + geom_col() + theme_classic() + scale_fill_viridis_c(direction = -1)
 ```
 
-########################################################################################################
-### CONCLUSION ### 
+Finally, save your workspace so you don't have to re-calculate everything in the future.
 
-Thanks for trying out Amethyst!
-Additional utilities are still to come. We are also open to suggestions.
+```{r, eval = FALSE}
+save.image("~/Downloads/pbmc_vignette_workspace.RData")
+```
+
+######################################################################################################## 
+# CONCLUSION
+
+Thanks for trying out Amethyst! Additional utilities are still to come. We are also open to suggestions. If you use this package and/or code on our Github for your work, please cite our [manuscript](https://www.biorxiv.org/content/10.1101/2024.08.13.607670v2).
+
 Good luck in your analysis!
-
-
-
