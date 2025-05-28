@@ -1,14 +1,23 @@
+# Author: Lauren Rylaarsdam, PhD
+# 2024-2025
+
 ############################################################################################################################
 #' @title sampleComp
 #'
 #' @description Visualize the distribution of a metadata variable across groups of cells
+#'
 #' @param obj The amethyst object to plot
 #' @param groupBy What column in the metadata to group cells by. This will be on the x axis.
+#' @param colors Optional color palette
 #' @param colorBy What column in the metadata to color the bar chart by.
+#' @importFrom ggplot2 ggplot geom_bar scale_fill_manual theme_classic labs theme
 #' @return A bar graph showing the distribution of categorical metadata in user-defined groups of cells
 #' @export
-#' @examples sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
-#' @importFrom ggplot2 ggplot geom_bar scale_fill_manual theme_classic labs theme
+#' @examples
+#' \dontrun{
+#'   sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
+#'   sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id") + facet_wrap(vars(batch))
+#' }
 sampleComp <- function(
     obj,
     groupBy,
@@ -66,18 +75,22 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 ############################################################################################################################
 #' @title dimFeature
 #'
-#' @description Plot any feature in the metadata in UMAP or TSNE space
+#' @description Plot any feature in the metadata over UMAP / TSNE coordinates
 #'
 #' @param obj The amethyst object to plot
-#' @param colorBy The metadata feature to plot in UMAP or TSNE space
+#' @param colorBy The metadata feature to plot over UMAP / TSNE coordinates
 #' @param colors Optional color scale
-#' @param reduction Whether to plot "umap" or "tsne" coordinates. Note runUmap and/or runTsne must have been run.
-#' @param pointSize Optional adjustment of point size
+#' @param reduction Name of reduction slot containing UMAP / TSNE dimensionality reduction coordinates
+#' @param pointSize Optional; adjust point size
 #'
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
-#' @examples dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
+#' @examples
+#' \dontrun{
+#'   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
+#' }
+
 dimFeature <- function(
     obj,
     colorBy,
@@ -102,19 +115,21 @@ dimFeature <- function(
 
 ############################################################################################################################
 #' @title dimM
-#' @description Plot cumulative % methylation over a gene body on UMAP or TNSE dimensionality reductions
+#' @description Plot cumulative % methylation of a feature over UMAP / TSNE coordinates
 #'
 #' @param obj The amethyst object to plot
 #' @param genes List of genes to plot % methylation in UMAP or TSNE space
-#' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
-#' @param blend Logical indicating whether to blend methylation levels of two or three genes
+#' Theoretically, this could also be the name of a non-gene feature, as long as they are rownames
+#' in your specified matrix
+#' @param blend Boolean indicating whether to blend methylation levels of two or three genes
 #' @param nrow Number of rows to distribute graphs over
-#' @param metric If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"
-#' @param colors Optional color gradient to include
-#' @param matrix Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.
-#' @return Returns a plot of methylation over given genomic region using UMAP or TSNE coordinates
+#' @param colors Optional; color gradient to include
+#' @param squish Optional; upper limit of the color scale. Everything above this will be plotted as max
+#' @param reduction Name of reduction slot containing UMAP / TSNE dimensionality reduction coordinates
+#' @param pointSize Optional; adjust point size
+#' @param matrix Matrix in the genomeMatrices slot containing aggregated methylation levels over features per cell
+#' @return Returns a plot of methylation over given genomic region over UMAP or TSNE coordinates
 #' @export
-#' @examples dimM(obj, genes = c("GRM8", "SATB1"), matrix = "gene_ch", pointSize = 0.8)
 #' @importFrom dplyr inner_join mutate
 #' @importFrom ggplot2 ggplot aes geom_point theme_classic guides scale_color_viridis_c scale_color_gradientn labs scale_color_identity geom_tile scale_fill_identity theme
 #' @importFrom grDevices rgb
@@ -124,6 +139,12 @@ dimFeature <- function(
 #' @importFrom tidyr pivot_longer
 #' @importFrom scales squish
 #' @importFrom cowplot plot_grid
+#' @examples
+#' \dontrun{
+#'   dimM(obj, genes = c("GRM8", "SATB1"), matrix = "gene_ch", pointSize = 0.8)
+#'   dimM(obj, genes = c("GRM8", "SATB1"), blend = T, matrix = "gene_ch_imputed", pointSize = 0.8)
+#' }
+
 dimM <-  function(
     obj,
     genes,
@@ -223,22 +244,26 @@ dimM <-  function(
 
 ############################################################################################################################
 #' @title violinM
-#' @description Generates a violin plot of percent methylation over a gene body. Best for non-CpG methylation.
+#' @description Generates a violin plot of percent methylation over a gene body. Best for CH methylation. May need to
+#' use values imputed with Rmagic. See ?impute
 #'
 #' @param obj The amethyst object to plot
-#' @param genes Genes to plot
-#' @param type Type of methylation - e.g. "CH" or "CG" - to calculate if matrix is not provided
+#' @param genes Character vector of gene names to plot
 #' @param matrix Optional name of a pre-calculated matrix of values contained in the genomeMatrices slot to use
 #' @param groupBy Parameter to group by on the x axis
-#' @param colors Optional color palette
+#' @param colors Optional; specify color palette
+#' @param pointSize Optional; adjust point size
 #' @param nrow Number of rows to plot if visualizing many genes
 #' @return Returns ggplot2 geom_violin plots of methylation levels faceted by the requested genes
 #' @export
-#' @examples violinM(obj, genes = c("GRM8"), matrix = "gene_ch", groupBy = "cluster_id")
 #' @importFrom dplyr inner_join
 #' @importFrom ggplot2 ggplot aes geom_violin geom_jitter theme_classic scale_fill_manual scale_color_manual facet_wrap
 #' @importFrom tibble rownames_to_column
 #' @importFrom tidyr pivot_longer
+#' @examples
+#' \dontrun{
+#'   violinM(obj, genes = c("GRM8"), matrix = "gene_ch_imputed", groupBy = "cluster_id")
+#' }
 violinM <-  function(
     obj,
     genes,
@@ -277,7 +302,7 @@ violinM <-  function(
 #' @param groupBy A categorical variable contained in the metadata to group cells by on the y axis
 #' @param splitBy Optional additional facet level
 #' @param nrow If splitBy is specified, this option controls the number of rows the facets are distributed across
-#' @param colors Option to override default viridis scale
+#' @param colors Optional; specify color palette (default is viridis)
 #' @param sizeMatrix Name of matrix to plot values as "size" aesthetic
 #' @param colorMatrix Name of matrix to plot values as "color" aesthetic
 #'
@@ -346,7 +371,7 @@ dotM <-  function(
 #' @param obj Object containing the matrix to plot
 #' @param genes Gene list to plot
 #' @param track Name of matrix containing pseudobulked methylation values calculated over small genomic windows
-#' @param colors Optional list of colors to include
+#' @param colors Optional; specify color palette
 #' @param trackOverhang Number of base pairs to extend beyond the gene
 #' @param regions Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
 #' Any genes or exons that fall within the region will be plotted below.
@@ -429,8 +454,8 @@ histograM <- function(obj,
   }
 
   if (!is.null(genes)) {
-    ref <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
-    ranges <- ref[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
+    ref_subset <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
+    ranges <- ref_subset[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
   }
 
   # for each genome range...
@@ -457,7 +482,7 @@ histograM <- function(obj,
     }
 
     if (!is.null(genes)) {
-      ref <- obj@ref |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
+      ref <- ref_subset |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
         dplyr::distinct(gene_name, start, end, type, strand) |>
         dplyr::mutate(trackHeight = ngroups * trackScale,
                       ymin = -(trackHeight - (ngroups * 0.5)),
@@ -468,6 +493,15 @@ histograM <- function(obj,
     genenames <- ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1) |> dplyr::mutate(text_start = ifelse(strand == "+", (end + 2500), (end + 1000)))
     genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end),
                                                                       xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+    if (!is.null(regions)) {
+      wholegenes <- genenames$gene_name[!(genenames$gene_name %in% genebody$gene_name)]
+      wholegenes <- ref |> dplyr::filter(gene_name %in% wholegenes) |> dplyr::group_by(gene_name, strand) |> dplyr::summarise(start = min,
+                                                                                                                              end = max,
+                                                                                                                              label = mean(label),
+                                                                                                                              trackHeight = mean(trackHeight),
+                                                                                                                              ymin = mean(ymin),
+                                                                                                                              ymax = mean(ymax))
+    }
     promoters <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end - 1500)),
                                                                        promoter_end = ifelse(strand == "+", (start + 1500), (end + 1500)))
     exons <- ref |> dplyr::filter(type == "exon")
@@ -475,7 +509,7 @@ histograM <- function(obj,
     if (!is.null(arrowScale)) {
       arrowHeight <- arrowScale
     } else {
-      arrowHeight <- ( 2 / (ngroups*nrow(genebody)))
+      arrowHeight <- ( .5 / (ngroups*nrow(genenames)))
     }
 
     values <- tidyr::pivot_longer(values, cols = c(4:ncol(values)), names_to = "group", values_to = "pct_m") |>
@@ -530,7 +564,8 @@ histograM <- function(obj,
       ggplot2::geom_rect(data = promoters, fill = "pink", ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
       ggplot2::geom_rect(data = exons, fill = "black", ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
       ggplot2::geom_segment(data = genebody, aes(x = x, xend = xend, y = - trackHeight, yend = - trackHeight),
-                            arrow = ggplot2::arrow(length = unit(trackHeight * arrowHeight , "cm"))) +
+                            arrow = ggplot2::arrow(length = ggplot2::unit(trackHeight * arrowHeight , "cm"))) +
+      {if (!is.null(regions) && nrow(wholegenes > 0)) ggplot2::geom_segment(data = wholegenes, aes(x = start, xend = end, y = - trackHeight, yend = - trackHeight)) } +
       {if (!is.null(regions)) ggplot2::geom_text(data = genenames, aes(x = text_start, y = -trackHeight, label = gene_name), hjust = 0) } +
 
       # dynamically add extra tracks
@@ -541,8 +576,8 @@ histograM <- function(obj,
               dplyr::filter(chr == chrom & start >= min & end <= max) |>
               dplyr::mutate(
                 trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
-                ymin = -(trackHeight - (ngroups * 0.03)),
-                ymax = -(trackHeight + (ngroups * 0.03)),
+                ymin = -(trackHeight - (ngroups * 0.5)),
+                ymax = -(trackHeight + (ngroups * 0.5)),
                 track_name = names(extraTracks[j])
               )
             set.seed(222)
@@ -586,8 +621,8 @@ histograM <- function(obj,
 #'
 #' @param obj Object containing the matrix to plot
 #' @param genes Gene list to plot
-#' @param track Name of matrix containing pseudobulked methylation values calculated over small genomic windows
-#' @param colors Optional list of colors to include
+#' @param track Name of matrix containing aggregated methylation values calculated over small genomic windows
+#' @param colors Optional; specify color palette
 #' @param trackOverhang Number of base pairs to extend beyond the gene
 #' @param regions Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
 #' Any genes or exons that fall within the region will be plotted below.
@@ -603,15 +638,18 @@ histograM <- function(obj,
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
 #' @param remove Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
 #' Helpful when plotting very large regions.
-#'
+#' @param extraTrackColors Optional vector of hex code colors to use when plotting extraTracks
 #' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
 #' @export
-#' @examples heatMap(brain, genes = c("SLC17A7"), track = "cg_type_tracks")
-#' @examples heatMap(brain, regions = c("chr2_199230000_199520000"), track = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
 #' @importFrom dplyr filter mutate rowwise cur_group_id
 #' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
+#' @examples
+#' \dontrun{
+#'  heatMap(obj, regions = "chr1_153390032_153391073", remove = "ENS", track = "cg_cluster_tracks", extraTracks = ccre_tracks)
+#'  heatMap(obj, genes = c("SATB2", "GAD1"), track = "cg_type_tracks", extraTracks = brain_dmrs)
+#' }
 heatMap <- function(obj,
                     track = NULL,
                     genes = NULL,
@@ -661,8 +699,8 @@ heatMap <- function(obj,
   }
 
   if (!is.null(genes)) {
-    ref <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
-    ranges <- ref[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
+    ref_subset <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
+    ranges <- ref_subset[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
   }
 
   # for each genome range...
@@ -689,7 +727,7 @@ heatMap <- function(obj,
     }
 
     if (!is.null(genes)) {
-      ref <- obj@ref |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
+      ref <- ref_subset |> dplyr::filter(gene_name == genes[i] & type %in% c("gene", "exon")) |>
         dplyr::distinct(gene_name, start, end, type, strand) |>
         dplyr::mutate(trackHeight = ngroups * trackScale,
                       ymin = -(trackHeight - (ngroups * 0.03)),
@@ -700,6 +738,15 @@ heatMap <- function(obj,
     genenames <- ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1) |> dplyr::mutate(text_start = ifelse(strand == "+", (end + 2500), (end + 1000)))
     genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end),
                                                                       xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+    if (!is.null(regions)) {
+      wholegenes <- genenames$gene_name[!(genenames$gene_name %in% genebody$gene_name)]
+      wholegenes <- ref |> dplyr::filter(gene_name %in% wholegenes) |> dplyr::group_by(gene_name, strand) |> dplyr::summarise(start = min,
+                                                                                                                                     end = max,
+                                                                                                                                     label = mean(label),
+                                                                                                                                     trackHeight = mean(trackHeight),
+                                                                                                                                     ymin = mean(ymin),
+                                                                                                                                     ymax = mean(ymax))
+    }
     promoters <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(promoter_start = ifelse(strand == "+", (start - 1500), (end - 1500)),
                                                                        promoter_end = ifelse(strand == "+", (start + 1500), (end + 1500)))
     exons <- ref |> dplyr::filter(type == "exon")
@@ -707,7 +754,7 @@ heatMap <- function(obj,
     if (!is.null(arrowScale)) {
       arrowHeight <- arrowScale
     } else {
-      arrowHeight <- ( 5 / (ngroups*nrow(genebody)))
+      arrowHeight <- ( 5 / (ngroups*nrow(genenames)))
     }
 
     values <- tidyr::pivot_longer(values, cols = c(4:ncol(values)), names_to = "group", values_to = "pct_m") |>
@@ -761,6 +808,7 @@ heatMap <- function(obj,
       ggplot2::geom_rect(data = exons, fill = "black", ggplot2::aes(xmin = start, xmax = end, ymin = ymin, ymax = ymax)) +
       ggplot2::geom_segment(data = genebody, aes(x = x, xend = xend, y = - trackHeight, yend = - trackHeight),
                             arrow = ggplot2::arrow(length = unit(trackHeight * arrowHeight , "cm"))) +
+      {if (!is.null(regions) && nrow(wholegenes > 0)) ggplot2::geom_segment(data = wholegenes, aes(x = start, xend = end, y = - trackHeight, yend = - trackHeight)) } +
       {if (!is.null(regions)) ggplot2::geom_text(data = genenames, aes(x = text_start, y = -trackHeight, label = gene_name), hjust = 0) } +
 
       # dynamically add extra tracks
@@ -814,29 +862,20 @@ heatMap <- function(obj,
 #' @description Plot genome-wide view of pseudobulked methylation levels aggregated across large genomic tiles
 #'
 #' @param obj Object containing the matrix to plot
-#' @param genes Gene list to plot
-#' @param track Name of matrix containing pseudobulked methylation values calculated over small genomic windows
-#' @param colors Optional list of colors to include
-#' @param trackOverhang Number of base pairs to extend beyond the gene
-#' @param regions Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
-#' Any genes or exons that fall within the region will be plotted below.
-#' @param nrow When multiple genes or regions are plotted, number of rows the output is divided across.
+#' @param colors Optional; specify color palette
 #' @param legend Boolean indicating whether to plot the color legend
 #' @param removeNA Boolean indicating whether to remove NA values as opposed to plotting them grey
-#' @param trackScale Enables adjustment of gene track height
-#' @param arrowScale Enables adjustment of gene directional arrow size
 #' @param colorMax Set upper bound on color scale. Everything exceeding this threshold will be plotted at the max value
+#' @param matrix Name of matrix containing aggregated methylation values calculated over large genomic windows
+#' See ?aggregateMatrix if needed.
 #' @param order Arrange the order of groups
-#' @param extraTracks Optional; include additional tracks (like regulatory elements) below gene tracks.
-#' Input should be a named list of coordinate files containing chr, start, and end columns.
-#' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
-#' @param remove Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
-#' Helpful when plotting very large regions.
 #'
 #' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
 #' @export
-#' @examples heatMap(brain, genes = c("SLC17A7"), track = "cg_type_tracks")
-#' @examples heatMap(brain, regions = c("chr2_199230000_199520000"), track = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
+#' @examples
+#' \dontrun{
+#'   heatMapGenome(obj = brain, matrix = "ch_100k_pct_type", colors = c("black", "red", "yellow"))
+#' }
 #' @importFrom dplyr filter mutate rowwise cur_group_id
 #' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
 #' @importFrom gridExtra grid.arrange
@@ -916,14 +955,18 @@ heatMapGenome <- function(obj,
 
 ######################################################################
 #' @title makePalette
+#' @description Generate a color palette of any length from a pre-defined set of hex codes
 #'
-#' @description Generates a color palette of any length
-#' @param option Which palette to choose out of options 1-30. Use testPalette to see the colors in each.
-#' @param n How many colors are needed in the palette.
-#' @return Returns a character vector of n hex codes.
-#' @examples pal <- makePalette(option = 1, n = 20)
+#' @param option Which palette to choose out of options 1-30. Use testPalette to see the colors in each
+#' @param n How many colors are needed in the palette
+#' @return Returns a character vector of n hex codes
 #' @export
 #' @importFrom grDevices colorRampPalette
+#' @examples
+#' \dontrun{
+#'   pal <- makePalette(option = 1, n = 20)
+#' }
+
 makePalette <- function(
     option,
     n,
@@ -936,7 +979,7 @@ makePalette <- function(
   if (option == 6) {pal <- c("#3D7577", "#4A4B1F", "#BDBEBF", "#F69E09", "#E32D12", "#540101")} # autumn_hike
   if (option == 7) {pal <- c("#B5DCA5","#F9AB60","#E7576E", "#630661", "#220D50")} # dahlia
   if (option == 8) {pal <- c("#0D353F","#72CDAE","#E6DAC6","#F5562A","#AB2E44")}
-  if (option == 9) {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")}
+  if (option == 9) {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")} # iris
   if (option == 10) {pal <- c("#fd5145","#ff7165","#ffbaa4","#87d0bf","#157d88", "#043E44")}
   if (option == 11) {pal <- c("#FBD8B0", "#DCF2C4", "#74DFD5", "#134077","#DF4275")}
   if (option == 12) {pal <- c("#c05761","#734f5a","#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51","#941c2f")}
@@ -971,19 +1014,22 @@ makePalette <- function(
 
 ############################################################################################################################
 #' @title testPalette
-#' @description Visualize the colors in each palette option.
+#' @description Visualize the colors in each preset makePalette option
 #'
 #' @param output Either "swatch", which shows the colors in each palette in rows of tiles,
-#' or "dimFeature", which shows your amethyst object colored by cluster_id in each palette option.
-#' @param n If output = "swatch", how many colors should be shown with each palette option.
-#' @param obj If output = "dimFeature", name of the amethyst object to test.
-#' @return If output = "swatch", returns a ggplot object with each row as a palette.
-#' If output = "dimFeature", returns the amethyst object in each palette option.
+#' or "dimFeature", which shows your amethyst object colored by cluster_id in each palette option
+#' @param n If output = "swatch", how many colors should be shown with each palette option
+#' @param obj If output = "dimFeature", name of the amethyst object to test
+#' @return If output = "swatch", returns a ggplot object with each row as a palette
+#' If output = "dimFeature", returns the amethyst object in each palette option
 #' @export
 #' @importFrom tidyr gather
 #' @importFrom ggplot2 ggplot aes geom_tile theme_void scale_fill_identity facet_wrap ggtitle
-#' @examples testPalette(output = "swatch", n = 30)
-#' @examples testPalette(output = "dimFeature", obj = obj)
+#' @examples
+#' \dontrun{
+#'   testPalette(output = "swatch", n = 30)
+#'   testPalette(output = "dimFeature", obj = obj)
+#' }
 testPalette <- function(output,
                         n = NULL,
                         obj = NULL) {

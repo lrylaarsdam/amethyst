@@ -1,3 +1,5 @@
+# Authors: Andrew Adey, PhD; Lauren Rylaarsdam, PhD
+# 2024-2025
 ############################################################################################################################
 ### Nearest Neighbor Label Xfer
 #' @title transferLabelsNN

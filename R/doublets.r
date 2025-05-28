@@ -1,3 +1,5 @@
+# Authors: Andrew Adey, PhD; Lauren Rylaarsdam, PhD
+# 2024-2025
 ############################################################################################################################
 #' @title makeDoubletObject
 #' @description This function makes the new object with true cells as well as artificial doublets
@@ -13,7 +15,10 @@
 #' @importFrom caret createDataPartition train
 #' @importFrom future multicore plan sequential
 #' @importFrom future.apply future_lapply
-#' @examples dbobj <- makeDoubletObject(obj, simFraction=0.25, threads = 10, genomeMatrices=c("cg_100kb_score", "ch_100k_pct"))
+#' @examples
+#' \dontrun{
+#' dbobj <- makeDoubletObject(obj, simFraction=0.25, threads = 10, genomeMatrices=c("cg_100kb_score", "ch_100k_pct"))
+#' }
 makeDoubletObject <- function(
     obj,
     simFraction = 0.25,
@@ -180,7 +185,10 @@ addMatrixMeans <- function(obj, matrix_name, name) {
 #' @importFrom stats predict
 #' @importFrom randomForest randomForest
 #' @export
-#' @examples result <- buildDoubletModel(dbobj, reduction = "irlba", method="rf")
+#' @examples
+#' \dontrun{
+#' result <- buildDoubletModel(dbobj, reduction = "irlba", method="rf")
+#' }
 buildDoubletModel <- function(dbobj, method = 'rf', reduction = 'irlba') {
   # Ensure the irlba slot exists
   if (is.null(dbobj@reductions[[reduction]])) {
@@ -230,7 +238,10 @@ buildDoubletModel <- function(dbobj, method = 'rf', reduction = 'irlba') {
 #' @importFrom dplyr mutate
 #' @importFrom tibble rownames_to_column column_to_rownames
 #' @importFrom stats predict
-#' @examples dbobj <- predictDoubletScores(dbobj, reduction = "irlba", model = result$model)
+#' @examples
+#' \dontrun{
+#'   dbobj <- predictDoubletScores(dbobj, reduction = "irlba", model = result$model)
+#' }
 predictDoubletScores <- function(dbobj, model, reduction) {
   #Ensure the irlba slot exists
   if (is.null(dbobj@reductions[[reduction]])) {
@@ -261,7 +272,10 @@ predictDoubletScores <- function(dbobj, model, reduction) {
 #' @export
 #' @importFrom dplyr left_join
 #' @importFrom tibble rownames_to_column column_to_rownames
-#' @examples obj <- addDoubletScores(obj, dbobj)
+#' @examples
+#' \dontrun{
+#'   obj <- addDoubletScores(obj, dbobj)
+#' }
 addDoubletScores <- function(obj, dbobj) {
   if (is.null(dbobj@metadata[['doublet_score']])) {
     stop("The 'doublet_score' metadata slot does not exist in the provided dbobj.")

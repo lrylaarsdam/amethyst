@@ -1,13 +1,19 @@
+# Author: Lauren Rylaarsdam, PhD
+# 2024-2025
+
 ############################################################################################################################
 #' @title createObject
 #' @description Create object of class amethyst
 #'
-#' @param h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode
-#' @param index Corresponding gene and/or chromosome coordinates for each cell in the hdf5 file
+#' @param h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
+#' If using Facet, this file should also contain aggregated methylation observations over larger genomic features
+#' @param index Corresponding chromosome coordinates for each cell in the hdf5 file
 #' @param metadata Optional cell metadata. If included, make sure row names are cell IDs
 #' @param genomeMatrices Slot to store aggregated genomic information
-#' @param reductions Slot to store dimensionality reductions, such as irlba
-#' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
+#' @param reductions Slot to store dimensionality reductions, such as irlba and umap/tsne
+#' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function
+#' @param tracks Aggregated methylation levels over short genomic regions. For plotting purposes (e.g. histograM, heatMap)
+#' @param results Convenience slot to store results if desired
 #'
 #' @return Returns a single object of class amethyst with h5path, genomeMatrices, reduction, index, metadata, and ref slots.
 #' @importFrom methods new
@@ -59,7 +65,10 @@ methods::setClass("amethyst", slots = c(
 #' @importFrom utils read.csv
 #' @importFrom Matrix readMM
 #' @export
-#' @examples obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+#' @examples
+#' \dontrun{
+#'   obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+#' }
 createScaleObject <- function(directory,
                               genomeMatrices = NULL) {
   samples <- sub("\\.allCells\\.csv$", "", grep("\\.allCells\\.csv$", list.files(directory), value = TRUE))
@@ -71,13 +80,13 @@ createScaleObject <- function(directory,
 
   h5paths <- list()
   for (i in samples) {
-    h5paths[[i]] <- data.frame(cell_id = metadata[[i]]$cell_id,
-                               paths = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
+    h5paths[[i]] <- data.frame(barcode = metadata[[i]]$cell_id,
+                               path = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
   }
 
   obj <- createObject(
     metadata = data.table::rbindlist(metadata) |> tibble::column_to_rownames(var = "cell_id"),
-    h5paths = data.table::rbindlist(h5paths) |> tibble::column_to_rownames(var = "cell_id"),
+    h5paths = data.table::rbindlist(h5paths),
   )
 
   if (!is.null(genomeMatrices)) {
@@ -106,14 +115,17 @@ createScaleObject <- function(directory,
 
 ############################################################################################################################
 #' @title extractAttributes
-#' @description Extract information from the attributes column of a gtf file.
+#' @description Extract information from the attributes column of a gtf file
 #' This helper function was taken from https://www.biostars.org/p/272889/
 #'
 #' @param gtf_attributes A string containing the attributes column from a GTF file
 #' @param att_of_interest Name of the attribute containing the desired information
 #' @return Returns the value associated with the specified attribute key from the GTF attributes string
 #' @export
-#' @examples gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+#' @examples
+#' \dontrun{
+#'   gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+#' }
 extractAttributes <- function(gtf_attributes,
                               att_of_interest){
   att <- strsplit(gtf_attributes, "; ")
@@ -126,16 +138,19 @@ extractAttributes <- function(gtf_attributes,
 
 ############################################################################################################################
 #' @title makeRef
-#' @description Generate an genome annotation file.
+#' @description Helper function to generate a genome annotation file in the expected format
 #'
-#' @param genome Reference genome, e
+#' @param genome Reference genome, e.g. "hg38"
 #' @param gtf If not using hg19, hg38, mm10, or mm39, please provide the gtf.gz file path
 #' @param attributes Information to extract from the gtf file. Must be a column name
 #' @return Returns an annotated reference of gene locations
 #' @importFrom dplyr mutate
 #' @importFrom rtracklayer readGFF
 #' @export
-#' @examples ref <- makeRef(genome = "hg38")
+#' @examples
+#' \dontrun{
+#'   obj@ref <- makeRef(genome = "hg38")
+#' }
 makeRef <- function(genome,
                     gtf = NULL,
                     attributes = c("gene_name", "exon_number")) {
@@ -160,6 +175,9 @@ makeRef <- function(genome,
     gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
   }
   gtf <- gtf |> dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
+  gtf <- data.table::data.table(gtf)
+
+  return(gtf)
 }
 
 ############################################################################################################################
@@ -168,10 +186,13 @@ makeRef <- function(genome,
 #' Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
 #'
 #' @param species Human or mouse. Determines gene case.
-#' @param type Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added.
+#' @param type Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added
 #' @return Returns a character vector of key marker genes.
 #' @export
-#' @examples markerGenes <- fetchMarkers(species = "human", type = "brain")
+#' @examples
+#' \dontrun{
+#'   markerGenes <- fetchMarkers(species = "human", type = "brain")
+#' }
 fetchMarkers <- function(species,
                          type) {
   if (type == "brain") {
@@ -263,18 +284,21 @@ regressCovBias <- function(
 #' @param obj Amethyst object to perform clustering on
 #' @param reduction Name of dimensionality reduction to calculate over
 #' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;
+#' @param k integer; number of nearest neighbors
+#' @param colname Character; name of column where results will be stored in metadata
 #' or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.
-#' @param k_phenograph integer; number of nearest neighbors
-#'
 #' @return Adds cluster membership to the metadata file of the amethyst object
 #' @importFrom Rphenograph Rphenograph
 #' @importFrom RANN nn2
 #' @importFrom igraph membership
 #' @importFrom tibble column_to_rownames
-#' @importFrom leiden igraph leiden
+#' @importFrom leiden leiden
 #' @importFrom rlang sym
 #' @export
-#' @examples obj <- runCluster(obj = obj, k_phenograph = 30)
+#' @examples
+#' \dontrun{
+#'   obj <- runCluster(obj = obj, k = 30, reduction = "irlba", method = "louvain", colname = "clusters_k30_irlba_louvain")
+#' }
 runCluster <- function(obj,
                        k = 50,
                        reduction = "irlba",

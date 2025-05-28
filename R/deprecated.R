@@ -1,3 +1,6 @@
+# Authors: Lauren Rylaarsdam, PhD; Stephen Coleman, PhD
+# 2024-2025
+
 ############################################################################################################################
 #' @title clusterCompare
 #' NEEDS UPDATING
@@ -202,3 +205,84 @@ indexGenes <- function(obj,
   output <- split(output, output$gene)
   output
 }
+
+
+############################################################################################################################
+#' @title getGeneM
+#' @description Helper function to retrieve the relevant portion of the hdf5 file for a given gene
+#' @param obj The object containing the path to the hdf5 file
+#' @param gene Which gene to fetch hdf5 indexes
+#' @param type What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.
+#' @param cells Optional parameter to retrieve indexes for a subset of cells
+#' @return Returns a data frame listing the start and count for each barcode with reads covering the requested gene
+#' @export
+#' @examples getGeneM(obj = obj, gene = "RBFOX3", type = "CH", cells = c("ATTGAGGATACCAATTCCATCACGAGCG", "ATTGAGGATAACGCTTCGTCCGCCGATC"))
+#' @importFrom dplyr pull filter mutate
+#' @importFrom purrr map
+#' @importFrom rhdf5 h5read
+#' @importFrom tibble rownames_to_column
+getGeneM <- function(obj,
+                     gene,
+                     type,
+                     threads = 1,
+                     cells = NULL) {
+  # Check if the gene has been indexed. Return error if not.
+  if (!(gene %in% names(obj@index[[type]]))) {
+    print(paste0("Error: ", gene, " has not been indexed."))
+  }
+
+  # Make data frame of all indexes for the gene
+  indexes <- as.data.frame(obj@index[[type]][[gene]])
+  if (type == "promoters") {
+    type <- "CG"
+  }
+
+  # Retrieve barcodes of cells to pull from hdf5. Only pull barcodes containing values covering the gene of interest.
+  if (!is.null(cells)) {
+    ids <- intersect(indexes$cell_id, cells)
+  } else {
+    ids <- indexes$cell_id
+  }
+
+  # get barcodes and paths from amethyst object
+  if (is.null(obj@h5paths)) {
+    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
+  } else {
+    h5paths <- obj@h5paths[rownames(obj@h5paths) %in% ids, , drop = FALSE]
+    barcodes <- as.list(rownames(h5paths))
+    paths <- as.list(h5paths$paths)
+  }
+
+
+  # set up multithreading
+  if (threads > 1) {
+    future::plan(future::multicore, workers = threads)
+  }
+
+  # Read in the portion of the hdf5 file with reads covering the given gene for all requested cells
+  gene_m <- furrr::future_pmap(
+    .l = list(paths, barcodes), .f = function(path, bar) {
+      tryCatch({
+        dataset_name <- paste0(type, "/", bar, "/1")
+        start <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(start)
+        count <- indexes |> dplyr::filter(cell_id == bar) |> dplyr::pull(count)
+        rhdf5::h5read(path, name = dataset_name, start = start, count = count, stride = 1)
+      }, error = function(e) {
+        cat("Error processing data for barcode", bar, ":", conditionMessage(e), "\n")
+        return(NULL)  # Return NULL or any other value indicating failure
+      })
+    })
+
+  # The result will be a list. Name the list with the corresponding cell barcodes.
+  names(gene_m) <- ids
+
+  # Row bind the list into one big list
+  gene_m <- do.call(rbind, gene_m)
+
+  # Make a new column containing the barcodes and remove unnecessary characters added automatically by R
+  gene_m <- gene_m |>
+    tibble::rownames_to_column(var = "cell_id") |>
+    dplyr::mutate(cell_id = sub("\\..*$", "", cell_id))
+  output <- gene_m
+}
+

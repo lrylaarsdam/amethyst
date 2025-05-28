@@ -1,16 +1,21 @@
+# Authors: Lauren Rylaarsdam, PhD; Andrew Adey, PhD
+# 2024-2025
 ############################################################################################################################
 #' @title dimEstimate
 #' @description Estimate the nv value needed for singular value decomposition with irlba
 #'
 #' @param obj Amethyst object containing the matrix to calculate, which should be in the genomeMatrices slot
 #' @param genomeMatrices Name of the matrix in the genomeMatrices slot to calculate nv
-#' @param threshold Amount of variance that must be explained by the nv value, with 1 being 100% of variance.
+#' @param threshold Amount of variance that must be explained by the nv value, with 1 being 100% of variance
 #' @param dims Number of singular values to test for each matrix
 #'
 #' @return Integer indicating the number of principal components required to meet the variance threshold for each matrix
 #' @export
 #'
-#' @examples dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
+#' @examples
+#' \dontrun{
+#'   dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
+#' }
 #'
 dimEstimate <- function(
     obj,
@@ -54,27 +59,26 @@ dimEstimate <- function(
 #'
 #' @param obj Object for which to run irlba
 #' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
-#' @param replaceNA IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".
+#' @param replaceNA IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct"
 #' @param dims list of how many dimensions to output for each matrix
-#'
 #' @return Returns a matrix of appended irlba dimensions as columns and cells as rows
 #' @importFrom irlba irlba
 #' @export
-#' @examples obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
+#' @examples
+#' \dontrun{
+#'   obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = "cg_100k_score", dims = 10, replaceNA = 0)
+#'   obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
+#' }
 runIrlba <- function(
     obj,
     genomeMatrices,
     dims,
-    name = "irlba",
     replaceNA = rep(0, length(dims))) {
 
   if (length(genomeMatrices) != length(dims)) {
     stop("Number of input matrices must equal the length of the dimension list")
 
   } else {
-    if (!is.null(obj@reductions[[name]])) {
-      obj@reductions[[name]] <- NULL
-    }
 
     matrix <- list()
 
@@ -116,22 +120,22 @@ runIrlba <- function(
 }
 
 ############################################################################################################################
-
-
-############################################################################################################################
 #' @title runTsne
 #' @description This function runs t-Distributed Stochastic Neighbor Embedding (t-SNE) on single-cell methylation data contained within an amethyst object.
-#' @param obj An amethyst object. A dimensionality reduction method, such as runIrlba, must have been performed.
-#' @param perplexity Numeric; the perplexity parameter for t-SNE. Typical values range from 5 to 50. Default is 30.
-#' @param method Character; the distance metric to use. Common choices are "euclidean", "cosine", etc. Default is "euclidean".
-#' @param theta Numeric; speed/accuracy trade-off parameter for t-SNE. Values range from 0.0 (exact) to 1.0 (fast). Default is 0.5.
-#' @param reduction Character; the name of the dimensionality reduction to use from the object. Default is "irlba".
-#' @return The input object with updated metadata containing t-SNE coordinates ('tsne_x' and 'tsne_y').
+#' @param obj An amethyst object. A dimensionality reduction method, such as runIrlba, must have been performed
+#' @param perplexity Numeric; the perplexity parameter for t-SNE. Typical values range from 5 to 50. Default is 30
+#' @param method Character; the distance metric to use. Common choices are "euclidean", "cosine", etc. Default is "euclidean"
+#' @param theta Numeric; speed/accuracy trade-off parameter for t-SNE. Values range from 0.0 (exact) to 1.0 (fast). Default is 0.5
+#' @param reduction Character; the name of the dimensionality reduction to use from the object. Default is "irlba"
+#' @return t-SNE coordinates labeled "dim_x" and "dim_y"
 #' @export
 #' @importFrom Rtsne Rtsne
 #' @importFrom dplyr rename select
 #' @importFrom tibble column_to_rownames
 #' @examples
+#' \dontrun{
+#'   obj@reductions[["tsne"]] <- runTsne(obj, perplexity = 5, method = "euclidean", theta = 0.2, reduction = "irlba")
+#' }
 runTsne <- function(obj,
                     perplexity = 30,
                     method = "euclidean",
@@ -165,11 +169,16 @@ runTsne <- function(obj,
 #' @param obj Amethyst object for which to determine umap coordinates
 #' @param neighbors Number of closest points to factor into projection calculations. A higher number will capture more global structure
 #' @param dist Distance between point pairs
+#' @param reduction Character; the name of the dimensionality reduction to use from the object. Default is "irlba"
 #' @param method Distance metric to utilize. Default is euclidean
-#' @return UMAP x and y coordinates in a data frame. Save to "reductions" slot
+#'
+#' @return A data frame of UMAP x and y coordinates labeled "dim_x" and "dim_y"
 #' @importFrom umap umap
 #' @export
-#' @examples obj@reductions[["umap"]] <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
+#' @examples
+#' \dontrun{
+#'   obj@reductions[["umap"]] <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean", reduction = "irlba")
+#' }
 runUmap <- function(obj,
                     neighbors = 30,
                     dist = 0.1,
