@@ -1,0 +1,183 @@
+---
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+---
+
+```{r, eval = TRUE, echo = FALSE}
+indexChr <- function(obj,
+                     type,
+                     chrList = NULL,
+                     threads = 1) {
+
+  # get barcodes and paths from amethyst object
+  if (is.null(obj@h5paths)) {
+    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
+  } else {
+    barcodes <- as.list(obj@h5paths$barcode)
+    paths <- as.list(obj@h5paths$path)
+    if (!is.null(obj@h5paths$prefix)) {
+      prefixes <- obj@h5paths$prefix
+    } else {
+      prefixes <- as.list(rep("", length(barcodes)))
+    }
+  }
+
+  if (threads > 1) {
+    future::plan(future::multicore, workers = threads)
+  }
+
+  if (is.null(chrList)) {
+    cat("\nWarning: If a chrList is not specified, chromosomes with underscores will be removed. This is to avoid indexing unwanted data like alternative contigs.\n")
+  }
+
+  output <- list()
+  output <- furrr::future_pmap(.l = list(paths, barcodes, prefixes), .f = function(path, bar, prefix) {
+    tryCatch({
+      unique_id <- paste0(prefix, bar)
+      h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", bar, "/1")))
+      h5[, index := 1:.N]
+      # for each gene, filter the reads based on corresponding chromosome number and make sure the position is in between the gene's start and end.
+      # The minimum row number (index) is the start and the number of rows is the count. This portion of the hdf5 file can now be quickly read in for future gene-specific functions.
+
+      #define chr groups
+      if (is.null(chrList)) {
+        chrs <- as.list(unique(h5$chr[!grepl("_|EBV|M", h5$chr)]))
+      } else {
+        chrs <- chrList
+      }
+
+      index <- furrr::future_map(chrs,
+                                 .f = function(x) {
+                                   ind <- h5[chr == x]
+                                   ind <- ind[, .(cell_id = unique_id, chr = x, start = min(index), count = .N)]
+                                   ind
+                                 }, .progress = FALSE)
+      index <- do.call(rbind, index) # bind to make one data frame
+    }, error = function(e) {
+      cat("Error processing data for barcode", bar, ":", conditionMessage(e), "\n")
+      return(NULL)
+    })
+  }, .progress = TRUE) # show a progress bar
+
+  if (threads > 1) {
+    future::plan(future::sequential)
+    gc()
+  }
+  output <- do.call(rbind, output)
+  output <- split(output, output$chr)
+  output
+}
+
+```
+######################################################################################################## 
+# Combining projects with overlapping barcodes
+
+If you have a large project or are combining multiple runs, you might encounter overlapping barcode sets between projects. This will cause conflicts in Amethyst because each cell must have a unique ID. There are two ways to address this:
+
+1.  Leave the h5 file untouched and append a prefix within Amethyst
+2.  Append a unique prefix to the barcodes within the h5 file (or at prior steps) and metadata
+
+######################################################################################################## 
+### 1. Appending a unique prefix within Amethyst
+
+The first option is to append a unique prefix within Amethyst and leave the h5 file unaltered. This is probably the simplest option, but make sure to keep track of which paths correspond to which prefix.
+
+We will illustrate this workflow with two copies of the pbmc vignette data. First, either download it from AWS or just copy the file locally.
+
+```{r, eval = FALSE}
+# h5 data
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "~/Downloads/pbmc_vignette_1.h5", method = "curl") 
+download.file("https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5", "~/Downloads/pbmc_vignette_2.h5", method = "curl") 
+
+# metadata
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo_1.txt", "~/Downloads/pbmc_vignette_cellInfo.txt")
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo_2.txt", "~/Downloads/pbmc_vignette_cellInfo.txt") 
+```
+
+Next, create an Amethyst object.
+
+```{r}
+library(amethyst)
+obj <- createObject()
+```
+
+First we will assemble and add the metadata so that we know what barcodes to specify for the h5paths slot. A different method may be more appropriate for your data. **You must apply a unique prefix to each barcode, which will be used throughout the analysis.** Name the prefix anything you want, but shorter is better. Keep in mind that any other metadata you add must share these prefixes.
+
+```{r}
+cellinfo_1 <- utils::read.table("~/Downloads/pbmc_vignette_cellInfo_1.txt", sep = "\t", header = F, col.names = c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov","mch_pct"))
+cellinfo_1$cell_id <- paste0("1_", cellinfo_1$cell_id)
+
+cellinfo_2 <- utils::read.table("~/Downloads/pbmc_vignette_cellInfo_1.txt", sep = "\t", header = F, col.names = c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov","mch_pct"))
+cellinfo_2$cell_id <- paste0("2_", cellinfo_2$cell_id)
+
+obj@metadata <- dplyr::bind_rows(cellinfo_1, cellinfo_2, .id = "run") |> tibble::column_to_rownames(var = "cell_id")
+head(obj@metadata)
+```
+
+Next, populate the h5paths slot with the barcode, path, and prefix info. Below is an example, but use whatever method you are most familiar with. **The prefix column should only exist if you are combining runs with overlapping barcodes. The prefixes must match those in the metadata.**
+
+```{r}
+obj@h5paths <- data.frame(
+  barcode = sub("^\\d+_", "", rownames(obj@metadata)),
+  path = ifelse(grepl("^1_", rownames(obj@metadata)), 
+                "~/Downloads/pbmc_vignette_1.h5", 
+                "~/Downloads/pbmc_vignette_2.h5"),
+  prefix = ifelse(grepl("^1_", rownames(obj@metadata)), 
+                  "1_", 
+                  "2_")
+)
+```
+
+Now, you should be able to proceed as normal. The prefix will be carried through analysis. For example:
+
+```{r}
+obj@index[["chr_cg"]] <- indexChr(obj, type = "CG")
+head(obj@index[["chr_cg"]][["chr1"]])
+```
+
+######################################################################################################## 
+### 2. Appending a unique prefix within the h5 file
+
+Alternatively, one can also append a prefix to each barcode within the h5 file and metadata. This does not require the prefix column structure within the h5 path. However, it is easier to do outside of R. Here is an example script in Python.
+
+```{python, eval = FALSE}
+# Work-around method for combining runs with the same barcodes
+# Usage example: python sciMET_renameH5.py input.h5 output.h5 prefix
+
+import h5py
+import sys
+
+def rename_datasets(input_file, output_file, prefix):
+    with h5py.File(input_file, 'r') as file_in, h5py.File(output_file, 'w') as file_out:
+        def recursive_copy(source, destination):
+            for name, item in source.items():
+                if isinstance(item, h5py.Group):
+                    group = destination.create_group(name)
+                    recursive_copy(item, group)
+                elif isinstance(item, h5py.Dataset):
+                    new_name = prefix + '_' + name
+                    destination.copy(item, new_name)
+
+        recursive_copy(file_in, file_out)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("Usage: python script.py input_file output_file prefix")
+        sys.exit(1)
+
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    prefix = sys.argv[3]
+
+    rename_datasets(input_file, output_file, prefix)
+```
+
+You also have to make sure the corresponding metadata files carry this prefix. This can either be done in R, or using tools such as awk:
+
+```{zsh, eval = FALSE}
+awk -F'\t' 'BEGIN {OFS="\t"} NR==1 {print; next} {print "prefix_"$1,$2,$3,$4,$5,$6}' old.cellInfo.txt > new.cellInfo.txt
+```
+
+If you apply this method, follow the Amethyst tutorials as normal.
