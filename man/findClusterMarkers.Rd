@@ -4,12 +4,30 @@
 \alias{findClusterMarkers}
 \title{Find cluster markers}
 \usage{
-findClusterMarkers(obj, matrix, genes, threads = 1)
+findClusterMarkers(
+  obj,
+  matrix,
+  genes,
+  nmin = 10,
+  groupBy = "cluster_id",
+  method = "bonferroni",
+  threads = 1
+)
 }
 \arguments{
-\item{obj}{The amethyst object to analyze. Clustering should be done prior to this step.}
+\item{obj}{The amethyst object to analyze}
 
 \item{matrix}{Name of the pre-computed methylation values stored genomeMatrices slot for which to calculate variably methylated features}
+
+\item{genes}{Character vector of genes to test}
+
+\item{nmin}{Minimum threshold of observations in either the member or non-member group to proceed with testing}
+
+\item{groupBy}{Metadata column name of the variable to group by}
+
+\item{method}{Multiple testing correction method. Options are c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")}
+
+\item{threads}{Optional; number of threads to use if parallelizing (recommended)}
 }
 \value{
 A data.frame containing the p.value of methylation levels over each gene in each cluster relative to all other clusters
@@ -18,5 +36,7 @@ A data.frame containing the p.value of methylation levels over each gene in each
 Find variably methylated features across clusters
 }
 \examples{
-clusterMarkers <- findClusterMarkers(obj = obj, matrix = "gene_ch")
+\dontrun{
+  gene_ch_cluster_markers <- findClusterMarkers(obj = obj, matrix = "gene_ch", genes = protein_coding, nmin = 10, groupBy = "cluster_id")
+}
 }

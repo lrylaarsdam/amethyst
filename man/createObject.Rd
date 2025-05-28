@@ -16,17 +16,22 @@ createObject(
 )
 }
 \arguments{
-\item{h5paths}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode}
+\item{h5paths}{Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
+If using Facet, this file should also contain aggregated methylation observations over larger genomic features}
 
 \item{genomeMatrices}{Slot to store aggregated genomic information}
 
-\item{reductions}{Slot to store dimensionality reductions, such as irlba}
+\item{tracks}{Aggregated methylation levels over short genomic regions. For plotting purposes (e.g. histograM, heatMap)}
 
-\item{index}{Corresponding gene and/or chromosome coordinates for each cell in the hdf5 file}
+\item{reductions}{Slot to store dimensionality reductions, such as irlba and umap/tsne}
+
+\item{index}{Corresponding chromosome coordinates for each cell in the hdf5 file}
 
 \item{metadata}{Optional cell metadata. If included, make sure row names are cell IDs}
 
-\item{ref}{Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.}
+\item{ref}{Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function}
+
+\item{results}{Convenience slot to store results if desired}
 }
 \value{
 Returns a single object of class amethyst with h5path, genomeMatrices, reduction, index, metadata, and ref slots.

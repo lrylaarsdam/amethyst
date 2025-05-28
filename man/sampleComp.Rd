@@ -12,6 +12,8 @@ sampleComp(obj, groupBy, colorBy, colors = NULL)
 \item{groupBy}{What column in the metadata to group cells by. This will be on the x axis.}
 
 \item{colorBy}{What column in the metadata to color the bar chart by.}
+
+\item{colors}{Optional color palette}
 }
 \value{
 A bar graph showing the distribution of categorical metadata in user-defined groups of cells
@@ -20,5 +22,8 @@ A bar graph showing the distribution of categorical metadata in user-defined gro
 Visualize the distribution of a metadata variable across groups of cells
 }
 \examples{
-sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
+\dontrun{
+  sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id")
+  sampleComp(obj = obj, groupBy = "sample", colorBy = "cluster_id") + facet_wrap(vars(batch))
+}
 }

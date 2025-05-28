@@ -27,5 +27,7 @@ An amethyst object containing both true cells and artificial doublets.
 This function makes the new object with true cells as well as artificial doublets
 }
 \examples{
+\dontrun{
 dbobj <- makeDoubletObject(obj, simFraction=0.25, threads = 10, genomeMatrices=c("cg_100kb_score", "ch_100k_pct"))
+}
 }

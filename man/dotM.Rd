@@ -30,7 +30,7 @@ dotM(
 
 \item{nrow}{If splitBy is specified, this option controls the number of rows the facets are distributed across}
 
-\item{colors}{Option to override default viridis scale}
+\item{colors}{Optional; specify color palette (default is viridis)}
 }
 \value{
 Returns a ggplot object displaying average methylation values for each gene by the grouping variable

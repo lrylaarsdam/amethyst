@@ -14,6 +14,12 @@ Returns an updated amethyst object with slots:
 h5paths, genomeMatrices, tracks, reductions, index, metadata, ref, results
 }
 \description{
-Shortcut for converting old amethyst object format to new.
-Adds "tracks" and "results" slots.
+Shortcut for converting old amethyst object format (v0.0.0.9000) to new (v1.0.0)
+Adds "tracks" and "results" slots, converts obj@ref to a data.table, moves tracks and umap/tsne
+coordinates to correct locations if the names contain "tracks" and "umap" or "tsne", respectively
+}
+\examples{
+\dontrun{
+ new_obj <- convertObject(old_obj)
+}
 }

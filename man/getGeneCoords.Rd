@@ -12,9 +12,13 @@ getGeneCoords(ref, gene)
 \item{gene}{Name of gene for which to fetch coordinates}
 }
 \value{
-Returns the appended chromosome, start, and end locations for a given gene, e.g. "chr2_199269505_199471266"
+Returns the appended chromosome, start, and end locations for a given gene; e.g. "chr2_199269505_199471266"
 }
 \description{
-getGeneCoords fetches the appended chromosome, start, and end locations
-for a given gene of interest.
+Helper function to fetch the appended chromosome, start, and end locations for a given gene
+}
+\examples{
+\dontrun{
+ getGeneCoords(ref = obj@ref, gene = "SATB2")
+}
 }

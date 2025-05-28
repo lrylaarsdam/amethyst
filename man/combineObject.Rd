@@ -7,9 +7,9 @@
 combineObject(objList, genomeMatrices)
 }
 \arguments{
-\item{objList}{List of amethyst objects to merge. Make sure barcode names are unique.}
+\item{objList}{List of amethyst objects to merge. Make sure barcode names are unique}
 
-\item{matrices}{List of genomeMatrices contained within each amethyst object to merge.}
+\item{genomeMatrices}{List of genomeMatrices to merge from each object}
 }
 \value{
 Returns a new object with merged slots. Dimensionality reductions should be re-run post merging.
@@ -18,5 +18,7 @@ Returns a new object with merged slots. Dimensionality reductions should be re-r
 Merge a list of amethyst objects into one
 }
 \examples{
-new <- combineObject(objList = list(obj1, obj2, obj3), genomeMatrices = c("ch_100k_pct", "gene_ch"))
+\dontrun{
+  new <- combineObject(objList = list(obj1, obj2, obj3), genomeMatrices = c("ch_100k_pct", "gene_ch"))
+}
 }

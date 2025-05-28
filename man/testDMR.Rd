@@ -13,24 +13,26 @@ testDMR(
 )
 }
 \arguments{
-\item{sumMatrix}{Sum of c and t observations in each genomic window per group. Output of calcSmoothedWindows.}
+\item{sumMatrix}{Sum of c and t observations in each genomic window per group. Output of calcSmoothedWindows}
 
-\item{eachVsAll}{If TRUE, each group found in the sumMatrix will be tested against all others.}
+\item{eachVsAll}{If TRUE, each group found in the sumMatrix will be tested against all others}
 
 \item{comparisons}{If eachVsAll is not desired, provide a data frame describing which tests to run.
-The data.frame should have three columns with rows describing conditions of each test.
-"name" determines the name of the test in the output; "A" lists group members, and "B" lists group nonmembers.}
+The data.frame should have three columns with rows describing conditions of each test
+"name" determines the name of the test in the output; "A" lists group members, and "B" lists group nonmembers}
 
-\item{nminTotal}{Minimum number of observations across all groups to include the genome region in calculations.}
+\item{nminTotal}{Minimum number of observations across all groups to include the genome region in calculations}
 
-\item{nminGroup}{Minimum number of observations across both members and nonmembers to include the genome region in calculations.}
+\item{nminGroup}{Minimum number of observations across both members and nonmembers to include the genome region in calculations}
 }
 \value{
-Returns a data.table containing the test results for each condition as an appended column.
+Returns a data.table containing the test results for each condition as an appended column
 }
 \description{
 calculate differentially methylated regions from a preconstructed matrix of summed observations
 }
 \examples{
-dmrs <- testDMR(sumMatrix = calcSmoothedWindows(obj, returnSumMatrix = TRUE, returnPctMatrix = FALSE))
+\dontrun{
+  dmrs <- testDMR(sumMatrix = calcSmoothedWindows(sumMatrix = smoothed_windows[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 10, nminGroup = 10))
+}
 }

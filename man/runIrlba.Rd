@@ -4,13 +4,7 @@
 \alias{runIrlba}
 \title{runIrlba}
 \usage{
-runIrlba(
-  obj,
-  genomeMatrices,
-  dims,
-  name = "irlba",
-  replaceNA = rep(0, length(dims))
-)
+runIrlba(obj, genomeMatrices, dims, replaceNA = rep(0, length(dims)))
 }
 \arguments{
 \item{obj}{Object for which to run irlba}
@@ -19,7 +13,7 @@ runIrlba(
 
 \item{dims}{list of how many dimensions to output for each matrix}
 
-\item{replaceNA}{IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".}
+\item{replaceNA}{IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct"}
 }
 \value{
 Returns a matrix of appended irlba dimensions as columns and cells as rows
@@ -28,5 +22,8 @@ Returns a matrix of appended irlba dimensions as columns and cells as rows
 Perform dimensionality reduction based on methylation levels over a matrix stored in the @genomeMatrices slot
 }
 \examples{
-obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
+\dontrun{
+  obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = "cg_100k_score", dims = 10, replaceNA = 0)
+  obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
+}
 }

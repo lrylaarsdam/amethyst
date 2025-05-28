@@ -15,11 +15,20 @@ collapseDMR(
 )
 }
 \arguments{
+\item{obj}{Amethyst object containing the h5 file paths}
+
 \item{dmrMatrix}{Table of differentially methylated regions identified with testDMR and filterDMR}
 
-\item{maxDist}{Maximum allowable overlap between DMRs to be considered adjacent}
+\item{maxDist}{Numeric; Maximum allowable overlap between DMRs to be considered adjacent}
 
 \item{minLength}{Minimum length of collapsed DMR window to include in the output}
+
+\item{reduce}{Boolean; Reduce results to unique observations (recommended)}
+
+\item{mergeDirections}{Boolean; If TRUE, merges adjacent DMRs regardless of direction (hypo/hypermethylated).
+Recommended to keep FALSE. Can be useful for annotating large loci of interest}
+
+\item{annotate}{Boolean; Add column with overlapping gene names. Requires annotation file in @ref slot}
 }
 \value{
 Returns a data.table of collapsed DMRs
@@ -28,5 +37,7 @@ Returns a data.table of collapsed DMRs
 Identify adjacent DMRs
 }
 \examples{
-results <- collapseDMR(dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T)
+\dontrun{
+  results <- collapseDMR(dmrs, maxDist = 2000, minLength = 2000, reduce = T, annotate = T)
+}
 }

@@ -18,5 +18,7 @@ Updates obj to contain the new metadata concatenated to the old metadata
 Add new cell metadata to the metadata slot of a pre-existing object. Make sure row names are cell IDs
 }
 \examples{
-obj <- addMetadata(obj = obj, metadata = annotations)
+\dontrun{
+  obj <- addMetadata(obj = obj, metadata = annotations)
+}
 }

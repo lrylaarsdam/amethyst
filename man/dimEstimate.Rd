@@ -13,7 +13,7 @@ dimEstimate(obj, genomeMatrices, dims, threshold = 0.98)
 
 \item{dims}{Number of singular values to test for each matrix}
 
-\item{threshold}{Amount of variance that must be explained by the nv value, with 1 being 100\% of variance.}
+\item{threshold}{Amount of variance that must be explained by the nv value, with 1 being 100\% of variance}
 }
 \value{
 Integer indicating the number of principal components required to meet the variance threshold for each matrix
@@ -22,6 +22,8 @@ Integer indicating the number of principal components required to meet the varia
 Estimate the nv value needed for singular value decomposition with irlba
 }
 \examples{
-dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
+\dontrun{
+  dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
+}
 
 }

@@ -14,7 +14,7 @@ filterDMR(
 )
 }
 \arguments{
-\item{dmrMatrix}{Results from testDMR.
+\item{dmrMatrix}{Results from testDMR
 Should contain a data.table of summed observations per test group and genomic region with unadjusted p values and logFC for each condition.}
 
 \item{method}{Method for p value adjustment. Bonferroni is the default. See ?p.adjust for all options.}
@@ -34,5 +34,7 @@ Returns an expanded data table with results from testDMR.
 Expand and filter the testDMR output
 }
 \examples{
-results <- filterDMR(dmrMatrix = dmrs, method = "BH", filter = TRUE, keepSums = FALSE, pThreshold = 0.05, logThreshold = 2)
+\dontrun{
+  results <- filterDMR(dmrMatrix = dmrs, method = "BH", filter = TRUE, keepSums = FALSE, pThreshold = 0.05, logThreshold = 2)
+}
 }

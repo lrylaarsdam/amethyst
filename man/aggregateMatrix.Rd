@@ -22,5 +22,7 @@ Returns a matrix containing the mean value per group
 Aggregate genomic window matrices by a categorical variable contained in the metadata
 }
 \examples{
-cluster_ch_100k_pct <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = "cluster_id")
+\dontrun{
+  obj@genomeMatrices[["ch_100k_pct_cluster"]] <- aggregateMatrix(obj, matrix = "ch_100k_pct", groupBy = "cluster_id", nmin = 10)
+}
 }

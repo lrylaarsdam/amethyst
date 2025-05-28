@@ -20,13 +20,17 @@ runUmap(
 \item{dist}{Distance between point pairs}
 
 \item{method}{Distance metric to utilize. Default is euclidean}
+
+\item{reduction}{Character; the name of the dimensionality reduction to use from the object. Default is "irlba"}
 }
 \value{
-UMAP x and y coordinates in a data frame. Save to "reductions" slot
+A data frame of UMAP x and y coordinates labeled "dim_x" and "dim_y"
 }
 \description{
 Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
 }
 \examples{
-obj@reductions[["umap"]] <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
+\dontrun{
+  obj@reductions[["umap"]] <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean", reduction = "irlba")
+}
 }

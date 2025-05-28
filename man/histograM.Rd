@@ -35,7 +35,7 @@ histograM(
 \item{regions}{Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
 Any genes or exons that fall within the region will be plotted below.}
 
-\item{colors}{Optional list of colors to include}
+\item{colors}{Optional; specify color palette}
 
 \item{trackOverhang}{Number of base pairs to extend beyond the gene}
 

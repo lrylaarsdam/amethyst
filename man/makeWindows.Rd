@@ -17,21 +17,26 @@ makeWindows(
   threads = 1,
   futureType = "multicore",
   nmin = 2,
-  save = FALSE
+  save = FALSE,
+  chrList = NULL
 )
 }
 \arguments{
 \item{obj}{Object for which to calculate methylation windows}
 
-\item{type}{What type of methylation to retrieve; i.e. "CH" or "CG"}
+\item{type}{What type of methylation to retrieve; e.g. "CH" or "CG"}
 
 \item{genes}{Optional genes to calculate \% methylation over body}
+
+\item{promoter}{Boolean; option to calculate values over the predicted promoter region of each gene.
+Promoter is defined as strand-aware start site +/- 1500 bp. This approach will not be appropriate for many genes}
 
 \item{stepsize}{If specified, the methylation levels will be calculated over genomic windows of the indicated size}
 
 \item{bed}{Optional bed file to input. If specified, methylation levels will be calculated over input regions}
 
-\item{metric}{Calculate either methylation percent, score, or ratio}
+\item{metric}{Calculate either methylation "percent" (out of 100), "score" (normalized metric from -1 to 1 with
+0 as the mean), or "ratio" (value / global methylation)}
 
 \item{index}{If calculating genomic windows, specify the name of the chr index in the index slot.
 This index should contain the coordinates in the hdf5 file corresponding to each chromosome. Reduces memory constraints.}
@@ -43,16 +48,22 @@ This index should contain the coordinates in the hdf5 file corresponding to each
 \item{futureType}{Method of parallelization, i.e. "multicore" (recommended) or "multisession". Multisession is more
 memory-efficient, but make sure your workspace is as small as possible before using.}
 
-\item{nmin}{Minimum number of observations for the window to be included.}
+\item{nmin}{Minimum number of observations for the window to be included}
 
-\item{save}{Boolean indicating whether to save the intermediate output by chromosome. Good for very large datasets.}
+\item{save}{Boolean indicating whether to save the intermediate output by chromosome. Good for very large datasets}
+
+\item{chrList}{Optional; chromosome whitelist (only use if necessary)}
 }
 \value{
-Returns a data frame with columns as cells and rows as either genes or genomic windows
+Returns a data frame with columns as cells, rows as genomic windows, and values as aggregated methylation levels
 }
 \description{
-Calculate methylation levels across a fixed genomic window, bed file coordinates, or gene body.
+Calculate methylation levels across fixed genomic windows, bed file coordinates, gene bodies, or promoter regions
 }
 \examples{
-makeWindows(obj, type = "CH", genes = c("SATB2", "TBR1", "PACS1"), metric = "percent")
+\dontrun{
+  obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj, stepsize = 100000, type = "CG", metric = "score")
+  obj@genomeMatrices[["pbmc_vmrs"]] <- makeWindows(obj, bed = "~/Downloads/pbmc_vmr.bed", type = "CG", metric = "percent", threads = 10, index = "chr_cg", nmin = 2)
+  obj@genomeMatrices[["cg_promoters"]] <- makeWindows(obj, genes = protein_coding, promoter = TRUE, type = "CG", metric = "percent", index = "chr_cg", nmin = 5)
+}
 }

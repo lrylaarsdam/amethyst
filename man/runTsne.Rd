@@ -13,19 +13,24 @@ runTsne(
 )
 }
 \arguments{
-\item{obj}{An amethyst object. A dimensionality reduction method, such as runIrlba, must have been performed.}
+\item{obj}{An amethyst object. A dimensionality reduction method, such as runIrlba, must have been performed}
 
-\item{perplexity}{Numeric; the perplexity parameter for t-SNE. Typical values range from 5 to 50. Default is 30.}
+\item{perplexity}{Numeric; the perplexity parameter for t-SNE. Typical values range from 5 to 50. Default is 30}
 
-\item{method}{Character; the distance metric to use. Common choices are "euclidean", "cosine", etc. Default is "euclidean".}
+\item{method}{Character; the distance metric to use. Common choices are "euclidean", "cosine", etc. Default is "euclidean"}
 
-\item{theta}{Numeric; speed/accuracy trade-off parameter for t-SNE. Values range from 0.0 (exact) to 1.0 (fast). Default is 0.5.}
+\item{theta}{Numeric; speed/accuracy trade-off parameter for t-SNE. Values range from 0.0 (exact) to 1.0 (fast). Default is 0.5}
 
-\item{reduction}{Character; the name of the dimensionality reduction to use from the object. Default is "irlba".}
+\item{reduction}{Character; the name of the dimensionality reduction to use from the object. Default is "irlba"}
 }
 \value{
-The input object with updated metadata containing t-SNE coordinates ('tsne_x' and 'tsne_y').
+t-SNE coordinates labeled "dim_x" and "dim_y"
 }
 \description{
 This function runs t-Distributed Stochastic Neighbor Embedding (t-SNE) on single-cell methylation data contained within an amethyst object.
+}
+\examples{
+\dontrun{
+  obj@reductions[["tsne"]] <- runTsne(obj, perplexity = 5, method = "euclidean", theta = 0.2, reduction = "irlba")
+}
 }

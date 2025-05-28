@@ -20,5 +20,7 @@ Updates obj to contain the new metadata concatenated to the old metadata
 Add information containined in the .annot file to the Amethyst object
 }
 \examples{
-obj <- addMetadata(obj = obj, metadata = annotations)
+\dontrun{
+  obj <- addMetadata(obj = obj, metadata = annotations, names = c("plate"))
+}
 }

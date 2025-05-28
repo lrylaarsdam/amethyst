@@ -9,7 +9,7 @@ fetchMarkers(species, type)
 \arguments{
 \item{species}{Human or mouse. Determines gene case.}
 
-\item{type}{Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added.}
+\item{type}{Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added}
 }
 \value{
 Returns a character vector of key marker genes.
@@ -19,5 +19,7 @@ Fetch a pre-selected list of key marker genes
 Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
 }
 \examples{
-markerGenes <- fetchMarkers(species = "human", type = "brain")
+\dontrun{
+  markerGenes <- fetchMarkers(species = "human", type = "brain")
+}
 }

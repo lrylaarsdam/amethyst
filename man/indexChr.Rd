@@ -4,15 +4,16 @@
 \alias{indexChr}
 \title{indexChr}
 \usage{
-indexChr(obj, type, threads = 1)
+indexChr(obj, type, chrList = NULL, threads = 1)
 }
 \arguments{
-\item{type}{What type of methylation to retrieve; i.e. mCH or mCG.}
+\item{obj}{Amethyst object containing h5 paths}
 
-\item{threads}{Optional threads parameter to use if parallelizing.}
+\item{type}{What type of methylation to retrieve; e.g. CG or CH.}
 
-\item{hdf5}{Path to the hdf5 file containing base-level read information
-organized by methylation type and barcode.}
+\item{chrList}{Optional; chromosome whitelist (only use if necessary)}
+
+\item{threads}{Optional; number of threads to use if parallelizing (recommended)}
 }
 \value{
 A list of data frames named by cell barcode. The data frames contain the
@@ -23,7 +24,13 @@ If the whole hdf5 file had to be searched for relevant reads
 every time gene-specific methylation information was needed, most functions
 would take minutes to hours to run. The indexing process catalogs the
 coordinates for each specified gene in every cell beforehand so the relevant
-subset can quickly be retrieved for downstream processes. mCG, mCH, and the
-mCG status of the promoter must be indexed separately. Providing a gene
-subset is recommended due to memory and time constraints.
+subset can quickly be retrieved for downstream processes. Typically, CG and CH
+contexts would be indexed. This step can be skipped if using pre-computed
+windows with Facet.
+}
+\examples{
+\dontrun{
+  obj@index[["chr_cg"]] <- indexChr(obj = obj, type = "CG", threads = 10)
+  obj@index[["chr_ch"]] <- indexChr(obj = obj, type = "CG", chrList = c("chr1", "chr2"))
+}
 }

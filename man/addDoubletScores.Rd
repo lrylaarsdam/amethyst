@@ -18,5 +18,7 @@ The original amethyst object with updated metadata including doublet scores.
 This function adds doublet scores from a doublet object to the metadata of the original amethyst object.
 }
 \examples{
-obj <- addDoubletScores(obj, dbobj)
+\dontrun{
+  obj <- addDoubletScores(obj, dbobj)
+}
 }

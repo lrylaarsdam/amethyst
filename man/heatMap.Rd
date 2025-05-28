@@ -27,14 +27,14 @@ heatMap(
 \arguments{
 \item{obj}{Object containing the matrix to plot}
 
-\item{track}{Name of matrix containing pseudobulked methylation values calculated over small genomic windows}
+\item{track}{Name of matrix containing aggregated methylation values calculated over small genomic windows}
 
 \item{genes}{Gene list to plot}
 
 \item{regions}{Optional. Instead of genes, regions can be plotted, e.g. "chr1_1000_2000".
 Any genes or exons that fall within the region will be plotted below.}
 
-\item{colors}{Optional list of colors to include}
+\item{colors}{Optional; specify color palette}
 
 \item{trackOverhang}{Number of base pairs to extend beyond the gene}
 
@@ -55,6 +55,8 @@ Any genes or exons that fall within the region will be plotted below.}
 \item{extraTracks}{Optional; include additional tracks (like regulatory elements) below gene tracks.
 Input should be a named list of coordinate files containing chr, start, and end columns.}
 
+\item{extraTrackColors}{Optional vector of hex code colors to use when plotting extraTracks}
+
 \item{remove}{Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
 Helpful when plotting very large regions.}
 
@@ -67,6 +69,8 @@ A ggplot geom_tile object with colors indicating \% methylation over tiled windo
 Plot methylation levels aggregated across a given gene body or genomic region
 }
 \examples{
-heatMap(brain, genes = c("SLC17A7"), track = "cg_type_tracks")
-heatMap(brain, regions = c("chr2_199230000_199520000"), track = "ch_type_tracks", arrowScale = 0.3, trackScale = 0.07, colors = c("black", "red", "yellow"), colorMax = 20, order = c("Astro", "Oligo", "OPC", "Micro", "Inh_CGE", "Inh_MGE", "Exc_L1-3_CUX2", "Exc_L2-4_RORB", "Exc_L4-5_FOXP2", "Exc_L4-6_LRRK1", "Exc_L5-6_PDZRN4", "Exc_L6_TLE4"))
+\dontrun{
+ heatMap(obj, regions = "chr1_153390032_153391073", remove = "ENS", track = "cg_cluster_tracks", extraTracks = ccre_tracks)
+ heatMap(obj, genes = c("SATB2", "GAD1"), track = "cg_type_tracks", extraTracks = brain_dmrs)
+}
 }

@@ -15,9 +15,11 @@ extractAttributes(gtf_attributes, att_of_interest)
 Returns the value associated with the specified attribute key from the GTF attributes string
 }
 \description{
-Extract information from the attributes column of a gtf file.
+Extract information from the attributes column of a gtf file
 This helper function was taken from https://www.biostars.org/p/272889/
 }
 \examples{
-gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+\dontrun{
+  gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+}
 }
