@@ -464,12 +464,10 @@ addAnnot <- function(obj,
 
 addCellInfo <- function(obj,
                         file) {
-  cat("\nThis is a helper function intended to process the Premethyst pipeline cellInfo.txt file intermediate output.
-      \nIf you are using the ScaleMethyl pipeline and used the createScaleObject helper function, metadata should be added automatically.
-      \nIf neither of these pipelines apply, please add metadata to slot manually where rownames are cell barcodes.")
+  cat("This is a helper function intended to process the Premethyst pipeline cellInfo.txt file intermediate output. If you are using the ScaleMethyl pipeline and used the createScaleObject helper function, metadata should be added automatically. If neither of these pipelines apply, please add metadata to slot manually where rownames are cell barcodes.\n")
 
   if (!is.null(obj@h5paths$prefix)) {
-    cat("\nWarning: Make sure your prefixes are already appended to the metadata you are adding.")
+    cat("Warning: Make sure your prefixes are already appended to the metadata you are adding.\n")
   }
 
   cellInfo <- utils::read.table(file, sep = "\t", header = F)
@@ -478,7 +476,7 @@ addCellInfo <- function(obj,
   } else if (ncol(cellInfo) == 10) {
     colnames(cellInfo) <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "n_frag", "n_pair", "n_single", "xpct_m")
   } else if (ncol(cellInfo) != 6 && ncol(cellInfo) != 10) {
-    cat("\nThe cell file is not in the expected format of 6 or 10 columns. Columns after 10 will not be named.\n")
+    cat("The cell file is not in the expected format of 6 or 10 columns. Columns after 10 will not be named.\n")
     names <- c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov", "mch_pct", "n_frag", "n_pair", "n_single", "xpct_m")
     colnames(cellInfo) <- names[1:ncol(cellInfo)]
   }
@@ -514,7 +512,7 @@ impute <- function(obj,
   num_na <- sum(is.na(matrix))
   pct_na <- round(sum(is.na(matrix)) * 100 / (ncol(matrix) * nrow(matrix)), 3)
   if (num_na > 0) {
-    print(paste0("Warning: Replacing ", num_na, " NAs (", pct_na, "% of matrix) to perform imputation."))
+    print(paste0("Warning: Replacing ", num_na, " NAs (", pct_na, "% of matrix) to perform imputation.\n"))
   }
   if (replaceNA == 0) {
     matrix[is.na(matrix)] <- 0
@@ -532,7 +530,7 @@ impute <- function(obj,
     na_indices <- which(is.na(matrix), arr.ind = TRUE)
     matrix[na_indices] <- replacement_vector[na_indices[, 2]]
   } else {
-    stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.")
+    stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.\n")
   }
   matrix_imputed <- Rmagic::magic(t(matrix), npca = npca)[["result"]]
   matrix_imputed <- as.data.frame(t(matrix_imputed))

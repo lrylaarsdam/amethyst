@@ -64,8 +64,8 @@ findClusterMarkers <- function(
               mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
               mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
             ) |> dplyr::mutate(
-              logFC = log2(mean_2 / mean_1),
-              direction = ifelse(mean_2 > mean_1, "hypermethylated", "hypomethylated")
+              logFC = log2(mean_1 / mean_2),
+              direction = ifelse(mean_1 > mean_2, "hypermethylated", "hypomethylated")
             )
           }
         },
@@ -434,7 +434,7 @@ testDMR <- function(
       # apply fast fishers exact test
       counts <- counts[, paste0(gr, "_all_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(gr, "_all_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
-      cat(paste0("\nFinished group ", gr))
+      cat(paste0("Finished group ", gr, "\n"))
     }
 
   } else if (!is.null(comparisons)) {

@@ -51,7 +51,7 @@ indexChr <- function(obj,
   }
 
   if (is.null(chrList)) {
-    cat("\nWarning: If a chrList is not specified, chromosomes with underscores will be removed. This is to avoid indexing unwanted data like alternative contigs.\n")
+    cat("Notice: If a chrList is not specified, chromosomes with underscores will be removed. This is to avoid indexing unwanted data like alternative contigs.\n")
   }
 
   output <- list()
