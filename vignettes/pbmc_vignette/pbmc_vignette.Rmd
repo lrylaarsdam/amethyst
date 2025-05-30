@@ -24,7 +24,7 @@ BiocManager::install()
 
 library(BiocManager)
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "leiden", "Matrix", "methods", "pheatmap",
+  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", "pheatmap",
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 ```
@@ -154,7 +154,7 @@ The next step is to cluster cells, which we typically do based on methylation va
 
 ### 1. Calculate methylation levels over genomic windows in R using Amethyst functions
 
-The most straightforward method is to calculate methylation levels over features with Amethyst in R. First, perform an initial indexing step, which determines the locations corresponding to each chromosome in every h5 file. This reduces the load by only calculating across one at a time.
+The most straightforward method is to calculate methylation levels over features with Amethyst in R. First, perform an initial indexing step, which determines the locations corresponding to each chromosome in every h5 file. This reduces the computational load by only calculating across one at a time.
 
 *Note: If you are using non-conventional chromosomes, please provide a whitelist (see function parameters).*  
 *Note: You may have to copy/paste any code reading the h5 file (e.g., makeWindows) directly into the console instead of running the chunk, if using the .Rmd template.*
@@ -172,7 +172,7 @@ obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj,
 
 ### 2. Calculate methylation levels over genomic windows using Facet
 
-*makeWindows* can be memory-intensive. If you have very large datasets, it may be preferable to apply [Facet](https://pypi.org/project/amethyst-facet/), a Python-based helper script to compute windows in a more efficient manner. Results are stored in the h5 file and loaded as needed. For installation instructions and examples, see [Facet](https://pypi.org/project/amethyst-facet/) documentation.  
+*makeWindows* can be memory-intensive. If you have very large datasets, it may be preferable to apply [Facet](https://pypi.org/project/amethyst-facet/), a Python-based helper script to compute windows in a more efficient manner. Results are stored in the h5 file and loaded as needed. For installation instructions and examples, see [Facet documentation](https://pypi.org/project/amethyst-facet/).  
 
 *Note: Skip to the "clustering continued" section if you used makeWindows to calculate 100kb window methylation score.*
 
@@ -563,7 +563,7 @@ collapsed_dmrs <- collapseDMR(obj, dmrs, maxDist = 2000, minLength = 2000, reduc
 head(collapsed_dmrs)
 ```
 
-The "test" column indicates which cluster is considered the member group. If you are testing a renamed matrix, you might want to add those names To your results instead of having the numerical order in which they were tested (which works ok for cluster DMRs). 
+The "test" column indicates which cluster is considered the member group. If you are testing a renamed matrix, you might want to add those names To your results instead of having the numerical order in which they were tested.
 
 ```{r}
 key <- data.frame(test = as.factor(1:4), 
@@ -622,6 +622,7 @@ heatMap(obj,
         nrow = 2, 
         legend = F)
 ```
+
 You can also turn the DMRs into tracks to plot the exact locations below:
 
 ```{r, fig.height=4, fig.width=5}
