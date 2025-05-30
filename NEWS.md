@@ -1,4 +1,45 @@
-# v1.0.0 (dev)
+# v1.0.0
+### 05-30-2025 - v1.0.0 release!
+  - **Added**
+    - Enabled processing of datasets with overlapping barcodes
+      - Necessitated change in obj@h5path structure
+      - Necessitated change in functions: *makeWindows, indexChr, calcSmoothedWindows*
+      - [Vignette for combining datasets with overlapping barcodes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/combining_overlapping_barcodes/combining_overlapping_barcodes.html) 
+    - [Vignette for alternative clustering approaches](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/clustering_alternatives/clustering_alternatives.html)
+    - facet.R script containing functions to help load Facet results
+      - Affected functions: *loadWindows, loadSmoothedWindows*
+    - Enabled chromosome whitelist functionality
+      - Affected functions: *makeWindows, indexChr, calcSmoothedWindows*
+    - *getGeneCoords* helper function
+    - *heatMapGenome* function
+
+  - **Changed**
+    - Updated the [PBMC vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) to reflect v1.0.0 changes
+    - Updated the [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html) to reflect v1.0.0 changes
+    - Changed h5 path input structure
+      - base information in /context/barcode/1
+      - aggregated information in /context/barcode/name
+    - Changed amethyst object structure
+      - **h5paths** slot now has "barcode" and "prefix" (optional) columns
+      - added **tracks** and **results** slots
+        - Affected functions: *createObject, convertObject*
+      - changed **obj@ref** slot to data.table
+      - moved UMAP and TSNE results to **reductions** slot
+        - Affected functions: *runUmap, runTsne, dimM, dimFeature*
+      - enabled multiple clustering results to be stored in metadata
+        - Affected functions: *runCluster*
+      - provided *convertObject* function to automatically initiate these changes
+      - *heatMap* and *histograM* can plot tracks underneath
+      - *dotM* can accept two matrices for size aesthetics instead of one
+
+  - **Deprecated**
+    - Moved *clusterCompare, findRanges, indexGenes,* and *getGeneM* to deprecated
+    
+  - **Fixed**
+    - *makeWindows* promoters can now also calculate "score" and "ratio"
+    - Specified DESCRIPTION imports
+    - Added gene bar across *heatMap* and *histograM* regions where result spans the whole window
+    - Fixed minor *heatMap* and *histograM* issues
 
 # v0.0.0.9000
 ### 11-14-2024
