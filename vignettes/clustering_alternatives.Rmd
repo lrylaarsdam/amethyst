@@ -1,0 +1,250 @@
+---
+output:
+  html_document: default
+  pdf_document: 
+    latex_engine: xelatex
+editor_options: 
+  markdown: 
+    wrap: sentence
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+######################################################################################################## 
+# Integrating results from alternative clustering approaches
+
+The default approach for Amethyst is clustering using methylation levels over large genomic features, like 100kb windows. This has worked well for every dataset (of decent coverage) we have analyzed so far. However, for some datasets, this may not effectively resolve groups. For example, very low-coverage data might struggle with coverage bias. An unexplored tissue might have little large-scale variation in methylation levels. 
+
+Amethyst can readily integrate results from alternative clustering approaches. We strongly suggest exploring other methods if the approach outlined in our vignettes do not effectively resolve distinct biological populations. In this vignette, we will go over how to integrate results from two other packages, [MethSCAn](https://github.com/anders-biostat/MethSCAn) and [MOFA+](https://biofam.github.io/MOFA2/). 
+
+First, download the brain vignette object from Github for a reference.
+
+```{r, eval=FALSE}
+download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/clustering_alternatives/clustering_vignette_workspace.RData", "~/Downloads/clustering_vignette_workspace.RData") 
+```
+
+Then load the workspace and necessary libraries. See MOFA+ installation instructions [here](https://biofam.github.io/MOFA2/installation.html).
+
+```{r, message=FALSE, warning=FALSE}
+library(amethyst)
+library(irlba)
+library(umap)
+library(MOFA2) 
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+
+load("~/Downloads/clustering_vignette_workspace.RData")
+```
+
+######################################################################################################## 
+# MethSCAn
+
+We found MethSCAn works quite well at cluster resolution for **high-coverage mCG datasets with < 100k cells**. One downside is the processing must start from scratch. We will illustrate how using our brain vignette data. Please see [documentation](https://github.com/anders-biostat/MethSCAn) for installation instructions.
+
+### Step 1: Convert cov files to MethSCAn starting format
+
+The precursor to the h5 file is very close to the required starting format for MethSCAn. Use a simple awk command like the one below to convert the .cov file for each cell.  
+
+*Note: Unfortunately, the starting cov files are rather large, so we just have the final matrix available for download from Github.*
+
+```{bash, eval=FALSE}
+# cd /directory/where/you/want/results
+
+for f in path/to/cov/files/*.CG.cov; do
+    awk '{gsub("chr", "", $1); printf "%d\t%d\t%d\t%.2f\t%d\t%d\n", $1, $2, $2, $3, $5, $4}' "$f" > "$(basename "${f%.CG.cov}").methscan.CG.cov"
+done &
+```
+
+Next, follow the four steps outlined in [MethSCAn documentation](https://github.com/anders-biostat/MethSCAn).
+
+```{bash, eval=FALSE}
+# prepare
+methscan prepare cg_brain_vignette_files/*.cov cg_brain_vignette_compact &
+
+# smooth
+methscan smooth cg_brain_vignette_compact &
+
+# scan
+methscan scan --threads 10 cg_brain_vignette_compact cg_brain_vignette_VMRs.bed &
+
+# matrix
+methscan matrix --threads 10 cg_brain_vignette_VMRs.bed cg_brain_vignette_compact cg_brain_vignette_VMR_matrix &
+
+```
+
+Below is how the resulting VMR matrix for clustering is loaded. Due to the 25 MB Github file limit, we have ommitted this intermediate from the workspace but kept the pca result generated below.
+
+```{r, eval=FALSE}
+meth_mtx <- read.csv("~/Downloads/methscan_mean_shrunken_residuals.csv.gz", row.names=1) |> as.matrix() 
+```
+
+Define the iterative pca function recommended by MethSCAn developers.
+
+```{r}
+prcomp_iterative <- function(x, n=10, n_iter=50, min_gain=0.001, ...) {
+  mse <- rep(NA, n_iter)
+  na_loc <- is.na(x)
+  x[na_loc] = 0  # zero is our first guess
+  
+  for (i in 1:n_iter) {
+    prev_imp <- x[na_loc]  # what we imputed in the previous round
+    # PCA on the imputed matrix
+    pr <- prcomp_irlba(x, center = F, scale. = F, n = n, ...)
+    # impute missing values with PCA
+    new_imp <- (pr$x %*% t(pr$rotation))[na_loc]
+    x[na_loc] <- new_imp
+    # compare our new imputed values to the ones from the previous round
+    mse[i] = mean((prev_imp - new_imp) ^ 2)
+    # if the values didn't change a lot, terminate the iteration
+    gain <- mse[i] / max(mse, na.rm = T)
+    if (gain < min_gain) {
+      message(paste(c("\n\nTerminated after ", i, " iterations.")))
+      break
+    }
+  }
+  pr$mse_iter <- mse[1:i]
+  pr
+}
+```
+
+Perform the pca. We will use 5 components to be consistent with the brain vignette.
+
+```{r, eval=FALSE}
+pca <- meth_mtx |> scale(center = T, scale = F) |> prcomp_iterative(n = 5) 
+pca_tbl <- data.frame(pca$x) 
+rownames(pca_tbl) <- gsub(pattern = ".methscan.CG", replacement = "", x = rownames(meth_mtx))
+```
+
+Finally, run UMAP and add the coordinates to the amethyst object **reductions** slot.
+
+```{r, eval=FALSE}
+umap_dims <- as.data.frame(umap::umap(pca_tbl, method = "naive", dims = 2, n_components = 2, n_neighbors = 5, min_dist = .05, metric = "euclidean")$layout)
+
+obj@reductions[["umap_methscan_vmrs"]] <- umap_dims
+colnames(obj@reductions[["umap_methscan_vmrs"]]) <- c("dim_x", "dim_y")
+```
+
+Now you can seamlessly continue using Amethyst functions with MethSCAn-generated clusters. Jump to the end for a comparison of results between methods.
+
+```{r, fig.width=4, fig.height=4}
+pal <- makePalette(option = 13, n = 5)
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_methscan_vmrs")
+```
+
+######################################################################################################## 
+# MOFA+
+
+[MOFA2](https://biofam.github.io/MOFA2/) is tool intended for facilitating integration of multimodal single-cell data. This can be useful for methylation analysis, since different types of methylation can be considered distinct modalities (e.g., CG and CH). Unlike MethSCAn, MOFA+ starts from variable genomic features. We will first select the top 3k highest variable 100k windows in both the CG and CH contexts, then use each modality as a distinct "view". Please see [MOFA+ documentation](https://biofam.github.io/MOFA2/) for further details on installation and application.
+
+First, we will identify the 100kb windows with the highest standard deviation. Filtering requirements for this will vary highly by dataset.
+
+```{r}
+var_100k_ch_windows <- obj@genomeMatrices[["ch_100k_pct"]][rowSums(is.na(obj@genomeMatrices[["ch_100k_pct"]])) == 0, ] |> 
+  tibble::rownames_to_column(var = "window") |> 
+  tidyr::pivot_longer(cols = -c("window"), values_to = "pct_m", names_to = "cell_id") |>
+  dplyr::filter(pct_m < 50 & !is.na(pct_m)) |>
+  dplyr::group_by(window) |>
+  dplyr::summarise(ch_mean = mean(pct_m, na.rm = T), ch_sd = sd(pct_m, na.rm = T)) |> 
+  dplyr::arrange(desc(ch_sd))
+var_100k_ch_windows <- var_100k_ch_windows$window[1:3000]
+```
+
+Now select for highest variable CG windows using the same strategy.
+
+```{r}
+var_100k_cg_windows <- obj@genomeMatrices[["cg_100k_score"]][rowSums(is.na(obj@genomeMatrices[["cg_100k_score"]])) == 0, ] |> 
+  tibble::rownames_to_column(var = "window") |> 
+  tidyr::pivot_longer(cols = -c("window"), values_to = "pct_m", names_to = "cell_id") |>
+  dplyr::filter(pct_m < 50 & !is.na(pct_m)) |>
+  dplyr::group_by(window) |>
+  dplyr::summarise(cg_mean = mean(pct_m, na.rm = T), cg_sd = sd(pct_m, na.rm = T)) |> 
+  dplyr::arrange(desc(cg_sd))
+var_100k_cg_windows <- var_100k_cg_windows$window[1:3000]
+```
+
+Next we will follow the MOFA+ tutorial to load each modality as a view.
+
+```{r}
+data <- obj@genomeMatrices[c("cg_100k_score", "ch_100k_pct")]
+data[["cg_100k_score"]] <- data[["cg_100k_score"]][var_100k_cg_windows, ]
+data[["ch_100k_pct"]] <- data[["ch_100k_pct"]][var_100k_ch_windows, ]
+
+data <- lapply(names(data), function(name) {
+  x <- data[[name]] |> 
+    tibble::rownames_to_column(var = "feature") |> 
+    tidyr::pivot_longer(cols = -"feature", names_to = "sample", values_to = "value") |>
+    dplyr::filter(!is.na(value)) |>
+    dplyr::mutate(view = name) 
+  return(x)
+})
+data <- data.table::rbindlist(data)
+```
+
+Now, prepare and run the MOFA model. The result is in your workspace for convenience.
+
+```{r, warning=FALSE, message=FALSE, eval = FALSE}
+# don't need to run - result is already in workspace.
+
+MOFAobject <- MOFA2::create_mofa(data)
+
+# set parameters
+data_opts <- get_default_data_options(MOFAobject) # using defaults - data is already scaled
+model_opts <- get_default_model_options(MOFAobject)
+train_opts <- get_default_training_options(MOFAobject)
+
+MOFAobject <- prepare_mofa(
+  object = MOFAobject,
+  data_options = data_opts,
+  model_options = model_opts,
+  training_options = train_opts
+)
+
+outfile = file.path("./test_mofa_model.hdf5")
+MOFAobject.trained <- run_mofa(MOFAobject, outfile, use_basilisk = TRUE)
+```
+
+Load the result in your workspace.  
+*Note: This is already loaded for convenience.*
+
+```{r, eval=FALSE}
+# don't run
+mofa_model <- load_model(outfile)
+```
+
+Run UMAP. Add the dimensionality reduction coordinates to your Amethyst object.
+
+```{r, eval=FALSE}
+samples_metadata(mofa_model) <- inner_join(samples_metadata(mofa_model), 
+                                                  obj@metadata |> tibble::rownames_to_column(var = "sample"), by = "sample")
+
+set.seed(42)
+mofa_model <- run_umap(mofa_model)
+
+obj@reductions[["umap_mofa_vmrs"]] <- data.frame(row.names = mofa_model@samples_metadata[["sample"]], 
+                                                  dim_x = mofa_model@dim_red[["UMAP"]][["UMAP1"]],
+                                                  dim_y = mofa_model@dim_red[["UMAP"]][["UMAP2"]])
+```
+
+Now you can seamlessly continue using Amethyst functions with MOFA-generated clusters. In this case, MOFA did not perform as well, but keep in mind we are using very few cells in this example. The most appropriate method will be context-specific.
+
+```{r, fig.width=4, fig.height=4}
+dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_mofa_vmrs")
+```
+
+######################################################################################################## 
+# Comparing results
+
+Since all three dimensionality reductions are in the same object, we can now compare results side-by-side.
+
+```{r, fig.width=12, fig.height=4}
+p1 <- dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_irlba_ch100k_cg100k") + ggtitle("Amethyst")
+p2 <- dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_methscan_vmrs") + ggtitle("MethSCAn")
+p3 <- dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_mofa_vmrs") + ggtitle("MOFA+")
+plot_grid(p1, p2, p3, nrow = 1)
+```
+
+For this dataset, all three methods generally agree on the division of populations. MethSCAn VMRs and Amethyst 100kb windows most effectively resolved groups. The most appropriate method will vary by dataset. Please integrate whatever approach best resolves biological differences in your data and continue to use Amethyst for downstream analysis such as DMR identification.
+
