@@ -33,46 +33,6 @@ sampleComp <- function(
 }
 
 ############################################################################################################################
-#' @title noAxes
-#' @description Add to a ggplot object to remove axes
-#'
-#' Developed by the Satija lab https://github.com/satijalab/seurat/blob/master/R/visualization.R
-#' @export
-#' @importFrom ggplot2 theme
-noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
-  blank <- element_blank()
-  no.axes.theme <- ggplot2::theme(
-    # Remove the axis elements
-    axis.line.x = blank,
-    axis.line.y = blank,
-    # Validate the theme
-    validate = TRUE,
-    ...
-  )
-  if (!keep.text) {
-    no.axes.theme <- no.axes.theme +
-      ggplot2::theme(
-        axis.text.x = blank,
-        axis.text.y = blank,
-        axis.title.x = blank,
-        axis.title.y = blank,
-        validate = TRUE,
-        ...
-      )
-  }
-  if (!keep.ticks) {
-    no.axes.theme <- no.axes.theme +
-      ggplot2::theme(
-        axis.ticks.x = blank,
-        axis.ticks.y = blank,
-        validate = TRUE,
-        ...
-      )
-  }
-  no.axes.theme
-}
-
-############################################################################################################################
 #' @title dimFeature
 #'
 #' @description Plot any feature in the metadata over UMAP / TSNE coordinates
@@ -90,7 +50,6 @@ noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
 #' \dontrun{
 #'   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
 #' }
-
 dimFeature <- function(
     obj,
     colorBy,
@@ -980,7 +939,7 @@ makePalette <- function(
   if (option == 7) {pal <- c("#B5DCA5","#F9AB60","#E7576E", "#630661", "#220D50")} # dahlia
   if (option == 8) {pal <- c("#0D353F","#72CDAE","#E6DAC6","#F5562A","#AB2E44")}
   if (option == 9) {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")} # iris
-  if (option == 10) {pal <- c("#fd5145","#ff7165","#ffbaa4","#87d0bf","#157d88", "#043E44")}
+  if (option == 10) {pal <- c("#fd5145","#ff7165","#ffbaa4","#87d0bf","#157d88", "#043E44")} # lobster
   if (option == 11) {pal <- c("#FBD8B0", "#DCF2C4", "#74DFD5", "#134077","#DF4275")}
   if (option == 12) {pal <- c("#c05761","#734f5a","#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51","#941c2f")}
   if (option == 13) {pal <- c("#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51")}
@@ -998,8 +957,8 @@ makePalette <- function(
   if (option == 25) {pal <- c("#7C2C47", "#B4141F", "#DF6C26", "#E9B60D", "#BABC36")} # orangutan
   if (option == 26) {pal <- c("#1c5253", "#306b34","#c3eb78", "#f3ffc6","#b6174b")}
   if (option == 27) {pal <- c("#b6e2dd","#c8ddbb","#e9e5af","#fbdf9d","#fbc99d","#fbb39d","#fba09d")} # smarties
-  if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")}
-  if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")}
+  if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")} # rainbow
+  if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")} # moab
   if (option == 30) {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")} # macaron
 
   if (n < length(pal) && sample) {
@@ -1057,4 +1016,44 @@ testPalette <- function(output,
     }
     gridExtra::grid.arrange(grobs = p, nrow = 5)
   }
+}
+
+############################################################################################################################
+#' @title noAxes
+#' @description Add to a ggplot object to remove axes
+#'
+#' Developed by the Satija lab https://github.com/satijalab/seurat/blob/master/R/visualization.R
+#' @export
+#' @importFrom ggplot2 theme
+noAxes <- function(..., keep.text = FALSE, keep.ticks = FALSE) {
+  blank <- element_blank()
+  no.axes.theme <- ggplot2::theme(
+    # Remove the axis elements
+    axis.line.x = blank,
+    axis.line.y = blank,
+    # Validate the theme
+    validate = TRUE,
+    ...
+  )
+  if (!keep.text) {
+    no.axes.theme <- no.axes.theme +
+      ggplot2::theme(
+        axis.text.x = blank,
+        axis.text.y = blank,
+        axis.title.x = blank,
+        axis.title.y = blank,
+        validate = TRUE,
+        ...
+      )
+  }
+  if (!keep.ticks) {
+    no.axes.theme <- no.axes.theme +
+      ggplot2::theme(
+        axis.ticks.x = blank,
+        axis.ticks.y = blank,
+        validate = TRUE,
+        ...
+      )
+  }
+  no.axes.theme
 }
