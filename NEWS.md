@@ -1,5 +1,5 @@
 # v1.0.0
-### 05-30-2025 - v1.0.0 release!
+### 06-02-2025 - v1.0.0 release!
   - **Added**
     - Enabled processing of datasets with overlapping barcodes
       - Necessitated change in obj@h5path structure
