@@ -1,3 +1,6 @@
+# Note: This document is the Rmarkdown file used to produce: https://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html
+# Please follow the link above to go through the vignette as intended.
+
 ---
 output:
   html_document: default
