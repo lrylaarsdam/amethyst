@@ -20,5 +20,7 @@ The amethyst doublet object with updated metadata including doublet scores.
 This function calculates doublet scores for cells and adds them to the metadata of the provided doublet object.
 }
 \examples{
-dbobj <- predictDoubletScores(dbobj, reduction = "irlba", model = result$model)
+\dontrun{
+  dbobj <- predictDoubletScores(dbobj, reduction = "irlba", model = result$model)
+}
 }

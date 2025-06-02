@@ -1,40 +1,52 @@
+# Author: Lauren Rylaarsdam, PhD
+# 2024-2025
+
 ############################################################################################################################
 #' @title createObject
 #' @description Create object of class amethyst
 #'
-#' @param h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode
-#' @param index Corresponding gene and/or chromosome coordinates for each cell in the hdf5 file
+#' @param h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
+#' If using Facet, this file should also contain aggregated methylation observations over larger genomic features
+#' @param index Corresponding chromosome coordinates for each cell in the hdf5 file
 #' @param metadata Optional cell metadata. If included, make sure row names are cell IDs
 #' @param genomeMatrices Slot to store aggregated genomic information
-#' @param reductions Slot to store dimensionality reductions, such as irlba
-#' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function.
+#' @param reductions Slot to store dimensionality reductions, such as irlba and umap/tsne
+#' @param ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function
+#' @param tracks Aggregated methylation levels over short genomic regions. For plotting purposes (e.g. histograM, heatMap)
+#' @param results Convenience slot to store results if desired
 #'
 #' @return Returns a single object of class amethyst with h5path, genomeMatrices, reduction, index, metadata, and ref slots.
 #' @importFrom methods new
 #' @export
-#' @examples obj <- createObject(h5paths = "~/Downloads/test.h5")
+#' @examples obj <- createObject()
 createObject <- function(h5paths = NULL,
                          genomeMatrices = NULL,
+                         tracks = NULL,
                          reductions = NULL,
                          index = NULL,
                          metadata = NULL,
-                         ref = NULL) {
+                         ref = NULL,
+                         results = NULL) {
   methods::new(Class = "amethyst",
                h5paths = h5paths,
                genomeMatrices = genomeMatrices,
+               tracks = tracks,
                reductions = reductions,
                index = index,
                metadata = metadata,
-               ref = ref)
+               ref = ref,
+               results = results)
 }
 
 methods::setClass("amethyst", slots = c(
   h5paths = "ANY",
   genomeMatrices = "ANY",
+  tracks = "ANY",
   reductions = "ANY",
   index = "ANY",
   metadata = "ANY",
-  ref = "ANY"
+  ref = "ANY",
+  results = "ANY"
 ))
 
 ############################################################################################################################
@@ -53,7 +65,10 @@ methods::setClass("amethyst", slots = c(
 #' @importFrom utils read.csv
 #' @importFrom Matrix readMM
 #' @export
-#' @examples obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+#' @examples
+#' \dontrun{
+#'   obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+#' }
 createScaleObject <- function(directory,
                               genomeMatrices = NULL) {
   samples <- sub("\\.allCells\\.csv$", "", grep("\\.allCells\\.csv$", list.files(directory), value = TRUE))
@@ -65,13 +80,13 @@ createScaleObject <- function(directory,
 
   h5paths <- list()
   for (i in samples) {
-    h5paths[[i]] <- data.frame(cell_id = metadata[[i]]$cell_id,
-                               paths = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
+    h5paths[[i]] <- data.frame(barcode = metadata[[i]]$cell_id,
+                               path = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
   }
 
   obj <- createObject(
     metadata = data.table::rbindlist(metadata) |> tibble::column_to_rownames(var = "cell_id"),
-    h5paths = data.table::rbindlist(h5paths) |> tibble::column_to_rownames(var = "cell_id"),
+    h5paths = data.table::rbindlist(h5paths),
   )
 
   if (!is.null(genomeMatrices)) {
@@ -100,14 +115,17 @@ createScaleObject <- function(directory,
 
 ############################################################################################################################
 #' @title extractAttributes
-#' @description Extract information from the attributes column of a gtf file.
+#' @description Extract information from the attributes column of a gtf file
 #' This helper function was taken from https://www.biostars.org/p/272889/
 #'
 #' @param gtf_attributes A string containing the attributes column from a GTF file
 #' @param att_of_interest Name of the attribute containing the desired information
 #' @return Returns the value associated with the specified attribute key from the GTF attributes string
 #' @export
-#' @examples gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+#' @examples
+#' \dontrun{
+#'   gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
+#' }
 extractAttributes <- function(gtf_attributes,
                               att_of_interest){
   att <- strsplit(gtf_attributes, "; ")
@@ -120,16 +138,19 @@ extractAttributes <- function(gtf_attributes,
 
 ############################################################################################################################
 #' @title makeRef
-#' @description Generate an genome annotation file.
+#' @description Helper function to generate a genome annotation file in the expected format
 #'
-#' @param genome Reference genome, e
+#' @param genome Reference genome, e.g. "hg38"
 #' @param gtf If not using hg19, hg38, mm10, or mm39, please provide the gtf.gz file path
 #' @param attributes Information to extract from the gtf file. Must be a column name
 #' @return Returns an annotated reference of gene locations
 #' @importFrom dplyr mutate
 #' @importFrom rtracklayer readGFF
 #' @export
-#' @examples ref <- makeRef(genome = "hg38")
+#' @examples
+#' \dontrun{
+#'   obj@ref <- makeRef(genome = "hg38")
+#' }
 makeRef <- function(genome,
                     gtf = NULL,
                     attributes = c("gene_name", "exon_number")) {
@@ -154,6 +175,9 @@ makeRef <- function(genome,
     gtf$i <- unlist(lapply(gtf$attributes, extractAttributes, i))
   }
   gtf <- gtf |> dplyr::mutate(location = paste0(seqid, "_", start, "_", end))
+  gtf <- data.table::data.table(gtf)
+
+  return(gtf)
 }
 
 ############################################################################################################################
@@ -162,10 +186,13 @@ makeRef <- function(genome,
 #' Key marker genes for brain methylation selected from http://neomorph.salk.edu/omb/ct_table
 #'
 #' @param species Human or mouse. Determines gene case.
-#' @param type Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added.
+#' @param type Tissue type of interest. For now, "brain" and "pbmc" are options; others will be added
 #' @return Returns a character vector of key marker genes.
 #' @export
-#' @examples markerGenes <- fetchMarkers(species = "human", type = "brain")
+#' @examples
+#' \dontrun{
+#'   markerGenes <- fetchMarkers(species = "human", type = "brain")
+#' }
 fetchMarkers <- function(species,
                          type) {
   if (type == "brain") {
@@ -204,137 +231,25 @@ fetchMarkers <- function(species,
   }
 }
 
-############################################################################################################################
-#' @title dimEstimate
-#' @description Estimate the nv value needed for singular value decomposition with irlba
-#'
-#' @param obj Amethyst object containing the matrix to calculate, which should be in the genomeMatrices slot
-#' @param genomeMatrices Name of the matrix in the genomeMatrices slot to calculate nv
-#' @param threshold Amount of variance that must be explained by the nv value, with 1 being 100% of variance.
-#' @param dims Number of singular values to test for each matrix
-#'
-#' @return Integer indicating the number of principal components required to meet the variance threshold for each matrix
-#' @export
-#'
-#' @examples dimEstimate(obj = combined, genomeMatrices = c("cg_100k_score", "ch_100k_pct"), dims = c(50, 50), threshold = 0.98)
-#'
-dimEstimate <- function(
-    obj,
-    genomeMatrices,
-    dims,
-    threshold = 0.98) {
-
-  if (length(genomeMatrices) != length(dims)) {
-    stop("Number of input matrices must equal the length of the dimension list")
-  }
-
-  svd_output <- list()
-  for (i in 1:length(genomeMatrices)) {
-    svd_output[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
-    windows <- rownames(svd_output[[i]])
-    cells <- colnames(svd_output[[i]])
-    svd_output[[i]][is.na(svd_output[[i]])] <- 0
-    svd_output[[i]] <- irlba::irlba(as.matrix(svd_output[[i]]), dims[[i]])
-    svd_output[[i]] <- as.data.frame(svd_output[[i]]$d)
-    colnames(svd_output[[i]]) <- paste(genomeMatrices[[i]])
-    rownames(svd_output[[i]]) <- paste("DIM", 1:dims[[i]])
-  }
-  svd_output <- do.call(cbind, svd_output)
-
-  dims_to_use <- apply(svd_output, 2, function(x) {
-    cumulative_variance_explained <- cumsum((x^2) / sum(x^2))
-    if (any(cumulative_variance_explained >= threshold)) {
-      min(which(cumulative_variance_explained >= threshold))
-    } else {
-      stop(paste("No nv value explains ", (threshold*100), "% of variance."))
-    }
-  })
-
-  dims_to_use
-
-}
-
-############################################################################################################################
-#' @title runIrlba
-#' @description Perform dimensionality reduction based on methylation levels over a matrix stored in the @genomeMatrices slot
-#'
-#' @param obj Object for which to run irlba
-#' @param genomeMatrices list of matrices in the genomeMatrices slot to use for irlba
-#' @param replaceNA IRLBA can't accept NA values. Replace NA values with 0, 1, "mch_pct", or "mcg_pct".
-#' @param dims list of how many dimensions to output for each matrix
-#'
-#' @return Returns a matrix of appended irlba dimensions as columns and cells as rows
-#' @importFrom irlba irlba
-#' @export
-#' @examples obj@reductions[["irlba"]] <- runIrlba(obj, genomeMatrices = c("ch_2M_pct", "ch_2M_score", "cg_2M_score"), dims = c(10, 10, 10))
-runIrlba <- function(
-    obj,
-    genomeMatrices,
-    dims,
-    name = "irlba",
-    replaceNA = rep(0, length(dims))) {
-
-  if (length(genomeMatrices) != length(dims)) {
-    stop("Number of input matrices must equal the length of the dimension list")
-
-  } else {
-    if (!is.null(obj@reductions[[name]])) {
-      obj@reductions[[name]] <- NULL
-    }
-
-    matrix <- list()
-
-    for (i in 1:length(genomeMatrices)) {
-      matrix[[i]] <- obj@genomeMatrices[[genomeMatrices[i]]]
-      default <- replaceNA[[i]]
-
-      if (default == 0) {
-        matrix[[i]][is.na(matrix[[i]])] <- 0
-      } else if (default == 1) {
-        matrix[[i]][is.na(matrix[[i]])] <- 1
-      } else if (default %in% c("mch_pct", "mcg_pct")) {
-        matrix[[i]] <- matrix[[i]][, colnames(matrix[[i]]) %in% rownames(obj@metadata)]
-        if (default == "mch_pct") {
-          replacement_vector <- obj@metadata$mch_pct[match(colnames(matrix[[i]]), rownames(obj@metadata))]
-        }
-        if (default == "mcg_pct") {
-          replacement_vector <- obj@metadata$mcg_pct[match(colnames(matrix[[i]]), rownames(obj@metadata))]
-        }
-        # Replace NA values in the matrix with corresponding mch_pct values
-        na_indices <- which(is.na(matrix[[i]]), arr.ind = TRUE)
-        matrix[[i]][na_indices] <- replacement_vector[na_indices[, 2]]
-      } else {
-        stop("Default NA replacement must be 0, 1, 'mch_pct', or 'mcg_pct'.")
-      }
-
-      windows <- rownames(matrix[[i]])
-      cells <- colnames(matrix[[i]])
-
-      matrix[[i]] <- irlba::irlba(as.matrix(matrix[[i]]), dims[[i]])
-      matrix[[i]] <- as.data.frame(matrix[[i]]$v)
-      colnames(matrix[[i]]) <- paste("DIM", 1:dims[[i]], "_", genomeMatrices[i], sep = "")
-      rownames(matrix[[i]]) <- cells
-    }
-
-    result <- do.call(cbind, matrix)
-    return(result)
-  }
-}
-
 ########################################################################################################
 #' @title regressCovBias
 #' @description Calculate the residuals of a logistic regression of cell coverage vs. each irlba dimension
 #'
+#' @param reduction Name of dimensionality reduction to apply function over
+#' @param method Calculate residuals using "lm" or "gam" model
 #' @param obj Amethyst object containing irlba matrix to regress coverage bias from
+#'
 #' @return Returns the residuals
 #' @export
 #' @importFrom dplyr mutate select
 #' @importFrom tibble column_to_rownames
 #' @importFrom stats lm
+#' @importFrom mgcv gam
 #' @examples obj@reductions[["irlba_regressed"]] <- regressCovBias(obj)
 regressCovBias <- function(
     obj,
-    reduction = "irlba") {
+    reduction = "irlba",
+    method = "lm") {
 
   if (is.null(obj@reductions[[reduction]])) {
     stop("runIrlba step must be performed before regressing coverage bias.")
@@ -343,12 +258,22 @@ regressCovBias <- function(
     stop("Cell info must be available in the metadata slot before regressing coverage bias.")
   }
 
-  regress <- merge(obj@metadata |> dplyr::mutate(cov = log(cov)) |> dplyr::select(cov), obj@reductions[[reduction]], by = 0) |> tibble::column_to_rownames(var = "Row.names")
-  result <- as.data.frame(apply(regress[c(2:ncol(regress))], 2, function(x) {
-    lm_model <- stats::lm(x ~ regress$cov)
-    stats::residuals(lm_model)
-  }))
+  regress <- merge(obj@metadata |>
+                     dplyr::mutate(cov = log(cov)) |>
+                     dplyr::select(cov), obj@reductions[[reduction]], by = 0) |>
+    tibble::column_to_rownames(var = "Row.names")
 
+  if (method == "lm") {
+    result <- as.data.frame(apply(regress[c(2:ncol(regress))], 2, function(x) {
+      lm_model <- stats::lm(x ~ regress$cov)
+      stats::residuals(lm_model)
+    }))
+  } else if (method == "gam") {
+    result <- as.data.frame(apply(regress[c(2:ncol(regress))], 2, function(x) {
+      gam_model <- mgcv::gam(x ~ s(regress$cov))
+      stats::residuals(gam_model)
+    }))
+  }
   return(result)
 }
 
@@ -357,21 +282,60 @@ regressCovBias <- function(
 #' @description Determine cluster membership with Rphenograph https://github.com/JinmiaoChenLab/Rphenograph
 #'
 #' @param obj Amethyst object to perform clustering on
-#' @param k_phenograph integer; number of nearest neighbors
+#' @param reduction Name of dimensionality reduction to calculate over
+#' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;
+#' @param k integer; number of nearest neighbors
+#' @param colname Character; name of column where results will be stored in metadata
+#' or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.
 #' @return Adds cluster membership to the metadata file of the amethyst object
 #' @importFrom Rphenograph Rphenograph
+#' @importFrom RANN nn2
 #' @importFrom igraph membership
 #' @importFrom tibble column_to_rownames
+#' @importFrom leiden leiden
+#' @importFrom rlang sym
 #' @export
-#' @examples obj <- runCluster(obj = obj, k_phenograph = 30)
+#' @examples
+#' \dontrun{
+#'   obj <- runCluster(obj = obj, k = 30, reduction = "irlba", method = "louvain", colname = "clusters_k30_irlba_louvain")
+#' }
 runCluster <- function(obj,
-                       k_phenograph = 50,
-                       reduction = "irlba") {
+                       k = 50,
+                       reduction = "irlba",
+                       method = "louvain",
+                       colname = "cluster_id") {
 
-  clusters <- Rphenograph::Rphenograph(obj@reductions[[reduction]], k = k_phenograph)
-  clusters <- do.call(rbind, Map(data.frame, cell_id = row.names(obj@reductions[[reduction]]), cluster_id = paste(igraph::membership(clusters[[2]]))))
+  if (method == "louvain") {
+    clusters <- Rphenograph::Rphenograph(obj@reductions[[reduction]], k = {{k}})
+    clusters <- do.call(rbind, Map(data.frame,
+                                   cell_id = row.names(obj@reductions[[reduction]]),
+                                   cluster_id = paste(igraph::membership(clusters[[2]]))))
+  } else if (method == "leiden") { # https://github.com/TomKellyGenetics/leiden
 
-  if (is.null(obj@metadata$cluster_id)) {
+    cell_names <- rownames(obj@reductions[[reduction]])
+    snn <- RANN::nn2(obj@reductions[[reduction]], k = {{k}})$nn.idx
+    adjacency_matrix <- matrix(0L, length(cell_names), length(cell_names))
+    rownames(adjacency_matrix) <- colnames(adjacency_matrix) <- cell_names
+
+    for(ii in 1:length(cell_names)) {
+      adjacency_matrix[ii,cell_names[snn[ii,]]] <- 1L
+    }
+    clusters <- data.frame(
+      row.names = cell_names,
+      cell_id = cell_names,
+      cluster_id = leiden::leiden(adjacency_matrix)
+    )
+    clusters$cluster_id <- as.character(clusters$cluster_id)
+
+  } else {
+    stop("Please choose method 'louvain' or 'leiden'. Any alternative method may be implemented manually and added to the object metadata.")
+  }
+
+  if (colname != "cluster_id") {
+    clusters <- clusters |> dplyr::rename(!!sym(colname) := "cluster_id")
+  }
+
+  if (is.null(obj@metadata[[colname]])) {
     if (is.null(obj@metadata)) {
       obj@metadata <- clusters |> dplyr::select(-cell_id)
     }
@@ -379,96 +343,11 @@ runCluster <- function(obj,
       obj@metadata <- merge(obj@metadata, clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
       obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
     }
-  } else if (!is.null(obj@metadata$cluster_id)) {
-    obj@metadata <- merge(obj@metadata |> dplyr::select(-cluster_id), clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
+  } else if (!is.null(obj@metadata[[colname]])) {
+    obj@metadata <- merge(obj@metadata |> dplyr::select(-!!sym(colname)),
+                          clusters, by = 0) |>
+      tibble::column_to_rownames(var = "Row.names")
     obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
   }
-  output <- obj
-}
-
-############################################################################################################################
-#' @title runTsne
-#' @description This function runs t-Distributed Stochastic Neighbor Embedding (t-SNE) on single-cell methylation data contained within an amethyst object.
-#' @param obj An amethyst object. A dimensionality reduction method, such as runIrlba, must have been performed.
-#' @param perplexity Numeric; the perplexity parameter for t-SNE. Typical values range from 5 to 50. Default is 30.
-#' @param method Character; the distance metric to use. Common choices are "euclidean", "cosine", etc. Default is "euclidean".
-#' @param theta Numeric; speed/accuracy trade-off parameter for t-SNE. Values range from 0.0 (exact) to 1.0 (fast). Default is 0.5.
-#' @param reduction Character; the name of the dimensionality reduction to use from the object. Default is "irlba".
-#' @return The input object with updated metadata containing t-SNE coordinates ('tsne_x' and 'tsne_y').
-#' @export
-#' @importFrom Rtsne Rtsne
-#' @importFrom dplyr rename select
-#' @importFrom tibble column_to_rownames
-#' @examples
-runTsne <- function(obj,
-                    perplexity = 30,
-                    method = "euclidean",
-                    theta = 0.5,
-                    reduction = "irlba") {
-
-  # Ensure data is in a suitable format (data frame)
-  cells <- rownames(obj@reductions[[reduction]])
-  data_matrix <- as.matrix(obj@reductions[[reduction]])
-
-  # Execute t-SNE
-  tsne_result <- Rtsne::Rtsne(data_matrix,
-                              dims = 2,
-                              perplexity = {{perplexity}},
-                              theta = {{theta}},
-                              check_duplicates = FALSE,
-                              pca = FALSE)
-
-  # Create a data frame from t-SNE output and align row names
-  tsne_dims <- as.data.frame(tsne_result$Y)
-  rownames(tsne_dims) <- cells
-
-  # Add to metadata
-  if (is.null(obj@metadata$tsne_x)) {
-    metadata <- merge(tsne_dims, obj@metadata, by = 0) |>
-      tibble::column_to_rownames(var = "Row.names") |>
-      dplyr::rename("tsne_x" = "V1", "tsne_y" = "V2")
-  } else {
-    metadata <- merge(tsne_dims, obj@metadata |> dplyr::select(-c(tsne_x, tsne_y)), by = 0) |>
-      tibble::column_to_rownames(var = "Row.names") |>
-      dplyr::rename("tsne_x" = "V1", "tsne_y" = "V2")
-  }
-
-  # Update obj metadata
-  obj@metadata <- metadata
-
-  return(obj)
-}
-
-############################################################################################################################
-#' @title runUmap
-#' @description Perform dimension reduction with Uniform Manifold APproximation and Projection for Dimension Reduction
-#'
-#' @param obj Amethyst object for which to determine umap coordinates
-#' @param neighbors Number of closest points to factor into projection calculations. A higher number will capture more global structure
-#' @param dist Distance between point pairs
-#' @param method Distance metric to utilize. Default is euclidean
-#' @return Adds umap_x and umap_y coordinates to the metadata file of the object
-#' @importFrom umap umap
-#' @export
-#' @examples obj <- runUmap(obj, neighbors = 30, dist = 0.1, method = "euclidean")
-runUmap <- function(obj,
-                    neighbors = 30,
-                    dist = 0.1,
-                    method = "euclidean",
-                    reduction = "irlba") {
-
-  umap_dims <- as.data.frame(umap::umap(as.data.frame(obj@reductions[[reduction]]), method = "naive", dims = 2, n_components = 2, n_neighbors = neighbors, min_dist = dist, metric = method)$layout)
-
-  # Add to metadata
-  if (is.null(obj@metadata$umap_x)) {
-    metadata <- merge(umap_dims, obj@metadata, by = 0) %>%
-      tibble::column_to_rownames(var = "Row.names") %>%
-      dplyr::rename("umap_x" = "V1", "umap_y" = "V2")
-  } else {
-    metadata <- merge(umap_dims, obj@metadata %>% dplyr::select(-c(umap_x, umap_y)), by = 0) %>%
-      tibble::column_to_rownames(var = "Row.names") %>%
-      dplyr::rename("umap_x" = "V1", "umap_y" = "V2")
-  }
-  obj@metadata <- metadata
   output <- obj
 }

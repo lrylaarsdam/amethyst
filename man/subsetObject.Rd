@@ -18,5 +18,7 @@ Returns a new amethyst object with all slots subsetted
 Subset all slots of an amethyst object to only include information from specified barcodes
 }
 \examples{
-subset <- subsetObject(obj = obj, cells = c("ATTGAGGATAACGCTTCGTCCGCCGATC", "ATTGAGGATAACGCTTCGTCTAAGGTCA"))
+\dontrun{
+  subset <- subsetObject(obj = obj, cells = c("ATTGAGGATAACGCTTCGTCCGCCGATC", "ATTGAGGATAACGCTTCGTCTAAGGTCA"))
+}
 }

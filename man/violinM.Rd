@@ -17,24 +17,27 @@ violinM(
 \arguments{
 \item{obj}{The amethyst object to plot}
 
-\item{genes}{Genes to plot}
+\item{genes}{Character vector of gene names to plot}
 
 \item{matrix}{Optional name of a pre-calculated matrix of values contained in the genomeMatrices slot to use}
 
 \item{groupBy}{Parameter to group by on the x axis}
 
-\item{colors}{Optional color palette}
+\item{colors}{Optional; specify color palette}
+
+\item{pointSize}{Optional; adjust point size}
 
 \item{nrow}{Number of rows to plot if visualizing many genes}
-
-\item{type}{Type of methylation - e.g. "CH" or "CG" - to calculate if matrix is not provided}
 }
 \value{
 Returns ggplot2 geom_violin plots of methylation levels faceted by the requested genes
 }
 \description{
-Generates a violin plot of percent methylation over a gene body. Best for non-CpG methylation.
+Generates a violin plot of percent methylation over a gene body. Best for CH methylation. May need to
+use values imputed with Rmagic. See ?impute
 }
 \examples{
-violinM(obj, genes = c("GRM8"), matrix = "gene_ch", groupBy = "cluster_id")
+\dontrun{
+  violinM(obj, genes = c("GRM8"), matrix = "gene_ch_imputed", groupBy = "cluster_id")
+}
 }

@@ -4,12 +4,25 @@
 \alias{runCluster}
 \title{runCluster}
 \usage{
-runCluster(obj, k_phenograph = 50, reduction = "irlba")
+runCluster(
+  obj,
+  k = 50,
+  reduction = "irlba",
+  method = "louvain",
+  colname = "cluster_id"
+)
 }
 \arguments{
 \item{obj}{Amethyst object to perform clustering on}
 
-\item{k_phenograph}{integer; number of nearest neighbors}
+\item{k}{integer; number of nearest neighbors}
+
+\item{reduction}{Name of dimensionality reduction to calculate over}
+
+\item{method}{Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;}
+
+\item{colname}{Character; name of column where results will be stored in metadata
+or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.}
 }
 \value{
 Adds cluster membership to the metadata file of the amethyst object
@@ -18,5 +31,7 @@ Adds cluster membership to the metadata file of the amethyst object
 Determine cluster membership with Rphenograph https://github.com/JinmiaoChenLab/Rphenograph
 }
 \examples{
-obj <- runCluster(obj = obj, k_phenograph = 30)
+\dontrun{
+  obj <- runCluster(obj = obj, k = 30, reduction = "irlba", method = "louvain", colname = "clusters_k30_irlba_louvain")
+}
 }

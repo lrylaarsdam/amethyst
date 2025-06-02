@@ -21,5 +21,7 @@ This function builds a model to identify doublets using a specified machine lear
 The function splits the data into training and test sets, trains the model, and predicts probabilities on the test set.
 }
 \examples{
+\dontrun{
 result <- buildDoubletModel(dbobj, reduction = "irlba", method="rf")
+}
 }

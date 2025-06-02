@@ -8,20 +8,22 @@ testPalette(output, n = NULL, obj = NULL)
 }
 \arguments{
 \item{output}{Either "swatch", which shows the colors in each palette in rows of tiles,
-or "dimFeature", which shows your amethyst object colored by cluster_id in each palette option.}
+or "dimFeature", which shows your amethyst object colored by cluster_id in each palette option}
 
-\item{n}{If output = "swatch", how many colors should be shown with each palette option.}
+\item{n}{If output = "swatch", how many colors should be shown with each palette option}
 
-\item{obj}{If output = "dimFeature", name of the amethyst object to test.}
+\item{obj}{If output = "dimFeature", name of the amethyst object to test}
 }
 \value{
-If output = "swatch", returns a ggplot object with each row as a palette.
-If output = "dimFeature", returns the amethyst object in each palette option.
+If output = "swatch", returns a ggplot object with each row as a palette
+If output = "dimFeature", returns the amethyst object in each palette option
 }
 \description{
-Visualize the colors in each palette option.
+Visualize the colors in each preset makePalette option
 }
 \examples{
-testPalette(output = "swatch", n = 30)
-testPalette(output = "dimFeature", obj = obj)
+\dontrun{
+  testPalette(output = "swatch", n = 30)
+  testPalette(output = "dimFeature", obj = obj)
+}
 }

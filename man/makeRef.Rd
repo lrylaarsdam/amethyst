@@ -7,7 +7,7 @@
 makeRef(genome, gtf = NULL, attributes = c("gene_name", "exon_number"))
 }
 \arguments{
-\item{genome}{Reference genome, e}
+\item{genome}{Reference genome, e.g. "hg38"}
 
 \item{gtf}{If not using hg19, hg38, mm10, or mm39, please provide the gtf.gz file path}
 
@@ -17,8 +17,10 @@ makeRef(genome, gtf = NULL, attributes = c("gene_name", "exon_number"))
 Returns an annotated reference of gene locations
 }
 \description{
-Generate an genome annotation file.
+Helper function to generate a genome annotation file in the expected format
 }
 \examples{
-ref <- makeRef(genome = "hg38")
+\dontrun{
+  obj@ref <- makeRef(genome = "hg38")
+}
 }

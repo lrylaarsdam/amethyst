@@ -4,19 +4,21 @@
 \alias{makePalette}
 \title{makePalette}
 \usage{
-makePalette(option, n)
+makePalette(option, n, sample = T)
 }
 \arguments{
-\item{option}{Which palette to choose out of options 1-30. Use testPalette to see the colors in each.}
+\item{option}{Which palette to choose out of options 1-30. Use testPalette to see the colors in each}
 
-\item{n}{How many colors are needed in the palette.}
+\item{n}{How many colors are needed in the palette}
 }
 \value{
-Returns a character vector of n hex codes.
+Returns a character vector of n hex codes
 }
 \description{
-Generates a color palette of any length
+Generate a color palette of any length from a pre-defined set of hex codes
 }
 \examples{
-pal <- makePalette(option = 1, n = 20)
+\dontrun{
+  pal <- makePalette(option = 1, n = 20)
+}
 }

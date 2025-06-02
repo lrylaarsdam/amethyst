@@ -19,26 +19,33 @@ dimM(
 \arguments{
 \item{obj}{The amethyst object to plot}
 
-\item{genes}{List of genes to plot \% methylation in UMAP or TSNE space}
+\item{genes}{List of genes to plot \% methylation in UMAP or TSNE space
+Theoretically, this could also be the name of a non-gene feature, as long as they are rownames
+in your specified matrix}
 
-\item{matrix}{Pre-computed matrix to use in the genomeMatrices slot, if available. The type parameter is not needed if matrix is definied.}
+\item{matrix}{Matrix in the genomeMatrices slot containing aggregated methylation levels over features per cell}
 
-\item{blend}{Logical indicating whether to blend methylation levels of two or three genes}
+\item{blend}{Boolean indicating whether to blend methylation levels of two or three genes}
 
-\item{colors}{Optional color gradient to include}
+\item{colors}{Optional; color gradient to include}
+
+\item{squish}{Optional; upper limit of the color scale. Everything above this will be plotted as max}
+
+\item{reduction}{Name of reduction slot containing UMAP / TSNE dimensionality reduction coordinates}
+
+\item{pointSize}{Optional; adjust point size}
 
 \item{nrow}{Number of rows to distribute graphs over}
-
-\item{type}{What type of methylation to retrieve; i.e. gene body mCH, gene body mCG, or promoter mCG.}
-
-\item{metric}{If matrix is not specified, what methylation parameter to calculate, i.e. "percent", "score", or "ratio"}
 }
 \value{
-Returns a plot of methylation over given genomic region using UMAP or TSNE coordinates
+Returns a plot of methylation over given genomic region over UMAP or TSNE coordinates
 }
 \description{
-Plot cumulative \% methylation over a gene body on UMAP or TNSE dimensionality reductions
+Plot cumulative \% methylation of a feature over UMAP / TSNE coordinates
 }
 \examples{
-dimM(obj, genes = c("GRM8", "SATB1"), matrix = "gene_ch", pointSize = 0.8)
+\dontrun{
+  dimM(obj, genes = c("GRM8", "SATB1"), matrix = "gene_ch", pointSize = 0.8)
+  dimM(obj, genes = c("GRM8", "SATB1"), blend = T, matrix = "gene_ch_imputed", pointSize = 0.8)
+}
 }

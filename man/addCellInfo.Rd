@@ -15,8 +15,10 @@ addCellInfo(obj, file)
 Returns the same amethyst object with information contained in the cellInfo file added to the obj@metadata slot
 }
 \description{
-Add the information contained in the cellInfo file outputs to the obj@metadata slot
+Helper function to the information contained in the Premethyst cellInfo file intermediate output to the obj@metadata slot
 }
 \examples{
-obj <- addCellInfo(obj = obj, file = "~/Downloads/cellInfo.txt")
+\dontrun{
+  obj <- addCellInfo(obj = obj, file = "~/Downloads/cellInfo.txt")
+}
 }

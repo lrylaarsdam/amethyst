@@ -20,6 +20,8 @@ Returns a data frame of imputed values.
 }
 \description{
 Impute values with the Rmagic package https://github.com/KrishnaswamyLab/MAGIC
+Warning: we recommend using with caution. Ideally, any results would also be visible without imputation, and this
+would be used to help smooth values.
 }
 \examples{
 obj <- impute(obj, matrix = "gene_ch")
