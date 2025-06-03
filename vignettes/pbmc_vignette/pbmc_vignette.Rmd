@@ -1,6 +1,3 @@
-# Note: This document is the Rmarkdown file used to produce: https://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html
-# Please follow the link above to go through the vignette as intended.
-
 ---
 output:
   html_document: default
@@ -13,6 +10,10 @@ editor_options:
 
 ######################################################################################################## 
 # PBMC Vignette
+```{r, eval=FALSE, include = FALSE}
+# Note: This document is the Rmarkdown file used to produce: https://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html
+# Please follow the link above to go through the vignette as intended.
+```
 
 Welcome to Amethyst! The goal of Amethyst is to facilitate comprehensive analysis tools for single-cell methylation data. If you use this package or code on our Github for your work, please cite our [manuscript](https://www.biorxiv.org/content/10.1101/2024.08.13.607670v2).
 
@@ -23,9 +24,8 @@ If you are new to R, you may need to install some of the dependencies:
 ```{r eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
-BiocManager::install()
 
-library(BiocManager)
+library("BiocManager")
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
   "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", "pheatmap",
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
@@ -107,7 +107,7 @@ obj <- addAnnot(obj, file = "~/Downloads/pbmc_vignette.annot", name = "batch")
 
 Next, we need to specify the location of the h5 file containing site-level methylation data for each barcode. In this case, every barcode belongs to the same h5 file, but an unlimited number of h5 files can be used in the same object.  
 
-*Note: If you are combining experiments with overlapping barcodes, please see our vignette for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
+*Note: If you are combining experiments with overlapping barcodes, please see our [vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/combining_overlapping_barcodes/combining_overlapping_barcodes.html) for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
 
 ```{r}
 obj@h5paths <- data.frame(barcode = rownames(obj@metadata), path = rep("~/Downloads/pbmc_vignette.h5", length(rownames(obj@metadata))))
@@ -118,7 +118,7 @@ head(obj@h5paths)
 
 Amethyst has a helper loading function for output of the ScaleMethyl pipeline. This will generate an amethyst object, add metadata, and load the specified matrices.  
 
-*Note: If you are combining experiments with overlapping barcodes, please see our vignette for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
+*Note: If you are combining experiments with overlapping barcodes, please see our [vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/combining_overlapping_barcodes/combining_overlapping_barcodes.html) for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
 
 ```{r, eval=FALSE}
 # This is just for real data illustration purposes - do not run if you are processing vignette data.
@@ -192,7 +192,7 @@ obj@genomeMatrices[["cg_100k_score_facet"]] <- loadWindows(obj, name = "100000",
 
 ### 3. Integrate an alternative method
 
-There are many methods out there for clustering. One may wish to implement an alternative strategy, like clustering with MethSCAn variably methylated regions. This worked quite well for our small, high-coverage dataset. Results from other methods can easily be dropped in to an Amethyst object and analysis can proceed as normal. Please see our vignette for example alternative clustering methods. In the end, all you have to do is assign the output to a new **reductions** result:
+There are many methods out there for clustering. One may wish to implement an alternative strategy, like clustering with MethSCAn variably methylated regions. This worked quite well for our small, high-coverage dataset. Results from other methods can easily be dropped in to an Amethyst object and analysis can proceed as normal. Please see our [vignette for example alternative clustering methods](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/clustering_alternatives/clustering_alternatives.html). In the end, all you have to do is assign the output to a new **reductions** result:
 
 ```{r, eval = FALSE}
 # theoretical example of 2D umap projection from methscan vmrs - do not run
