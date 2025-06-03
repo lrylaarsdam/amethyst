@@ -1,6 +1,3 @@
-# Note: This document is the Rmarkdown file used to produce: https://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html
-# Please follow the link above to go through the vignette as intended.
-
 ---
 output:
   html_document: default
@@ -10,8 +7,13 @@ editor_options:
   markdown: 
     wrap: sentence
 ---
+
 ######################################################################################################## 
 # Brain Vignette
+```{r, eval=FALSE, include = FALSE}
+# Note: This document is the Rmarkdown file used to produce: https://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html
+# Please follow the link above to go through the vignette as intended.
+```
 
 Welcome to Amethyst! The goal of Amethyst is to facilitate comprehensive analysis tools for single-cell methylation data. If you use this package or code on our Github for your work, please cite our [manuscript](https://www.biorxiv.org/content/10.1101/2024.08.13.607670v2).
 
@@ -22,9 +24,8 @@ If you are new to R, you may need to install some of the dependencies:
 ```{r eval=FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
-BiocManager::install()
 
-library(BiocManager)
+library("BiocManager")
 BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
   "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", "pheatmap",
   "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
@@ -65,7 +66,7 @@ library(pheatmap)
 ######################################################################################################## 
 # LOADING PRACTICE DATA
 
-This vignette comes with a toy dataset of 50 high-coverage cells derived from the human brain cortex. It is similar to the PBMC vignette, but contains some added features as the brain uniquely has very high levels of CH methylation in addition to CG. These two modalities operate by different principles and therefore necessitate tailored analysis approaches. However, processing CH methylation can take a long time, as there about half a billion sites in the human genome. To make this illustration quickly executable on any local computer, we have already done initial processing for computationally-intensive steps. These can be downloaded with a pre-made workspace in the next section. To do all steps from scratch, we recommend going through the CG-focused PBMC vignette.  
+This vignette comes with a toy dataset of 50 high-coverage cells derived from the human brain cortex. It is similar to the PBMC vignette, but contains some added features as the brain uniquely has very high levels of CH methylation in addition to CG. These two modalities operate by different principles and therefore necessitate tailored analysis approaches. However, processing CH methylation can take a long time, as there about half a billion sites in the human genome. To make this illustration quickly executable on any local computer, we have already done initial processing for computationally-intensive steps. These can be downloaded with a pre-made workspace in the next section. To do all steps from scratch, we recommend going through the CG-focused [PBMC vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html).  
 
 *Note: By default, data will download to the "~/Downloads/" folder. Change if a different directory is desired.*
 
@@ -82,7 +83,7 @@ download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vigne
 ########################################################################################################
 # ASSEMBLING THE AMETHYST OBJECT
 
-First, we must construct an amethyst object, which stores the path to the h5 file as well as a lot of other information that will be calculated downstream. This has already been initialized with the *createObject* command in the process of pre-calculating computationally intenstive steps. Load the workspace to see a summary of the object so far. Please see the PBMC vignette for a detailed description of how to construct the object.
+First, we must construct an amethyst object, which stores the path to the h5 file as well as a lot of other information that will be calculated downstream. This has already been initialized with the *createObject* command in the process of pre-calculating computationally intenstive steps. Load the workspace to see a summary of the object so far. Please see the [PBMC vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) for a detailed description of how to construct the object.
 
 ```{r}
 # obj <- createObject()
@@ -92,7 +93,7 @@ summary(obj)
 
 Next, we need to add metadata about each cell. Useful metadata includes quality control metrics contained in the .cellInfo.txt intermediate output or .annot files, if using the [Premethyst](https://github.com/adeylab/premethyst) workflow. We also need to specify the location of the h5 file containing site-level methylation data for each barcode. In this case, every barcode belongs to the same h5 file, but an unlimited number of h5 files can be used in the same object.  
 
-*Note: If you are combining experiments with overlapping barcodes, please see our vignette for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
+*Note: If you are combining experiments with overlapping barcodes, please see our [vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/combining_overlapping_barcodes/combining_overlapping_barcodes.html) for addressing this. The h5paths slot is set up differently. Also, please note we have changed the heading from 'paths' (v0.0.0.9000) to 'path' (v1.0.0) to be more consistent, given the addition of the barcode and prefix columns.*
 
 ```{r, eval = FALSE}
 obj <- addCellInfo(obj, file = "~/Downloads/brain_vignette_cellInfo.txt")
@@ -154,7 +155,7 @@ obj@genomeMatrices[["cg_100k_score_facet"]] <- loadWindows(obj, name = "100000",
 
 ### 3. Integrate an alternative method
 
-There are many methods out there for clustering. One may wish to implement an alternative strategy, like clustering with MethSCAn variably methylated regions. This worked quite well for our small, high-coverage test dataset. Results from other methods can easily be dropped in to an Amethyst object and analysis can proceed as normal. Please see our vignette for example alternative clustering methods. In the end, all you have to do is assign the output to a new **reductions** result:
+There are many methods out there for clustering. One may wish to implement an alternative strategy, like clustering with MethSCAn variably methylated regions. This worked quite well for our small, high-coverage test dataset. Results from other methods can easily be dropped in to an Amethyst object and analysis can proceed as normal. Please see our [vignette for example alternative clustering methods](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/clustering_alternatives/clustering_alternatives.html). In the end, all you have to do is assign the output to a new **reductions** result:
 
 ```{r, eval = FALSE}
 # theoretical example of 2D umap projection from methscan vmrs - do not run
@@ -485,7 +486,7 @@ Exploration of mCH over key marker genes is a powerful method for annotating bra
 
 ### 3. Comparison to a reference
 
-Another method for cell type annotation is by comparison to an annotated reference. While few exist, there are high-quality references available for brain data. We have aggregated mCH across key genes from PMC9004682. This reference can be downloaded from Github.
+Another method for cell type annotation is by comparison to an annotated reference. While few exist, there are high-quality references available for brain data. We have aggregated mCH across key genes from [PMC9004682](https://pmc.ncbi.nlm.nih.gov/articles/PMC9004682/). This reference can be downloaded from Github.
 
 ```{r}
 download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/PMC9004682_5972genes_BA10_ref.RData", "~/Downloads/PMC9004682_5972genes_BA10_ref.RData", method = "curl")
