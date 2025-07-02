@@ -96,6 +96,12 @@ makeWindows <- function(
 
   by_chr <- list()
 
+  if (!is.null(obj@h5paths$prefix)) {
+    obj@h5paths$cell_id <- paste0(obj@h5paths$prefix, obj@h5paths$barcode)
+  } else {
+    obj@h5paths$cell_id <- obj@h5paths$barcode
+  }
+
   if (!is.null(bed)) {
     file_name <- sub(".*/(.*)\\.bed$", "\\1", as.character(bed))
 
@@ -123,19 +129,19 @@ makeWindows <- function(
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
 
       # get paths
-      barcodes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$barcode)
-      paths <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$path)
+      barcodes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$barcode
+      paths <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$path
       if (!is.null(obj@h5paths$prefix)) {
-        prefixes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$prefix)
+        prefixes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$prefix
       } else {
-        prefixes <- as.list(rep("", length(barcodes)))
+        prefixes <- rep("", length(barcodes))
       }
 
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes, prefixes), .f = function(path, barcode, prefix) {
         tryCatch({
           bed_tmp <- data.table::copy(bed[[chr]])
-          barcode_name <- paste0(prefix, sub("\\..*$", "", barcode))
+          cell_name <- paste0(prefix, sub("\\..*$", "", barcode))
 
           if (metric != "percent") {
             meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
@@ -155,7 +161,7 @@ makeWindows <- function(
                                                                                    (value - meth_cell)/(1 - meth_cell),
                                                                                    (value - meth_cell)/meth_cell)), 3)] }
           if (metric == "ratio") { summary <- meth_window[, value := round(value / meth_cell, 3)] }
-          data.table::setnames(summary, "value", barcode_name)
+          data.table::setnames(summary, "value", cell_name)
         }, error = function(e) {
           cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
           return(NULL)  # Return NULL or any other value indicating failure
@@ -197,12 +203,12 @@ makeWindows <- function(
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
 
       # get paths
-      barcodes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$barcode)
-      paths <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$path)
+      barcodes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$barcode
+      paths <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$path
       if (!is.null(obj@h5paths$prefix)) {
-        prefixes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$prefix)
+        prefixes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$prefix
       } else {
-        prefixes <- as.list(rep("", length(barcodes)))
+        prefixes <- rep("", length(barcodes))
       }
 
       windows <- furrr::future_pmap(.l = list(paths, barcodes, prefixes), .f = function(path, barcode, prefix) {
@@ -210,15 +216,15 @@ makeWindows <- function(
           options(scipen = 999)
         }
         tryCatch({
-          barcode_name <- paste0(prefix, sub("\\..*$", "", barcode))
+          cell_name <- paste0(prefix, sub("\\..*$", "", barcode))
 
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
-                                                     start = sites$start[sites$cell_id == barcode_name],
-                                                     count = sites$count[sites$cell_id == barcode_name])) # read in 1 chr at a time
+                                                     start = sites$start[sites$cell_id == cell_name],
+                                                     count = sites$count[sites$cell_id == cell_name])) # read in 1 chr at a time
           h5 <- h5[pos %% stepsize == 0, pos := pos + 1] # otherwise sites exactly divisible by stepsize will be their own window
           h5 <- h5[, window := paste0(chr, "_", plyr::round_any(pos, stepsize, floor), "_", plyr::round_any(pos, stepsize, ceiling))]
           if (metric != "percent") {
-            meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
+            meth_cell <- obj@metadata[cell_name, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           }
           meth_window <- h5[, .(value = round(sum(c != 0) / (sum(c != 0) + sum(t != 0)), 3), n = sum(c + t, na.rm = TRUE)), by = window]
           meth_window <- meth_window[n >= nmin, .(window, value)]
@@ -228,7 +234,7 @@ makeWindows <- function(
                                                                                    (value - meth_cell)/(1 - meth_cell),
                                                                                    (value - meth_cell)/meth_cell)), 3)] }
           if (metric == "ratio") { summary <- meth_window[, value := round(value / meth_cell, 3)] }
-          data.table::setnames(summary, "value", barcode_name)
+          data.table::setnames(summary, "value", cell_name)
         }, error = function(e) {
           # Handle the error here, for example:
           cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
@@ -301,19 +307,19 @@ makeWindows <- function(
       sites <- obj@index[[index]][[chr]] # get chr index for h5 file
 
       # get paths
-      barcodes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$barcode)
-      paths <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$path)
+      barcodes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$barcode
+      paths <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$path
       if (!is.null(obj@h5paths$prefix)) {
-        prefixes <- as.list(obj@h5paths[obj@h5paths$barcode %in% sites$cell_id, , drop = FALSE]$prefix)
+        prefixes <- obj@h5paths[obj@h5paths$cell_id %in% sites$cell_id, , drop = FALSE]$prefix
       } else {
-        prefixes <- as.list(rep("", length(barcodes)))
+        prefixes <- rep("", length(barcodes))
       }
 
       # add up sum c and sum t in member cells
       windows <- furrr::future_pmap(.l = list(paths, barcodes, prefixes), .f = function(path, barcode, prefix) {
         tryCatch({
           bed_tmp <- data.table::copy(bed[[chr]])
-          barcode_name <- paste0(prefix, sub("\\..*$", "", barcode))
+          cell_name <- paste0(prefix, sub("\\..*$", "", barcode))
           if (metric != "percent") {
             meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           }
@@ -331,7 +337,7 @@ makeWindows <- function(
                                                                                  (value - meth_cell)/(1 - meth_cell),
                                                                                  (value - meth_cell)/meth_cell)), 3)] }
           if (metric == "ratio") { summary <- meth_gene[, value := round(value / meth_cell, 3)] }
-          data.table::setnames(summary, "value", barcode_name)
+          data.table::setnames(summary, "value", cell_name)
         }, error = function(e) {
           cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
           return(NULL)  # Return NULL or any other value indicating failure
@@ -668,7 +674,7 @@ subsetObject <- function(obj,
 #'   new <- combineObject(objList = list(obj1, obj2, obj3), genomeMatrices = c("ch_100k_pct", "gene_ch"))
 #' }
 combineObject <- function(objList,
-                          genomeMatrices) {
+                          genomeMatrices = NULL) {
   cat("\nMake sure barcodes are unique when combining objects. If not, please see our vignette on how to merge projects with overlapping barcodes.")
 
   combined <- createObject()
@@ -697,7 +703,7 @@ combineObject <- function(objList,
   }
 
   # merge metadata
-  combined@metadata <- do.call(rbind, lapply(objList, function(x) {x@metadata}))
+  combined@metadata <- do.call(bind_rows, lapply(objList, function(x) {x@metadata}))
 
   # pull ref
   if (!is.null(objList[[1]]@ref)) {

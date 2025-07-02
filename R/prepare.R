@@ -2,6 +2,33 @@
 # 2024-2025
 
 ############################################################################################################################
+#' @title amethyst-class
+#' @description An S4 class to store and manipulate single-cell methylation data
+#'
+#' @slot h5paths Path to the hdf5 file containing base-level read information organized by methylation type and barcode.
+#' If using Facet, this file should also contain aggregated methylation observations over larger genomic features
+#' @slot genomeMatrices Slot to store aggregated genomic information
+#' @slot tracks Aggregated methylation levels over short genomic regions. For plotting purposes (e.g. histograM, heatMap)
+#' @slot reductions Slot to store dimensionality reductions, such as irlba and umap/tsne
+#' @slot index Corresponding chromosome coordinates for each cell in the hdf5 file
+#' @slot metadata Optional cell metadata. If included, make sure row names are cell IDs
+#' @slot ref Genome annotation file with chromosome, start, and end position information for genes of interest. See the "makeRef" function
+#' @slot results Convenience slot to store results if desired
+#'
+#' @import methods
+#' @export
+methods::setClass("amethyst", slots = c(
+  h5paths = "ANY",
+  genomeMatrices = "ANY",
+  tracks = "ANY",
+  reductions = "ANY",
+  index = "ANY",
+  metadata = "ANY",
+  ref = "ANY",
+  results = "ANY"
+))
+
+############################################################################################################################
 #' @title createObject
 #' @description Create object of class amethyst
 #'
@@ -19,6 +46,7 @@
 #' @importFrom methods new
 #' @export
 #' @examples obj <- createObject()
+
 createObject <- function(h5paths = NULL,
                          genomeMatrices = NULL,
                          tracks = NULL,
@@ -37,17 +65,6 @@ createObject <- function(h5paths = NULL,
                ref = ref,
                results = results)
 }
-
-methods::setClass("amethyst", slots = c(
-  h5paths = "ANY",
-  genomeMatrices = "ANY",
-  tracks = "ANY",
-  reductions = "ANY",
-  index = "ANY",
-  metadata = "ANY",
-  ref = "ANY",
-  results = "ANY"
-))
 
 ############################################################################################################################
 # With input from Dave Ross and Felix Schlesinger at Scale Biosciences
