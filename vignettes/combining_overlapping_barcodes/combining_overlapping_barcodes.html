@@ -382,18 +382,16 @@ download.file(&quot;https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc
 download.file(&quot;https://adeylabopen.s3.us-west-2.amazonaws.com/amethyst/pbmc_vignette.h5&quot;, &quot;~/Downloads/pbmc_vignette_2.h5&quot;, method = &quot;curl&quot;) 
 
 # metadata
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo_1.txt&quot;, &quot;~/Downloads/pbmc_vignette_cellInfo.txt&quot;)
-download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo_2.txt&quot;, &quot;~/Downloads/pbmc_vignette_cellInfo.txt&quot;) </code></pre>
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo.txt&quot;, &quot;~/Downloads/pbmc_vignette_cellInfo_1.txt&quot;)
+download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_vignette_cellInfo.txt&quot;, &quot;~/Downloads/pbmc_vignette_cellInfo_2.txt&quot;)</code></pre>
 <p>Next, create an Amethyst object.</p>
 <pre class="r"><code>library(amethyst)</code></pre>
+<pre><code>## Registered S3 method overwritten by &#39;future&#39;:
+##   method               from      
+##   all.equal.connection parallelly</code></pre>
 <pre><code>## Warning: replacing previous import &#39;GenomicRanges::reduce&#39; by &#39;purrr::reduce&#39;
 ## when loading &#39;amethyst&#39;</code></pre>
-<pre><code>## Attaching amethyst version 0.0.0.9000.</code></pre>
-<pre><code>## 
-## Attaching package: &#39;amethyst&#39;</code></pre>
-<pre><code>## The following object is masked _by_ &#39;.GlobalEnv&#39;:
-## 
-##     indexChr</code></pre>
+<pre><code>## Attaching amethyst version 1.0.1.</code></pre>
 <pre class="r"><code>obj &lt;- createObject()</code></pre>
 <p>First we will assemble and add the metadata so that we know what
 barcodes to specify for the h5paths slot. A different method may be more
@@ -433,16 +431,18 @@ metadata.</strong></p>
 <p>Now, you should be able to proceed as normal. The prefix will be
 carried through analysis. For example:</p>
 <pre class="r"><code>obj@index[[&quot;chr_cg&quot;]] &lt;- indexChr(obj, type = &quot;CG&quot;)</code></pre>
-<pre><code>## 
-## Warning: If a chrList is not specified, chromosomes with underscores will be removed. This is to avoid indexing unwanted data like alternative contigs.</code></pre>
+<pre><code>## Notice: If a chrList is not specified, chromosomes with underscores will be removed. This is to avoid indexing unwanted data like alternative contigs.</code></pre>
+<pre><code>## Warning: package &#39;future&#39; was built under R version 4.3.3</code></pre>
+<pre><code>## Warning: package &#39;purrr&#39; was built under R version 4.3.3</code></pre>
 <pre class="r"><code>head(obj@index[[&quot;chr_cg&quot;]][[&quot;chr1&quot;]])</code></pre>
-<pre><code>##                           cell_id  chr start  count
-## 1: 1_ACGCGACGGCACGAGAATCACTGTCATG chr1     1  73977
-## 2: 1_ACGCGACGGCTATACCGAAGCGCCTATA chr1     1  84137
-## 3: 1_ACTTCTGCCAACGCTTCGTCAGTACTCC chr1     1  84501
-## 4: 1_ACTTCTGCCAACGCTTCGTCGATGATCC chr1     1  95146
-## 5: 1_ACTTCTGCCAAGATAGAGGTCGTCTGCG chr1     1 102023
-## 6: 1_ACTTCTGCCAATAATCGCGGCTGATGCT chr1     1 108912</code></pre>
+<pre><code>##                           cell_id    chr start  count
+##                            &lt;char&gt; &lt;char&gt; &lt;int&gt;  &lt;int&gt;
+## 1: 1_ACGCGACGGCACGAGAATCACTGTCATG   chr1     1  73977
+## 2: 1_ACGCGACGGCTATACCGAAGCGCCTATA   chr1     1  84137
+## 3: 1_ACTTCTGCCAACGCTTCGTCAGTACTCC   chr1     1  84501
+## 4: 1_ACTTCTGCCAACGCTTCGTCGATGATCC   chr1     1  95146
+## 5: 1_ACTTCTGCCAAGATAGAGGTCGTCTGCG   chr1     1 102023
+## 6: 1_ACTTCTGCCAATAATCGCGGCTGATGCT   chr1     1 108912</code></pre>
 <div id="section-2" class="section level104">
 <p class="heading"></p>
 </div>
