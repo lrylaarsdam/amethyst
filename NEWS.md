@@ -2,8 +2,8 @@
 ### 07-07-2025
   - **Fixed**
     - prefix integration issues affecting *indexChr*, *makeWindows*, and *calcSmoothedWindows*
-    - *createObject* locked error
-    - minor updates throughout the vignettes
+    - *createObject* locked error (thanks to Yosef Ellenbogen)
+    - minor updates throughout the vignettes (thanks to Jack Henry Kotnik)
     
   - **Added**
     - started tracking version releases
@@ -62,10 +62,10 @@
   - **Added** flexibility with visualization parameters
 	  - Affected functions: *histograM, heatMap, dotM*
     - Examples:
-        - histograM baseline can either be 0 or mean methylation (credit: Ryan Mulqueen, PhD)
+        - histograM baseline can either be 0 or mean methylation (thanks to Ryan Mulqueen)
         - heatMap color scale and max value can be adjusted
         - dotM can be further faceted by a variable in the metadata
-  - **Changed** *findClusterMarkers* to logFC = log2(mean_1 / mean_2) (credit: Joe Verity-Legg)
+  - **Changed** *findClusterMarkers* to logFC = log2(mean_1 / mean_2) (thanks to Joe Verity-Legg)
 	  - Affected functions: *findClusterMarkers*
 
 ### 08-27-2024
