@@ -37,12 +37,12 @@ indexChr <- function(obj,
   if (is.null(obj@h5paths)) {
     stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
   } else {
-    barcodes <- as.list(obj@h5paths$barcode)
-    paths <- as.list(obj@h5paths$path)
+    barcodes <- obj@h5paths$barcode
+    paths <- obj@h5paths$path
     if (!is.null(obj@h5paths$prefix)) {
       prefixes <- obj@h5paths$prefix
     } else {
-      prefixes <- as.list(rep("", length(barcodes)))
+      prefixes <- rep("", length(barcodes))
     }
   }
 

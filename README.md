@@ -9,7 +9,7 @@
 <img src="https://github.com/lrylaarsdam/amethyst/blob/main/images/amethyst.png?raw=true" alt="Amethyst" width="250"/>
 </p>
 
-## Welcome to v1.0.0!
+## Welcome to v1.0.1!
 
 Single-cell sequencing technologies have revolutionized biomedical research by enabling deconvolution of cell type-specific properties in highly heterogeneous tissue. While robust tools have been developed to handle bioinformatic challenges posed by single-cell RNA and ATAC data, options for emergent modalities such methylation are much more limited, impeding the utility of results. Here we present Amethyst, the first comprehensive R package for atlas-scale single-cell methylation sequencing data analysis. Amethyst takes base-level methylation calls and facilitates batch integration, doublet detection, dimensionality reduction, clustering, cell type annotation, differentially methylated region calling, and interpretation of results all in one streamlined platform. See our [preprint](https://www.biorxiv.org/content/10.1101/2024.08.13.607670v2.full.pdf+html) to learn more! 
 
@@ -59,7 +59,7 @@ Amethyst begins with base-level methylation calls per cell wrapped into h5 files
 
 If you need to generate this file from your sequencing data, scripts for initial processing of reads are available at the Adey Lab [Premethyst](https://github.com/adeylab/premethyst) repo. Please see [vignettes](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) for example Premethyst outputs and subsequent analysis steps.
 
-### Converting the h5 object from v0.0.0.9000 to v1.0.0
+### Converting the h5 object from v0.0.0.9000 to v1.0
 
 If you have object structures in the v0.0.0.9000 format, [Facet](https://pypi.org/project/amethyst-facet/) has a helper function to re-write it so base-level observations are stored under context/barcode/1.
 
@@ -85,9 +85,9 @@ If using neither Premethyst nor ScaleMethyl, any pre-processing platform can be 
 <img src="https://github.com/lrylaarsdam/amethyst/blob/main/images/objectstructure.png?raw=true" alt="Amethyst" width="750"/>
 </p>
 
-### Converting the Amethyst object structure from v0.0.0.9000 to v1.0.0
+### Converting the Amethyst object structure from v0.0.0.9000 to v1.0
 
-You might notice in the diagram above that we implemented some minor changes to the object structure in v1.0.0. To make this transition as smooth as possible, we have provided a helper function *convertObject* to convert format v0.0.0.9000 to v1.0.0.
+You might notice in the diagram above that we implemented some minor changes to the object structure in v1.0. To make this transition as smooth as possible, we have provided a helper function *convertObject* to convert format v0.0.0.9000 to v1.0.
 
 ```{r}
 new_obj <- convertObject(obj = old_obj)
