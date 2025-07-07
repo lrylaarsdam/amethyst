@@ -734,32 +734,26 @@ combineObject <- function(objList,
 
 convertObject <- function(obj) {
 
-  methods::setClass("amethyst", slots = c(
-    h5paths = "ANY",
-    genomeMatrices = "ANY",
-    tracks = "ANY",
-    reductions = "ANY",
-    index = "ANY",
-    metadata = "ANY",
-    ref = "ANY",
-    results = "ANY"
-  ))
-
-  paths <- obj@h5paths |> dplyr::rename("path" = "paths")
-  paths$barcode <- rownames(obj@h5paths)
+  if (!is.null(obj@h5paths)) {
+    paths <- obj@h5paths |> dplyr::rename("path" = "paths")
+    paths$barcode <- rownames(obj@h5paths)
+  } else {
+    paths <- data.frame()
+  }
   matrices <- obj@genomeMatrices[-(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
   tracks <- obj@genomeMatrices[(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
   ref <- data.table::data.table(obj@ref)
 
-  new_obj <- methods::new(Class = "amethyst",
-               h5paths = obj@h5paths,
-               genomeMatrices = matrices,
-               tracks = tracks,
-               reductions = obj@reductions,
-               index =  obj@index,
-               metadata = obj@metadata,
-               ref = ref,
-               results = NULL)
+  new_obj <- createObject(
+    h5paths = paths,
+    genomeMatrices = matrices,
+    tracks = tracks,
+    reductions = obj@reductions,
+    index =  obj@index,
+    metadata = obj@metadata,
+    ref = ref,
+    results = NULL
+  )
 
   if (any(grepl("umap", colnames(obj@metadata)))) {
     new_obj@reductions[["umap"]] <- obj@metadata[, c("umap_x", "umap_y")]
@@ -770,9 +764,7 @@ convertObject <- function(obj) {
     new_obj@reductions[["tsne"]] <- obj@metadata[, c("tsne_x", "tsne_y")]
     colnames(new_obj@reductions[["tsne"]]) <- c("dim_x", "dim_y")
   }
-
   return(new_obj)
-
 }
 
 ############################################################################################################################

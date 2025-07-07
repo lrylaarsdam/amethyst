@@ -300,10 +300,9 @@ regressCovBias <- function(
 #'
 #' @param obj Amethyst object to perform clustering on
 #' @param reduction Name of dimensionality reduction to calculate over
-#' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;
+#' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package; or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.
 #' @param k integer; number of nearest neighbors
 #' @param colname Character; name of column where results will be stored in metadata
-#' or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.
 #' @return Adds cluster membership to the metadata file of the amethyst object
 #' @importFrom Rphenograph Rphenograph
 #' @importFrom RANN nn2
