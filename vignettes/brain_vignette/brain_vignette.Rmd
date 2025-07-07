@@ -48,6 +48,7 @@ Sys.setenv(OMP_NUM_THREADS = "1") # Package "leiden" needed this for local vigne
 ```
 
 ```{r, message=FALSE, warning=FALSE}
+library(leiden)
 library(amethyst)
 library(data.table)
 library(ggplot2)
@@ -59,7 +60,6 @@ library(future)
 library(furrr)
 library(purrr)
 library(cowplot)
-library(leiden)
 library(pheatmap)
 ```
 
@@ -181,7 +181,7 @@ The code below has been run for you to save time. Results are already in your wo
 
 ```{bash, eval = FALSE}
 # don't run; example of how to compute aggregated windows with facet
-# facet agg -u 100000 brain_vignette_facet.h5
+# facet agg -u 100000 brain_vignette.h5
 ```
 
 If pre-computed windows are stored in the h5 file, load to the genomeMatrices slot with *loadWindows*. An indexing step is not needed for Facet.
@@ -612,7 +612,9 @@ At the core of single-cell methylation analysis is the identification of differe
 dmrs_cg <- testDMR(cluster1kbwindows_cg[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5) 
 ```
 
-The output is the result of all tests, but it is not in a very user-friendly format. Next, expand and filter the resulting list according to the desired stringency. These steps are separated so one does not have to re-compute all tests if an alteration in stringency parameters is needed. The output of *testDMR* is not really meant to be used as-is.
+The output is the result of all tests. For each window and group, "c" is the total count of methylated observations, and "t" is the total count of unmethylated observations. A column for each test has been added with the resulting logFC and *p* value. However, this is not in a very user-friendly format. The output of *testDMR* is not really meant to be used as-is - it's just an intermediate so one does not have to re-compute all tests if an alteration in stringency parameters is needed. 
+
+Next, expand and filter the resulting list according to the desired stringency.
 
 ```{r}
 dmrs_cg <- filterDMR(dmrs_cg, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 1.5)
