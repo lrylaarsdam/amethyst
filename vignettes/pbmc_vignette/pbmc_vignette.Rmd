@@ -48,6 +48,7 @@ Sys.setenv(OMP_NUM_THREADS = "1") # Package "leiden" needed this for local vigne
 ```
 
 ```{r message=FALSE, warning=FALSE}
+library(leiden)
 library(amethyst)
 library(data.table)
 library(ggplot2)
@@ -58,7 +59,6 @@ library(future)
 library(furrr)
 library(purrr)
 library(cowplot)
-library(leiden)
 library(pheatmap)
 library(dplyr)
 ```
@@ -132,7 +132,7 @@ Amethyst has a helper loading function for output of the ScaleMethyl pipeline. T
 
 ```{r, eval=FALSE}
 # This is just for real data illustration purposes - do not run if you are processing vignette data.
-obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
+# obj <- createScaleObject(directory = "~/Downloads/ScaleMethyl.out/samples", genomeMatrices = list("CG.score", "CH"))
 ```
 
 ### Instructions if using neither Premethyst nor ScaleMethyl
@@ -209,14 +209,15 @@ obj@genomeMatrices[["cg_100k_score"]] <- makeWindows(obj,
 *Note: Skip to the "clustering continued" section if you used makeWindows to calculate 100kb window methylation score.*
 
 ```{bash, eval = FALSE}
-# example of how to compute aggregated windows with facet
-facet agg -u 100000 brain_vignette_facet.h5
+# don't run; example of how to compute aggregated windows with facet
+# facet agg -u 100000 pbmc_vignette.h5
 ```
 
 If pre-computed windows are stored in the h5 file, load to the **genomeMatrices** slot with *loadWindows*. An indexing step is not needed for Facet. The result will be the same as *makeWindows*: a data frame of windows (rows) x cells (columns).
 
 ```{r, eval = FALSE}
-obj@genomeMatrices[["cg_100k_score_facet"]] <- loadWindows(obj, name = "100000", nmin = 2, metric = "score")
+# don't run; example of how to load pre-computed aggregated windows with facet
+# obj@genomeMatrices[["cg_100k_score_facet"]] <- loadWindows(obj, name = "100000", nmin = 2, metric = "score")
 ```
 
 ## Clustering with Amethyst or Facet - continued
@@ -234,7 +235,6 @@ obj@genomeMatrices[["cg_100k_score"]] <- obj@genomeMatrices[["cg_100k_score"]][r
 ```
 
 Next, perform dimensionality reduction. If you are unsure how many dimensions to use, the *dimEstimate* function can estimate the number needed to explain the desired variance threshold.  
-
 *Note: In this example, the number of requested output dimensions is low because pbmc_vignette.h5 has 50 cells. Adjust according to your data. Skip if it's not helpful.*
 
 ```{r}
@@ -284,8 +284,8 @@ There are many methods out there for clustering. One may wish to implement an al
 
 ```{r, eval = FALSE}
 # theoretical example of 2D umap projection from methscan vmrs - do not run
-obj@reductions[["umap_methscan_vmrs"]] <- methscan_result
-colnames(obj@reductions[["umap_methscan_vmrs"]]) <- c("dim_x", "dim_y")
+# obj@reductions[["umap_methscan_vmrs"]] <- methscan_result
+# colnames(obj@reductions[["umap_methscan_vmrs"]]) <- c("dim_x", "dim_y")
 ```
 
 ## Visualizing the results
@@ -461,7 +461,7 @@ heatMap(obj,
         extraTracks = ccre_tracks)
 ```
 
-As you can see from the heatMaps, promoters are sometimes universally hypomethylated, or transposed from the predicted site. This helps illustrate the complexity of methylation patterns over gene bodies. Because of this, we prefer these tools to visualize over the whole gene body and surrounding context as opposed to aggregated metrics. 
+As you can see from the heatMaps, promoters are sometimes universally hypomethylated, or transposed from the predicted site. This helps illustrate the complexity of methylation patterns over gene bodies. Because of this, we prefer these tools to visualize over the whole gene body and surrounding context as opposed to aggregated metrics.
 
 If you want to view other overlapping genes, use the *regions* parameter of *heatMap* instead of *genes*. This is very useful for looking at specific locations, like differentially methylated regions. In this example below, we will look at the region overlapping the gene *S100A8*. The helper function *getGeneCoords* extracts its genomic location from the reference annotation file for us.
 
@@ -602,7 +602,9 @@ At the core of single-cell methylation analysis is the identification of differe
 dmrs <- testDMR(cluster1kbwindows[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5) 
 ```
 
-The output is the result of all tests, but it is not in a very user-friendly format. Next, expand and filter the resulting list according to the desired stringency. These steps are separated so one does not have to re-compute all tests if an alteration in stringency parameters is needed. The output of *testDMR* is not really meant to be used as-is.
+The output is the result of all tests. For each window and group, "c" is the total count of methylated observations, and "t" is the total count of unmethylated observations. A column for each test has been added with the resulting logFC and *p* value. However, this is not in a very user-friendly format. The output of *testDMR* is not really meant to be used as-is - it's just an intermediate so one does not have to re-compute all tests if an alteration in stringency parameters is needed. 
+
+Next, expand and filter the resulting list according to the desired stringency.
 
 ```{r}
 dmrs <- filterDMR(dmrs, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 1.5)
