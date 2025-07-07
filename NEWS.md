@@ -3,7 +3,7 @@
   - **Fixed**
     - prefix integration issues affecting *indexChr*, *makeWindows*, and *calcSmoothedWindows*
     - *createObject* locked error
-    - minor updates throughout the [PBMC vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) and [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html)
+    - minor updates throughout the vignettes
     
   - **Added**
     - started tracking version releases
