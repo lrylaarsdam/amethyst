@@ -1,3 +1,13 @@
+# v1.0.1
+### 07-07-2025
+  - **Fixed**
+    - prefix integration issues affecting *indexChr*, *makeWindows*, and *calcSmoothedWindows*
+    - *createObject* locked error
+    - minor updates throughout the [PBMC vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/pbmc_vignette/pbmc_vignette.html) and [brain vignette](http://htmlpreview.github.io/?https://github.com/lrylaarsdam/amethyst/blob/main/vignettes/brain_vignette/brain_vignette.html)
+    
+  - **Added**
+    - started tracking version releases
+
 # v1.0.0
 ### 06-02-2025 - v1.0.0 release!
   - **Added**
