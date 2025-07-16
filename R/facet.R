@@ -200,7 +200,7 @@ loadSmoothedWindows <- function(
 
   valid_groups <- membership |>
     dplyr::count(membership) |>
-    dplyr::filter(n > nmin) |>
+    dplyr::filter(n > 1) |>
     dplyr::pull(membership)
 
   groups <- as.list(unique(membership$membership[membership$membership %in% valid_groups]))
@@ -224,9 +224,9 @@ loadSmoothedWindows <- function(
     group_result_chunks <- list()
 
     for (i in seq_along(member_chunks)) {
-      idx <- barcode_chunks[[i]]
-      chunk_members <- barcodes[idx]
-      chunk_paths <- paths[idx]
+      idx <- member_chunks[[i]]
+      chunk_members <- members[idx]
+      chunk_paths <- member_paths[idx]
 
       chunk_results <- furrr::future_pmap(
         .l = list(chunk_paths, chunk_members),
@@ -247,7 +247,8 @@ loadSmoothedWindows <- function(
       chunk_results <- data.table::rbindlist(chunk_results)
 
       if (nrow(chunk_results)) {
-        chunk_results <- chunk_results[, .(c = sum(c, na.rm = TRUE), t = sum(t, na.rm = TRUE)), by = .(chr, start, end)]
+        chunk_results <- chunk_results[, .(c = sum(c, na.rm = TRUE), t = sum(t, na.rm = TRUE), n = sum(c_nz + t_nz, na.rm = TRUE)), by = .(chr, start, end)]
+        chunk_results <- chunk_results[n >= nmin, .(chr, start, end, c, t)]
         group_result_chunks[[i]] <- chunk_results
       }
     }
