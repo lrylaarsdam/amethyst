@@ -434,7 +434,7 @@ testDMR <- function(
       # apply fast fishers exact test
       counts <- counts[, paste0(gr, "_all_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(gr, "_all_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
-      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop, causing member / nonmember variable buildup :(
+      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
       cat(paste0("Finished group ", gr, "\n"))
     }
 
@@ -463,7 +463,7 @@ testDMR <- function(
       # apply fast fishers exact test
       counts <- counts[, paste0(name, "_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(name, "_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
-      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop, causing member / nonmember variable buildup :(
+      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
       cat(paste0("\nFinished testing ", name, ": ", paste0(m, collapse = ", "), " vs. ", paste0(nm, collapse = ", ")))
     }
   }
@@ -558,7 +558,13 @@ collapseDMR <- function(
   x <- data.table::copy(dmrMatrix)
   x <- x[, c("start", "end") := list(start - maxDist, end + maxDist)]
   data.table::setorder(x, member_id, direction, chr, start)
-  collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(member_id, chr, direction)]
+
+  if (mergeDirections) {
+    collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(member_id, chr)]
+  } else {
+    collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(member_id, chr, direction)]
+  }
+
   data.table::setnames(collapsed, old = c("start", "end"), new = c("dmr_start", "dmr_end"))
 
   if (mergeDirections) {
