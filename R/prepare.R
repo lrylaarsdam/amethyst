@@ -78,7 +78,7 @@ createObject <- function(h5paths = NULL,
 #' @param genomeMatrices Optional name of pre-constructed matrices in the genome_bin_matrix folder to include.
 #' @return Returns a populated amethyst object for futher analysis.
 #' @importFrom data.table fread setnames rbindlist
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter bind_rows
 #' @importFrom utils read.csv
 #' @importFrom Matrix readMM
 #' @export
@@ -103,7 +103,7 @@ createScaleObject <- function(directory,
 
   obj <- createObject(
     metadata = data.table::rbindlist(metadata) |> tibble::column_to_rownames(var = "cell_id"),
-    h5paths = data.table::rbindlist(h5paths),
+    h5paths = dplyr::bind_rows(h5paths),
   )
 
   if (!is.null(genomeMatrices)) {
