@@ -97,7 +97,7 @@ createScaleObject <- function(directory,
 
   h5paths <- list()
   for (i in samples) {
-    h5paths[[i]] <- data.frame(barcode = metadata[[i]]$cell_id,
+    h5paths[[i]] <- data.frame(barcode = rownames(metadata[[i]]),
                                path = file.path(directory, "methylation_coverage", "amethyst", i, paste0(i, ".", metadata[[i]]$tgmt_well, "_cov.h5")))
   }
 
