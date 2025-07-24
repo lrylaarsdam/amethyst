@@ -1,3 +1,11 @@
+# v1.0.2
+### 07-24-2025
+  - **Fixed**
+    - *loadSmoothedWindows* issue thanks to @shengzha
+    - *createScaleObject* issue (hopefully) thanks @yosefellenbogen1 @edogiuili
+    - *testDMR* bug; huge thanks to @stcolema. We would recommend re-running testDMR result from previous versions.
+    - *filterDMR* and *collapseDMR*; test names now added as "member_id" column instead of order
+    
 # v1.0.1
 ### 07-07-2025
   - **Fixed**

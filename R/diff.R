@@ -11,7 +11,7 @@
 #' @param groupBy Metadata column name of the variable to group by
 #' @param method Multiple testing correction method. Options are c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none")
 #' @param threads Optional; number of threads to use if parallelizing (recommended)
-#' @param matrix Name of the pre-computed methylation values stored genomeMatrices slot for which to calculate variably methylated features
+#' @param matrix Name of the pre-computed methylation values stored in the genomeMatrices slot for which to calculate variably methylated features
 #'
 #' @returns A data.frame containing the p.value of methylation levels over each gene in each cluster relative to all other clusters
 #' @importFrom dplyr select filter mutate group_by rename
@@ -70,7 +70,7 @@ findClusterMarkers <- function(
           }
         },
         error = function(e) {
-          cat("Error processing gene:", gene, "and cluster:", id, "\n")
+          cat("Warning:", gene, "and cluster", id, "not tested\n")
         }
       )
     }
@@ -434,6 +434,7 @@ testDMR <- function(
       # apply fast fishers exact test
       counts <- counts[, paste0(gr, "_all_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(gr, "_all_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
+      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
       cat(paste0("Finished group ", gr, "\n"))
     }
 
@@ -462,10 +463,10 @@ testDMR <- function(
       # apply fast fishers exact test
       counts <- counts[, paste0(name, "_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(name, "_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
+      counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
       cat(paste0("\nFinished testing ", name, ": ", paste0(m, collapse = ", "), " vs. ", paste0(nm, collapse = ", ")))
     }
   }
-  counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL]
   return(counts)
 }
 
@@ -501,9 +502,9 @@ filterDMR <- function(
   results <- data.table::copy(dmrMatrix)
   results <- results[!rowSums(is.na(results[, .SD, .SDcols = -c("chr", "start", "end")])) == ncol(results[, .SD, .SDcols = -c("chr", "start", "end")])]
   if (keepSums) {
-    results <- data.table::melt(results, id.vars = c("chr", "start", "end", paste0(ids, "_c"), paste0(ids, "_t")), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "group", value.name = c("pval", "logFC"), na.rm = TRUE)
+    results <- data.table::melt(results, id.vars = c("chr", "start", "end", paste0(ids, "_c"), paste0(ids, "_t")), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
   } else if (!(keepSums)) {
-    results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test", value.name = c("pval", "logFC"), na.rm = TRUE)
+    results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
   }
   results <- results[, padj := stats::p.adjust(pval, method = method)]
 
@@ -511,6 +512,14 @@ filterDMR <- function(
     results <- results[padj < pThreshold & abs(logFC) > logThreshold]
   }
   results <- results[, direction := ifelse(logFC < 0, "hypo", "hyper")]
+
+  key <- data.table(
+    test_order = as.factor(1:length(ids)),  # assuming test is integer in your main table
+    member_id = as.character(ids)  # or any corresponding label
+  )
+
+  results <- merge(results, key, by = "test_order", all.x = TRUE)
+  results <- results[, c("test_order") := NULL]
 
   return(results)
 }
@@ -548,16 +557,22 @@ collapseDMR <- function(
 
   x <- data.table::copy(dmrMatrix)
   x <- x[, c("start", "end") := list(start - maxDist, end + maxDist)]
-  data.table::setorder(x, test, direction, chr, start)
-  collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(test, chr, direction)]
+  data.table::setorder(x, member_id, direction, chr, start)
+
+  if (mergeDirections) {
+    collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(member_id, chr)]
+  } else {
+    collapsed <- x[, data.table::as.data.table(GenomicRanges::reduce(IRanges::IRanges(start, end))), by = .(member_id, chr, direction)]
+  }
+
   data.table::setnames(collapsed, old = c("start", "end"), new = c("dmr_start", "dmr_end"))
 
   if (mergeDirections) {
-    output <- dmrMatrix[collapsed, on = .(chr = chr, test = test, start >= dmr_start, end <= dmr_end),
+    output <- dmrMatrix[collapsed, on = .(chr = chr, member_id = member_id, start >= dmr_start, end <= dmr_end),
                         .(chr,
                           start = x.start,
                           end = x.end,
-                          test,
+                          member_id,
                           pval = x.pval,
                           padj = x.padj,
                           logFC = x.logFC,
@@ -565,19 +580,19 @@ collapseDMR <- function(
                           dmr_end = (dmr_end - maxDist),
                           dmr_length = (width - (2 * maxDist) - 1))]
     output <- output[, c("dmr_padj", "dmr_logFC") := list(mean(padj), mean(abs(logFC))),
-                     by = .(test, chr, dmr_start, dmr_end)]
+                     by = .(member_id, chr, dmr_start, dmr_end)]
     output <- output[dmr_length >= minLength]
 
     if (reduce) {
-      output <- unique(output[, .(chr, test, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch = 0 ])
+      output <- unique(output[, .(chr, member_id, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch = 0 ])
     }
 
   } else {
-    output <- dmrMatrix[collapsed, on = .(chr = chr, direction = direction, test = test, start >= dmr_start, end <= dmr_end),
+    output <- dmrMatrix[collapsed, on = .(chr = chr, direction = direction, member_id = member_id, start >= dmr_start, end <= dmr_end),
                         .(chr,
                           start = x.start,
                           end = x.end,
-                          test,
+                          member_id,
                           pval = x.pval,
                           padj = x.padj,
                           logFC = x.logFC,
@@ -586,11 +601,11 @@ collapseDMR <- function(
                           dmr_end = (dmr_end - maxDist),
                           dmr_length = (width - (2 * maxDist) - 1))]
     output <- output[, c("dmr_padj", "dmr_logFC") := list(mean(padj), mean(logFC)),
-                     by = .(test, direction, chr, dmr_start, dmr_end)]
+                     by = .(member_id, direction, chr, dmr_start, dmr_end)]
     output <- output[dmr_length >= minLength]
 
     if (reduce) {
-      output <- unique(output[, .(chr, test, direction, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch= 0 ])
+      output <- unique(output[, .(chr, member_id, direction, dmr_start, dmr_end, dmr_length, dmr_padj, dmr_logFC), nomatch= 0 ])
     }
 
   }
