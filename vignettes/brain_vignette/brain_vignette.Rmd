@@ -1,8 +1,8 @@
 ---
 output:
-  html_document: default
   pdf_document: 
     latex_engine: xelatex
+  html_document: default
 editor_options: 
   markdown: 
     wrap: sentence
@@ -143,7 +143,7 @@ The next step is to cluster cells, which we typically do based on methylation va
 
 ### 1. Calculate methylation levels over genomic windows in R using Amethyst functions
 
-The most straightforward method is to calculate methylation levels over features with Amethyst in R. 
+The most straightforward method is to calculate methylation levels over genomic windows with Amethyst in R. 
 
 First, perform an initial indexing step, which determines the locations corresponding to each chromosome in every cell's h5 file. This reduces the computational load by only calculating across one at a time. The output is a list of data frames. Each data frame corresponds to the where the base-level info starts and ends for each chromosome and cell.
 
@@ -346,7 +346,7 @@ cluster1kbwindows_cg <- calcSmoothedWindows(obj,
                                          returnPctMatrix = TRUE)
 ```
 
-Add the percent matrix output to the **genomeMatrices** slot. This will be used for visualizing methylation patterns over genomic regions with *histograM* or *heatMap* functions.
+Add the percent matrix output to the **tracks** slot. This will be used for visualizing methylation patterns over genomic regions with *histograM* or *heatMap* functions.
 
 ```{r}
 obj@tracks[["cg_cluster_tracks"]] <- cluster1kbwindows_cg[["pct_matrix"]]
@@ -577,7 +577,7 @@ dimFeature(obj, colorBy = type, colors = pal, reduction = "umap_irlba_ch100k_cg1
   geom_text_repel(data = group_labels, aes(x = dim_x, y = dim_y, label = type))
 ```
 
-You might also want to rename cluster tracks with tjhe group annotations. Recalculate, or just copy the previous one and name like so:
+You might also want to rename cluster tracks with the group annotations. Recalculate, or just copy the previous one and name like so:
 
 ```{r, fig.width=12, fig.height=6}
 obj@tracks[["cg_type_tracks"]] <- copy(obj@tracks[["cg_cluster_tracks"]])
@@ -606,10 +606,15 @@ heatMap(obj,
 ########################################################################################################
 # DIFFERENTIALLY METHYLATED REGION (DMR) ANALYSIS
 
-At the core of single-cell methylation analysis is the identification of differentially methylated regions (DMRs). There are two main formats to set up DMR analysis. The first is to test DMRs for each cluster/type against all others. Only the sum matrix (which we saved at the calcSmoothedWindows step) is needed for the *testDMR* function. Alternatively, you could regenerate the *calcSmoothedWindows* output with your annotated cell types. Here we are using the CH matrix, but this can directly be applied to CH as well.
+At the core of single-cell methylation analysis is the identification of differentially methylated regions (DMRs). There are two main formats to set up DMR analysis. The first is to test DMRs for each cluster/type against all others. Only the sum matrix (which we saved at the calcSmoothedWindows step) is needed for the *testDMR* function. Alternatively, you could regenerate the *calcSmoothedWindows* output with your annotated cell types. Here we are using the CG data, but this can directly be applied to CH as well.
+
+*Note: A bug was recently found in testDMR. We recommend re-running testDMR for any analysis done with versions before v1.0.2. We sincerely apologize for the inconvenience.*
 
 ```{r}
-dmrs_cg <- testDMR(cluster1kbwindows_cg[["sum_matrix"]], eachVsAll = TRUE, nminTotal = 5, nminGroup = 5) 
+dmrs_cg <- testDMR(cluster1kbwindows_cg[["sum_matrix"]], # Sum of c and t observations in each genomic window per group
+                eachVsAll = TRUE, # If TRUE, each group found in the sumMatrix will be tested against all others
+                nminTotal = 5, # Min number observations across all groups to include the region in calculations
+                nminGroup = 5) # Min number observations across either members or nonmembers to include the region in calculations
 ```
 
 The output is the result of all tests. For each window and group, "c" is the total count of methylated observations, and "t" is the total count of unmethylated observations. A column for each test has been added with the resulting logFC and *p* value. However, this is not in a very user-friendly format. The output of *testDMR* is not really meant to be used as-is - it's just an intermediate so one does not have to re-compute all tests if an alteration in stringency parameters is needed. 
@@ -617,7 +622,11 @@ The output is the result of all tests. For each window and group, "c" is the tot
 Next, expand and filter the resulting list according to the desired stringency.
 
 ```{r}
-dmrs_cg <- filterDMR(dmrs_cg, method = "bonferroni", filter = TRUE, pThreshold = 0.01, logThreshold = 1.5)
+dmrs_cg <- filterDMR(dmrs_cg, 
+                     method = "bonferroni", # c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr")
+                     filter = TRUE, # If TRUE, removes insignificant results
+                     pThreshold = 0.01, # Maxmimum adjusted p value to allow if filter = TRUE
+                     logThreshold = 1.5) # Minimum absolute value of the log2FC to allow if filter = TRUE
 head(dmrs_cg)
 ```
 
@@ -626,20 +635,28 @@ Often, adjacent genomic windows are differentially methylated. It can be helpful
 *Note: Please pay attention to the maxDist and minLength parameters and decide if these are appropriate for your data. Here, we are combining any DMRs within 2kb of each other, and applying a minimum threshold of 2kb to count as a DMR.*
 
 ```{r}
-collapsed_dmrs_cg <- collapseDMR(obj, dmrs_cg, maxDist = 4000, minLength = 2000, reduce = T, annotate = T) 
+collapsed_dmrs_cg <- collapseDMR(obj, 
+                                 dmrs_cg, 
+                                 maxDist = 4000, # Max allowable overlap between DMRs to be considered adjacent
+                                 minLength = 2000, # Min length of collapsed DMR window to include in the output
+                                 reduce = T, # Reduce results to unique observations (recommended)
+                                 annotate = T) # Add column with overlapping gene names
+
 head(collapsed_dmrs_cg)
 ```
 
-In the output, the "test" column indicates which cluster is considered the member group - as in, the one being compared to. If you are testing a renamed matrix, you might want to add those names to your results instead of having the numerical order in which they were tested. Below, we will assemble a key based on the order of names in the tracks, which will corresponed to the order of tests. Then use a simple *left_join* to add the annotation column.
+In the output, the "test" column indicates which comparison the DMR was identified in. For convenience, we will add an annotation column "type" to indicate which population the DMR corresponds to.
 
 ```{r}
-key <- data.frame(test = as.factor(1:5), 
-                type = names(obj@tracks[["cg_type_tracks"]])[4:ncol(obj@tracks[["cg_type_tracks"]])]) # or just specify manually, but that can get tedious
-collapsed_dmrs_cg <- left_join(collapsed_dmrs_cg, key, by = "test")
-head(collapsed_dmrs_cg)
+collapsed_dmrs_cg$type <- dplyr::recode(collapsed_dmrs_cg$test,
+                                        "1_all" = "Exc", 
+                                        "2_all" = "Micro",
+                                        "3_all" = "Oligo",
+                                        "4_all" = "Astro",
+                                        "5_all" = "Inh")
 ```
 
-Often, specific comparisons are desired, like testing between control and treatment groups of a specific cell type. a data frame can be provided describing the tests. Three columns should be included: One listing members of group A, one listing members of group B, and one with the name of the test. As an example, below is a comparison table structure for testing CH DMRs in excitatory vs. inhibitory neurons.
+Often, specific comparisons are desired, like testing between control and treatment groups of a specific cell type. A data frame can be provided describing the tests. Three columns should be included: One listing members of group A, one listing members of group B, and one with the name of the test. As an example, below is a comparison table structure for testing CH DMRs in excitatory vs. inhibitory neurons.
 
 *Note: The "name", "A", and "B" columns are fixed; do not change or else testDMR won't be able to extract the appropriate comparisons. Please also note that conditions for each test are concatenated with a single comma (no spaces in between) and wrapped in double quotes.* 
 
@@ -675,7 +692,7 @@ top_dmrs_cg <- collapsed_dmrs_cg |>
   dplyr::arrange(dmr_padj, .by_group = TRUE) |> dplyr::mutate(rank_padj = 1:n()) |>
   dplyr::arrange(desc(abs(dmr_logFC)), .by_group = TRUE) |> dplyr::mutate(rank_logFC = 1:n()) |>
   rowwise() |> dplyr::mutate(total_rank = sum(rank_padj, rank_logFC)) |> 
-  group_by(test, direction) |> slice_min(n = 1, order_by = total_rank) |>
+  group_by(type, direction) |> slice_min(n = 1, order_by = total_rank) |>
   dplyr::mutate(location = paste0(chr, "_", (dmr_start - 2000), "_", (dmr_end + 2000))) |> dplyr::arrange(direction)
 
 top_dmrs_ch <- collapsed_dmrs_ch |> 
@@ -683,7 +700,7 @@ top_dmrs_ch <- collapsed_dmrs_ch |>
   dplyr::arrange(dmr_padj, .by_group = TRUE) |> dplyr::mutate(rank_padj = 1:n()) |>
   dplyr::arrange(desc(abs(dmr_logFC)), .by_group = TRUE) |> dplyr::mutate(rank_logFC = 1:n()) |>
   rowwise() |> dplyr::mutate(total_rank = sum(rank_padj, rank_logFC)) |> 
-  group_by(test, direction) |> slice_min(n = 3, order_by = total_rank) |>
+  group_by(direction) |> slice_min(n = 3, order_by = total_rank) |>
   dplyr::mutate(location = paste0(chr, "_", (dmr_start - 2000), "_", (dmr_end + 2000))) |> dplyr::arrange(direction)
 
 ```
