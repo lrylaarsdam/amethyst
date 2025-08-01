@@ -502,7 +502,8 @@ filterDMR <- function(
   results <- data.table::copy(dmrMatrix)
   results <- results[!rowSums(is.na(results[, .SD, .SDcols = -c("chr", "start", "end")])) == ncol(results[, .SD, .SDcols = -c("chr", "start", "end")])]
   if (keepSums) {
-    results <- data.table::melt(results, id.vars = c("chr", "start", "end", paste0(ids, "_c"), paste0(ids, "_t")), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
+    cols_to_keep <- names(results)[!grepl("(_pval$|_logFC$)", names(results))]
+    results <- data.table::melt(results, id.vars = cols_to_keep, measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
   } else if (!(keepSums)) {
     results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
   }
