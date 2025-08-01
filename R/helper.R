@@ -768,6 +768,48 @@ convertObject <- function(obj) {
 }
 
 ############################################################################################################################
+#' @title addPrefix
+#' @description Helper function for adding a barcode prefix to appropriate locations throughout the object.
+#' At this time, only one prefix can be added per object.
+#'
+#' @param obj Name of object to add prefixes to
+#' @param prefix Name of prefix to append, e.g. "A_"
+#' @return Returns an updated amethyst object containing the prefix
+#' @export
+#' @importFrom data.table data.table
+#' @examples
+#' \dontrun{
+#'  new_obj <- addPrefix(obj, prefix = "A_")
+#'}
+
+addPrefix <- function(obj, prefix) {
+  new_obj <- obj
+
+  new_obj@h5paths <- new_obj@h5paths |> dplyr::mutate(prefix = prefix)
+  new_obj@genomeMatrices <- lapply(new_obj@genomeMatrices, function(x) {
+    colnames(x) <- paste0(prefix, colnames(x))
+    x
+    })
+  # tracks = tracks
+  new_obj@reductions <- lapply(new_obj@reductions, function(x) {
+    rownames(x) <- paste0(prefix, rownames(x))
+    x
+    })
+  new_obj@index <- lapply(new_obj@index, function(x) {
+    lapply(x, function(y) {
+      y$cell_id <- paste0(prefix, y$cell_id)
+      y
+    })
+  })
+  rownames(new_obj@metadata) <- paste0(prefix, rownames(obj@metadata))
+  # ref = ref
+  # results = results
+
+  return(new_obj)
+}
+
+
+############################################################################################################################
 #' @title getGeneCoords
 #' @description Helper function to fetch the appended chromosome, start, and end locations for a given gene
 
