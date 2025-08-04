@@ -288,7 +288,7 @@ calcSmoothedWindows <- function(
                                                        start = sites$start[sites$cell_id == paste0(prefix, barcode)],
                                                        count = sites$count[sites$cell_id == paste0(prefix, barcode)])) # read in 1 chr at a time
           data <- data[pos %% step == 0, pos := pos + 1] # add 1 to anything exactly divisible by window size otherwise it will be its own window
-          data <- data[, window := paste0(chr, "_", plyr::round_any(pos, step, floor), "_", plyr::round_any(pos, step, ceiling))][, c("chr", "pos", "pct") := NULL]
+          data <- data[, window := paste0(chr, "_", plyr::round_any(pos, step, floor), "_", plyr::round_any(pos, step, ceiling))][, intersect(c("chr", "pos", "pct"), names(data)) := NULL]
           data <- data[, .(c = sum(c, na.rm = TRUE), t = sum(t, na.rm = TRUE)), by = window]
         }, error = function(e) {
           cat("Error processing data for barcode", barcode, ":", conditionMessage(e), "\n")
