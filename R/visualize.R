@@ -413,6 +413,7 @@ histograM <- function(obj,
   }
 
   if (!is.null(genes)) {
+    genes <- unique(genes)
     ref_subset <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
     ranges <- ref_subset[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
   }
@@ -658,6 +659,7 @@ heatMap <- function(obj,
   }
 
   if (!is.null(genes)) {
+    genes <- unique(genes)
     ref_subset <- obj@ref[gene_name %in% genes & type %in% c("gene", "exon")]
     ranges <- ref_subset[type == "gene", .SD[which.max(end - start)], by = gene_name][order(match(gene_name, genes))]$location
   }
@@ -944,7 +946,7 @@ makePalette <- function(
   if (option == 12) {pal <- c("#c05761","#734f5a","#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51","#941c2f")}
   if (option == 13) {pal <- c("#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51")}
   if (option == 14) {pal <- c("#870022", "#db5375","#e86c5f","#f58549","#f2a65a","#eec170", "#ccd0b5","#bbd7d7", "#288989")}
-  if (option == 15) {pal <- c("#f7b0be","#ed8e83","#ef3c23","#f15a42","#fac92c","#cfe5cc","#2178ae","#1b4793")} # scarlet macaw
+  if (option == 15) {pal <- c("#f7b0be","#ed8e83","#ef3c23","#f15a42","#fac92c","#cfe5cc","#2178ae","#1b4793")} # macaw
   if (option == 16) {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
   if (option == 17) {pal <- c("#C5C9BC", "#114F5A", "#D08222", "#402742", "#B69BB2")} # pigeon
   if (option == 18) {pal <- c("#f7ede2","#f6bd60","#f5cac3","#84a59d","#f28482")}
@@ -957,7 +959,7 @@ makePalette <- function(
   if (option == 25) {pal <- c("#7C2C47", "#B4141F", "#DF6C26", "#E9B60D", "#BABC36")} # orangutan
   if (option == 26) {pal <- c("#1c5253", "#306b34","#c3eb78", "#f3ffc6","#b6174b")}
   if (option == 27) {pal <- c("#b6e2dd","#c8ddbb","#e9e5af","#fbdf9d","#fbc99d","#fbb39d","#fba09d")} # smarties
-  if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")} # rainbow
+  if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")} # mantis_shrimp
   if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")} # moab
   if (option == 30) {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")} # macaron
 
