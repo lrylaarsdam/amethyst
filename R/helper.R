@@ -55,6 +55,11 @@ makeWindows <- function(
     save = FALSE,
     chrList = NULL) {
 
+  # check paths exist
+  if (is.null(obj@h5paths$path) | is.null(obj@h5paths$barcode)) {
+    stop("\nPlease make sure the obj@h5paths slot is constructed correctly. Path and/or barcode columns not found.")
+  }
+
   # check appropriate metric was specified
   if (!metric %in% c("percent", "score", "ratio")) {
     stop("Metric calculated must be one of either percent, score, or ratio.")
@@ -82,11 +87,6 @@ makeWindows <- function(
     } else if (!(futureType %in% c("multicore", "multisession"))) {
       stop("Options for parallelizing include multicore or multisession.")
     }
-  }
-
-  # check paths exist
-  if (is.null(obj@h5paths)) {
-    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
   }
 
   # check index

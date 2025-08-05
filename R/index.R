@@ -34,8 +34,8 @@ indexChr <- function(obj,
                      threads = 1) {
 
   # get barcodes and paths from amethyst object
-  if (is.null(obj@h5paths)) {
-    stop("Please generate the path list for each barcode and store in the obj@h5paths slot.")
+  if (is.null(obj@h5paths$path) | is.null(obj@h5paths$barcode)) {
+    stop("\nPlease make sure the obj@h5paths slot is constructed correctly. Path and/or barcode columns not found.")
   } else {
     barcodes <- obj@h5paths$barcode
     paths <- obj@h5paths$path
