@@ -550,8 +550,10 @@ impute <- function(obj,
 #'
 #' @param obj Amethyst object containing the matrix to be aggregated
 #' @param matrix Name of matrix contained in the genomeMatrices slot to aggregate
-#' @param nmin Minimum number of cells in group to include in the result
+#' @param minCells Minimum number of cells in the group to return an aggregated output
+#' @param minValues Minimum number of non-NA values within a group to return an aggregated value
 #' @param groupBy Parameter in the metadata to aggregate over
+#'
 #' @return Returns a matrix containing the mean value per group
 #' @export
 #' @importFrom data.table setDT tstrsplit
@@ -565,21 +567,24 @@ impute <- function(obj,
 aggregateMatrix <- function(obj,
                             matrix,
                             groupBy,
-                            nmin = 5) {
+                            minCells = 5,
+                            minValues = 5) {
 
   matrix <- obj@genomeMatrices[[matrix]]
-  membership <- obj@metadata |> dplyr::select(groupBy)
+  membership <- obj@metadata |> dplyr::select(all_of(groupBy))
   colnames(membership) <- "membership"
   groups <- as.list(unique(membership$membership))
   aggregated <- list()
   num_members <- membership |> dplyr::group_by(membership) |> dplyr::summarise(n = n())
 
   for (i in groups) {
-    # Check if n is greater than or equal to nmin
-    if (num_members[num_members$membership == i, "n"] >= nmin) {
+    # Check if n is greater than or equal to minCells
+    if (num_members[num_members$membership == i, "n"] >= minCells) {
       if (num_members[num_members$membership == i, "n"] > 1) {
         members <- rownames(membership |> dplyr::filter(membership == i))
-        aggregated[[i]] <- as.data.frame(rowMeans(matrix[, members], na.rm = TRUE))
+        aggregated[[i]] <- data.frame(mean = rowMeans(matrix[, members], na.rm = TRUE),
+                                      n = rowSums(!is.na(matrix[, members])))
+        aggregated[[i]] <- aggregated[[i]] |> dplyr::filter(n > minValues) |> dplyr::select(mean)
         colnames(aggregated[[i]]) <- paste0(i)
         aggregated[[i]] <- aggregated[[i]] |> tibble::rownames_to_column(var = "window")
       } else if (num_members[num_members$membership == i, "n"] == 1) {
@@ -587,8 +592,8 @@ aggregateMatrix <- function(obj,
         aggregated[[i]] <- as.data.frame(matrix[, members, drop = FALSE]) |> tibble::rownames_to_column(var = "window")
       }
     } else {
-      # Optionally, you can add a message or log when skipping a group.
-      message("Skipping group ", i, " because n < nmin.")
+      # skip group
+      message("Skipping group ", i, " because n < minCells.")
     }
   }
   aggregated <- Reduce(function(x, y) merge(x, y, by = "window", all = TRUE), aggregated)
@@ -624,8 +629,15 @@ subsetObject <- function(obj,
                          cells) {
   subset <- obj
 
-  subset@h5paths$cell_ids <- paste0(subset@h5paths$prefix, subset@h5paths$barcode)
-  subset@h5paths <- subset@h5paths[subset@h5paths$cell_ids %in% cells, , drop = FALSE]
+  if (!is.null(obj@h5paths)) {
+    if (is.null(subset@h5paths$prefix)) {
+      subset@h5paths$cell_ids <- subset@h5paths$barcode
+    } else {
+      subset@h5paths$cell_ids <- paste0(subset@h5paths$prefix, subset@h5paths$barcode)
+    }
+    subset@h5paths <- subset@h5paths[subset@h5paths$cell_ids %in% cells, , drop = FALSE]
+    subset@h5paths$cell_ids <- NULL
+  }
 
   # get genomeMatrices to subset
   contains_cells <- sapply(subset@genomeMatrices, function(matrix) {
@@ -738,10 +750,15 @@ convertObject <- function(obj) {
     paths <- obj@h5paths |> dplyr::rename("path" = "paths")
     paths$barcode <- rownames(obj@h5paths)
   } else {
-    paths <- data.frame()
+    paths <- NULL
   }
-  matrices <- obj@genomeMatrices[-(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
-  tracks <- obj@genomeMatrices[(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
+  if (any(grepl("tracks", names(obj@genomeMatrices)))) {
+    matrices <- obj@genomeMatrices[-(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
+    tracks <- obj@genomeMatrices[(grep(pattern = "tracks", x = names(obj@genomeMatrices)))]
+  } else {
+    matrices <- obj@genomeMatrices
+    tracks <- list()
+  }
   ref <- data.table::data.table(obj@ref)
 
   new_obj <- createObject(
