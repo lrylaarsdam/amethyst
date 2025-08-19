@@ -1,0 +1,346 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 ArialMT;\f1\fswiss\fcharset0 Arial-BoldMT;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red0\green0\blue0;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\csgray\c0\c0;}
+\margl1440\margr1440\vieww34680\viewh19860\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf2 # COMMSBIO-24-5712: Single-cell DNA methylation analysis tool Amethyst resolves distinct non-CG methylation patterns in human astrocytes and oligodendrocytes\
+# Log of commands used for processing data for benchmarking analysis\
+# Lauren Rylaarsdam, PhD\
+# March 2025\
+\
+#################################################################\
+### AMETHYST ###\
+\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CG_index.R &> sciMETv2_3842F_benchmark_CG_index_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CH_index.R &> sciMETv2_3842F_benchmark_CH_index_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CG_100k.R &> sciMETv2_3842F_benchmark_CG_100k_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CH_100k.R &> sciMETv2_3842F_benchmark_CH_100k_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CG_DMR.R &> sciMETv2_3842F_benchmark_CG_DMR_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CG_irlba.R &> sciMETv2_3842F_benchmark_CG_irlba_stats.log &\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_CG_pca.R &> sciMETv2_3842F_benchmark_CG_pca_stats.log &\
+\
+### FACET ###\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/facet\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 python /secret/path/amethyst/scripts/facet.py convert --compression gzip --compression_opts 9 sciMETv2_3842F_merged.h5 sciMETv2_3842F_merged_facet.h5 &\
+python subset_h5.py sciMETv2_3842F_merged_facet.h5 sciMETv2_3842F_merged_facet_filtered.h5 brain_barcodes_filtered.txt &\
+python subset_h5.py sciMETv2_3842F_merged_facet_filtered_cgonly.h5 sciMETv2_3842F_neurons_facet_filtered_cgonly.h5 neuron_barcodes_filtered.txt &\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 /usr/bin/time -v python /secret/path/amethyst/scripts/facet.py agg -c CH -u 100000=100000 -p 10 sciMETv2_3842F_merged_facet_filtered.h5 &> sciMETv2_3842F_benchmark_facet_ch_100k_stats.log &\
+/usr/bin/time -v python /secret/path/amethyst/scripts/facet.py agg -c CG -u 100000=100000 -p 10 sciMETv2_3842F_merged_facet_filtered_cgonly.h5 &> sciMETv2_3842F_benchmark_facet_cg_100k_stats.log &\
+/usr/bin/time -v python /secret/path/amethyst/scripts/facet.py agg -c CG -u 500=1500:500 -p 10 sciMETv2_3842F_merged_facet_filtered_cgonly.h5 &> sciMETv2_3842F_benchmark_facet_cg_1500x500bp_stats.log &\
+/usr/bin/time -v python /secret/path/amethyst/scripts/facet.py agg -c CG -u 500=1500:500 -p 10 sciMETv2_3842F_neurons_facet_filtered_cgonly.h5 &> sciMETv2_3842F_benchmark_neurons_facet_cg_1500x500bp_stats.log &\
+\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_loadSmoothedWindows.R &> sciMETv2_3842F_benchmark_loadSmoothedWindows_stats.log &\
+\
+#################################################################\
+### ALLCOOLS ###\
+\
+# first, tried to use Scale Bio's scaleMethyl pipeline to get data in starting format. Bam files need to be p-sorted.\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 samtools sort -@ 20 -o sciMETv2_3842F.LA_1.bbrd.q10.psrt.bam sciMETv2_3842F.LA_1.bbrd.q10.nsrt.bam &\
+samtools sort -@ 20 -o sciMETv2_3842F.LA_2.bbrd.q10.psrt.bam sciMETv2_3842F.LA_2.bbrd.q10.nsrt.bam &\
+samtools sort -@ 20 -o sciMETv2_3842F.LA_3.bbrd.q10.psrt.bam sciMETv2_3842F.LA_3.bbrd.q10.nsrt.bam &\
+samtools sort -@ 10 -o sciMETv2_3842F.SLN_1.bbrd.q10.psrt.bam sciMETv2_3842F.SLN_1.bbrd.q10.nsrt.bam & # No SLN in final object\
+samtools sort -@ 10 -o sciMETv2_3842F.SLN_2.bbrd.q10.psrt.bam sciMETv2_3842F.SLN_2.bbrd.q10.nsrt.bam &\
+samtools sort -@ 10 -o sciMETv2_3842F.SLH_1.bbrd.q10.psrt.bam sciMETv2_3842F.SLH_1.bbrd.q10.nsrt.bam &\
+samtools sort -@ 10 -o sciMETv2_3842F.SLH_2.bbrd.q10.psrt.bam sciMETv2_3842F.SLH_2.bbrd.q10.nsrt.bam &\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+# run scaleMethyl's met_extract.py to generate parquet files\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 python met_extract.py sciMETv2_3842F.LA_1.bbrd.q10.psrt.bam --sample sciMETv2_3842F.LA_1 --threshold 20 --subprocesses 10 --contexts "CG,CH" &\
+python met_extract.py sciMETv2_3842F.LA_2.bbrd.q10.psrt.bam --sample sciMETv2_3842F.LA_2 --threshold 20 --subprocesses 10 --contexts "CG,CH" &\
+python met_extract.py sciMETv2_3842F.LA_3.bbrd.q10.psrt.bam --sample sciMETv2_3842F.LA_3 --threshold 20 --subprocesses 10 --contexts "CG,CH" &\
+python met_extract.py sciMETv2_3842F.SLH_1.bbrd.q10.psrt.bam --sample sciMETv2_3842F.SLH_1 --threshold 20 --subprocesses 10 --contexts "CG,CH" &\
+python met_extract.py sciMETv2_3842F.SLH_2.bbrd.q10.psrt.bam --sample sciMETv2_3842F.SLH_2 --threshold 20 --subprocesses 10 --contexts "CG,CH" &\
+\
+# move to target directory\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/allc\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+# make symbolic links to parquet files\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/write_allc_v2.py\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.SLH_1.met_CG.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.SLH_2.met_CG.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_1.met_CG.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_2.met_CG.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_3.met_CG.parquet\
+\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.SLH_1.met_CH.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.SLH_2.met_CH.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_1.met_CH.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_2.met_CH.parquet\
+ln -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/scaleMethyl/sciMETv2_3842F_reAnalysis/parquet/sciMETv2_3842F.LA_3.met_CH.parquet\
+\
+# for each sample, run write_allc_v2.py. Because the script utilizes a named pipe, ran each in its own directory.\
+# for each sample\
+python ../write_allc_v2.py \\\
+    --met_calls sciMETv2_3842F.LA_3.met_CH.parquet \\\
+    --barcode_file ../brain_barcode_sample_key.txt \\\
+    --sample LA_3 \\\
+    --context CH &\cb1 \CocoaLigature1 \
+\
+\cb3 \CocoaLigature0 # merge CG and CH files because Scale Bio's pipeline has them separate for some reason\
+ls sciMETv2_3842F_all_CG/*.allc.tsv.gz | xargs -P 40 -I \{\} bash -c '\
+    barcode=$(basename \{\});\
+    if [[ -f "sciMETv2_3842F_all_CH/$barcode" ]]; then\
+        zcat "sciMETv2_3842F_all_CG/$barcode" "sciMETv2_3842F_all_CH/$barcode" | \\\
+        sort -k1,1 -k2,2n | bgzip > "sciMETv2_3842F_all_merge/$barcode"\
+    fi\
+' &\
+\
+# add index\
+find . -name "*.allc.tsv.gz" | xargs -P 20 -I \{\} bash -c 'tabix -b2 -e2 -s1 "$1"' _ \{\} &\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+# make allc_table.tsv (needed minor adjusting; make sure it's tab-separated)\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/\
+for file in /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/allc/sciMETv2_3842F_all_merge/*.allc.tsv.gz; do\
+    barcode=$(basename "$file")\
+    echo -e "$barcode\\t$file"\
+done > allc_table.tsv\
+\
+# finally, generate .mcds datasets\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/\
+\
+/usr/bin/time -v allcools generate-dataset  \\\
+--allc_table allc_table.tsv \\\
+--output_path sciMETv2_3842F.mcds \\\
+--chrom_size_path hg38.main.chrom.sizes \\\
+--obs_dim cell  \\\
+--cpu 10 \\\
+--chunk_size 50 \\\
+--regions chrom100k 100000 \\\
+--regions chrom5k 5000 \\\
+--quantifiers chrom100k count CG,CH \\\
+--quantifiers chrom5k hypo-score CG cutoff=0.9 \\\
+--quantifiers chrom5k count CG &> sciMETv2_3842F_allcools_generate_dataset_stats.log &\
+\
+# see allcools_sciMETv2_3842F_benchmarking.py for clustering analysis\
+\
+# figured for 100kb benchmarking only, I have to use separate files \
+sed 's|merge|CG|g' allc_table.tsv > allc_table_cg.tsv\
+sed 's|merge|CH|g' allc_table.tsv > allc_table_ch.tsv\
+\
+/usr/bin/time -v allcools generate-dataset  \\\
+--allc_table allc_table_cg.tsv \\\
+--output_path sciMETv2_3842F_benchmark_100k_CG_only.mcds \\\
+--chrom_size_path hg38.main.chrom.sizes \\\
+--obs_dim cell  \\\
+--cpu 10 \\\
+--chunk_size 50 \\\
+--regions chrom100k 100000 \\\
+--quantifiers chrom100k count CG &> sciMETv2_3842F_allcools_generate_dataset_100k_CG_only_stats.log &\
+\
+/usr/bin/time -v allcools generate-dataset  \\\
+--allc_table allc_table_ch.tsv \\\
+--output_path sciMETv2_3842F_benchmark_100k_CH_only.mcds \\\
+--chrom_size_path hg38.main.chrom.sizes \\\
+--obs_dim cell  \\\
+--cpu 10 \\\
+--chunk_size 50 \\\
+--regions chrom100k 100000 \\\
+--quantifiers chrom100k count CH &> sciMETv2_3842F_allcools_generate_dataset_100k_CH_only_stats.log &\
+\
+# analysis - see allcools_sciMETv2_3842F_benchmarking.py\
+/usr/bin/time -v python allcools_sciMETv2_3842F_benchmarking.py &> allcools_sciMETv2_3842F_benchmarking_stats.log &\
+\
+### for ALLCools DMR analysis ###\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/dmr\
+\
+# pseudobulk all excitatory neuron and inhibitory neuron allc files\
+# make allc path list\
+awk '\{print "/secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/allc/sciMETv2_3842F_all_CG/" $1 ".allc.tsv.gz"\}' excitatory_barcodes.txt > allc_table_excitatory.tsv\
+awk '\{print "/secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/allc/sciMETv2_3842F_all_CG/" $1 ".allc.tsv.gz"\}' inhibitory_barcodes.txt > allc_table_inhibitory.tsv\
+\
+allcools merge-allc \\\
+--allc_paths  allc_table_excitatory.tsv \\\
+--output_path ./sciMETv2_3842F_pseudobulk_allc/sciMETv2_3842F_excitatory.allc.tsv.gz \\\
+--chrom_size_path /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/hg38.main.chrom.sizes &\
+\
+allcools merge-allc \\\
+--allc_paths  allc_table_inhibitory.tsv \\\
+--output_path ./sciMETv2_3842F_pseudobulk_allc/sciMETv2_3842F_inhibitory.allc.tsv.gz \\\
+--chrom_size_path /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/hg38.main.chrom.sizes &\
+\
+# merge strand, according to vignette suggestions\
+allcools extract-allc \\\
+--allc_path sciMETv2_3842F_excitatory.allc.tsv.gz \\\
+--output_prefix sciMETv2_3842F_excitatory_strandmerge.allc.tsv.gz \\\
+--mc_contexts CG \\\
+--strandness merge \\\
+--chrom_size_path /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/hg38.main.chrom.sizes &\
+\
+allcools extract-allc \\\
+--allc_path sciMETv2_3842F_inhibitory.allc.tsv.gz \\\
+--output_prefix sciMETv2_3842F_inhibitory_strandmerge.allc.tsv.gz \\\
+--mc_contexts CG \\\
+--strandness merge \\\
+--chrom_size_path /secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/hg38.main.chrom.sizes &\
+\
+# in python\
+from ALLCools.mcds import RegionDS\
+from ALLCools.dmr import call_dms, call_dmr\
+import pathlib\
+\
+mc_bulk_dir = pathlib.Path('/secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/dmr/sciMETv2_3842F_pseudobulk_allc/')\
+\
+# Ensure mc_bulk_dir is a Path object before using .glob()\
+allc_table = \{\
+    allc_path.name.split('_strandmerge')[0]: str(allc_path)\
+    for allc_path in mc_bulk_dir.glob('*_strandmerge.allc.tsv.gz')\
+\}\
+\
+samples = list(allc_table.keys())\
+allc_paths = list(allc_table.values())\
+\
+chrom_size_path = '/secret/path/amethyst/manuscript_analysis_v3/benchmark/allcools/sciMETv2_3842F_process/hg38.main.chrom.sizes'\
+output_dir = './sciMETv2_3842F_exc_vs_inh_dms'\
+\
+call_dms(\
+    output_dir=output_dir,\
+    allc_paths=allc_paths,\
+    samples=samples,\
+    chrom_size_path=chrom_size_path,\
+    cpu=10,\
+    max_row_count=50,\
+    n_permute=3000,\
+    min_pvalue=0.01)\
+\
+call_dmr(output_dir=output_dir,\
+         p_value_cutoff=0.001,\
+         frac_delta_cutoff=0.3,\
+         max_dist=250,\
+         residual_quantile=0.7,\
+         corr_cutoff=0.3,\
+         cpu=10)\
+\
+/usr/bin/time -v python find_dmr.py &> find_dmr_stats.log &\
+# note: had to edit line 109, 113, 115 of /home/groups/ravnica/src/ALLCools/ALLCools/dmr/call_dms.py due to indexing issues + numpy issue in utilities.py; also had to hijack call_dmr.py to process whole dataset because I couldn't ever get it to merge chrom results\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 #################################################################\
+### SCMET ###\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/scmet\
+\
+# see amethyst manuscript v3.R script for initial processing\
+/usr/bin/time -v Rscript sciMETv2_3842F_benchmark_scmet_fit_obj.R &> sciMETv2_3842F_benchmark_scmet_fit_obj_stats.log &\
+\
+#################################################################\
+### METHSCAN - BRAIN ###\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/methscan/cg_sciMETv2_3842F_files\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+# convert to starting format - did this for each batch, CG and CH\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 for f in /secret/path/sciMETv2_3842F_reAnalysis/sciMETv2_3842F.LA/*.CG.cov; do\
+    awk '\{gsub("chr", "", $1); printf "%d\\t%d\\t%d\\t%.2f\\t%d\\t%d\\n", $1, $2, $2, $3, $5, $4\}' "$f" > "$(basename "$\{f%.CG.cov\}").methscan.CG.cov"\
+done &\
+\
+# filter cell files to just passing cells so processing metrics are comparable\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/methscan\
+awk '\{print "cg_sciMETv2_3842F_files/" $1 ".methscan.CG.cov"\}' brain_barcodes_filtered.txt | xargs -I \{\} mv \{\} cg_sciMETv2_3842F_files/\
+awk '\{print "ch_sciMETv2_3842F_files/" $1 ".methscan.CH.cov"\}' brain_barcodes_filtered.txt | xargs -I \{\} mv \{\} ch_sciMETv2_3842F_files/\cb1 \CocoaLigature1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 # did recommended QC step but there aren't major outliers. Didn't do TSS step because data is pre-filtered and want to compare apples to apples\
+\
+# execute steps with time metrics (CG)\
+/usr/bin/time -v apptainer exec methscan.sif methscan prepare cg_sciMETv2_3842F_files/*.cov cg_sciMETv2_3842F_compact &> cg_methscan_prepare_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan smooth cg_sciMETv2_3842F_compact &> cg_methscan_smooth_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan scan --threads 10 cg_sciMETv2_3842F_compact cg_sciMETv2_3842F_VMRs.bed &> cg_methscan_scan_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan matrix --threads 10 cg_sciMETv2_3842F_VMRs.bed cg_sciMETv2_3842F_compact cg_sciMETv2_3842F_VMR_matrix &> cg_methscan_matrix_stats.log &\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+# execute steps with time metrics (CH)\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 awk '\{print "ch_sciMETv2_3842F_files/" $1 ".methscan.CH.cov"\}' brain_barcodes_filtered.txt | xargs -I \{\} mv \{\} ch_sciMETv2_3842F_files_filtered/ &\
+/usr/bin/time -v apptainer exec methscan.sif methscan prepare ch_sciMETv2_3842F_files/*.cov ch_sciMETv2_3842F_compact &> ch_methscan_prepare_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan smooth ch_sciMETv2_3842F_compact &> ch_methscan_smooth_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan scan --threads 10 ch_sciMETv2_3842F_compact ch_sciMETv2_3842F_VMRs.bed &> ch_methscan_scan_stats.log &\
+/usr/bin/time -v apptainer exec methscan.sif methscan matrix --threads 10 ch_sciMETv2_3842F_VMRs.bed ch_sciMETv2_3842F_compact ch_sciMETv2_3842F_VMR_matrix &> ch_methscan_matrix_stats.log &\
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 /usr/bin/time -v Rscript cg_sciMETv2_3842F_cluster.R &> cg_sciMETv2_3842F_cluster_stats.log &\cb3 \CocoaLigature0 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 # analyze results in R\
+\
+# DMR analysis between excitatory and inhitory neurons\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 /usr/bin/time -v apptainer exec methscan.sif \cb1 \CocoaLigature1 methscan diff --threads 10 --bandwidth 1000 --stepsize 500 \cb3 \CocoaLigature0 cg_sciMETv2_3842F_compact\cb1 \CocoaLigature1  barcode_group_dmr_key.csv \cb3 \CocoaLigature0 cg_sciMETv2_3842F_exc_vs_inh_\cb1 \CocoaLigature1 DMRs_1kb.bed &> \cb3 \CocoaLigature0 cg_sciMETv2_3842F_diff_stats_1kb.log &\cb1 \CocoaLigature1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+#################################################################\
+### METHSCAN - PBMC ###\
+cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/methscan/pbmc_files\
+\
+cat ../pbmc_barcodes.txt | xargs -P 20 -I \{\} bash -c '\
+    barcode="\{\}"\
+    file="/secret/path/sciMET_PBMC2_reanalysis/PBMC2/$\{barcode\}.CG.cov"\
+    output="$\{barcode\}.methscan.CG.cov"\
+    if [[ -f "$file" ]]; then\
+        awk '\\''\{gsub("chr", "", $1); printf "%d\\t%d\\t%d\\t%.2f\\t%d\\t%d\\n", $1, $2, $2, $3, $5, $4\}'\\'' "$file" > "$output"\
+    fi\
+' &\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 /usr/bin/time -v apptainer exec methscan.sif methscan prepare pbmc_files/*.cov pbmc_files_compact &\
+/usr/bin/time -v apptainer exec methscan.sif methscan smooth pbmc_files_compact &\
+/usr/bin/time -v apptainer exec methscan.sif methscan scan --threads 10 pbmc_files_compact pbmc_files_compact_VMRs.bed &\
+/usr/bin/time -v apptainer exec methscan.sif methscan matrix --threads 10 pbmc_files_compact_VMRs.bed pbmc_files_compact pbmc_files_compact_VMR_matrix &\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+#################################################################\
+### EPICLOMAL ###\
+\
+# utilize Scale Bio's write_bismark.py function for each batch (must be in separate directories because of named pipe)\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 python ../write_bismark.py \\\
+    --met_calls sciMETv2_3842F.SLH_2.met_CG.parquet \\\
+    --barcode_file ../brain_barcode_sample_key.txt \\\
+    --sample SLH_2 &\
+\
+# still needs modification to get correct input\
+ls /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/bismark/sciMETv2_3842F_merge/*.CG.cov.gz | xargs -P 40 -I \{\} bash -c '\
+    file="\{\}"\
+   	output="/secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/cov_files/$(basename "$file")"\
+    zcat "$file" | awk '"'"'\{gsub(/^chr/, "", $1); print $1, $2, $2, $3, $4, $5\}'"'"' OFS="\\t" | bgzip > "$output"\
+' &\
+\
+# run snakemake\
+/usr/bin/time -v snakemake -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/Epiclomal/snakemake/process_real_data/Snakefile -j 10 --configfile /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/Epiclomal/snakemake/process_real_data/config.yaml &\
+\
+### re-doing for revisions; benchmark memory useage for each step 08/07/25 (modified snakemake file)
+\f1\b \
+
+\f0\b0 cd /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/sciMETv2_3842F_reprocess_withstats/\
+/usr/bin/time -v snakemake -s /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/Epiclomal/snakemake/process_real_data/Snakefile -j 10 --configfile /secret/path/amethyst/manuscript_analysis_v3/benchmark/epiclomal/Epiclomal/snakemake/process_real_data/config.yaml &> sciMETv2_3842F_reprocess_withstats_stats.log &
+\f1\b \
+
+\f0\b0 \
+\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 #################################################################\
+### MOFA ###\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \cb3 \CocoaLigature0 \
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 /usr/bin/time -v bash -c 'source $(mamba info --base)/etc/profile.d/conda.sh && conda activate mofa && Rscript sciMETv2_3842F_run_mofa.R' &> sciMETv2_3842F_run_mofa_stats.log &\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
+\cf2 \cb1 \CocoaLigature1 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+\cf2 \
+}
