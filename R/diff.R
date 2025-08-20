@@ -374,7 +374,7 @@ calcSmoothedWindows <- function(
 #' The data.frame should have three columns with rows describing conditions of each test
 #' "name" determines the name of the test in the output; "A" lists group members, and "B" lists group nonmembers
 #' @param nminTotal Minimum number of observations across all groups to include the genome region in calculations
-#' @param nminGroup Minimum number of observations across both members and nonmembers to include the genome region in calculations
+#' @param nminGroup Minimum number of observations across either members or nonmembers to include the genome region in calculations
 #'
 #' @return Returns a data.table containing the test results for each condition as an appended column
 #' @export
