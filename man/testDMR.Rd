@@ -23,7 +23,7 @@ The data.frame should have three columns with rows describing conditions of each
 
 \item{nminTotal}{Minimum number of observations across all groups to include the genome region in calculations}
 
-\item{nminGroup}{Minimum number of observations across both members and nonmembers to include the genome region in calculations}
+\item{nminGroup}{Minimum number of observations across either members or nonmembers to include the genome region in calculations}
 }
 \value{
 Returns a data.table containing the test results for each condition as an appended column
