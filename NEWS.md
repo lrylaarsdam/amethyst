@@ -1,3 +1,17 @@
+# v1.0.3
+### 08-21-2025
+  - **Fixed**
+    - *loadWindows* issue thanks to @shengzha
+    - *filterDMR* and *collapseDMR*; test names now added as "member_id" column instead of order
+    - Fixed *heatMap/histograM* frameshifting issue when duplicate genes are used as input
+    
+  - **Added**
+    - More threshold parameters to *aggregateMatrix* (minCells, minValues)
+    - *addPrefix* command suggested by @hug-cr
+    - Scripts corresponding to upcoming manuscript release in *Communications Biology*
+    - Integrated error message when obj@h5paths isn't correctly structured
+    - Color palette names! With help from Marissa Co
+
 # v1.0.2
 ### 07-24-2025
   - **Fixed**
@@ -10,7 +24,7 @@
 ### 07-07-2025
   - **Fixed**
     - prefix integration issues affecting *indexChr*, *makeWindows*, and *calcSmoothedWindows*
-    - *createObject* locked error (thanks to Yosef Ellenbogen)
+    - *createObject* locked error (thanks to @yosefellenbogen1)
     - minor updates throughout the vignettes (thanks to Jack Henry Kotnik)
     
   - **Added**
