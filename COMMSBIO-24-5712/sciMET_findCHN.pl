@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# find CHN sites
+# find CHN sites; used for trinucleotide context analysis in Fig. 5g of COMMSBIO-24-5712
 
 use strict;
 use warnings;
