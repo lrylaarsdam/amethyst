@@ -4,7 +4,7 @@
 \alias{aggregateMatrix}
 \title{aggregateMatrix}
 \usage{
-aggregateMatrix(obj, matrix, groupBy, nmin = 5)
+aggregateMatrix(obj, matrix, groupBy, minCells = 5, minValues = 5)
 }
 \arguments{
 \item{obj}{Amethyst object containing the matrix to be aggregated}
@@ -13,7 +13,9 @@ aggregateMatrix(obj, matrix, groupBy, nmin = 5)
 
 \item{groupBy}{Parameter in the metadata to aggregate over}
 
-\item{nmin}{Minimum number of cells in group to include in the result}
+\item{minCells}{Minimum number of cells in the group to return an aggregated output}
+
+\item{minValues}{Minimum number of non-NA values within a group to return an aggregated value}
 }
 \value{
 Returns a matrix containing the mean value per group

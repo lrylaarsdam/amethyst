@@ -1,7 +1,7 @@
 # Authors: Stephen Coleman, PhD; Lauren Rylaarsdam, PhD
 # 2024-2025
 ############################################################################################################################
-##  amethyst -- R package for visualisation of single cell methylation data
+##  amethyst -- R package for single cell methylation data analysis and visualization
 .onAttach <- function(libname, pkgname) {
   packageStartupMessage("Attaching amethyst version ",
                         packageDescription("amethyst")$Version, ".")

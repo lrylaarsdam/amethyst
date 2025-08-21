@@ -915,6 +915,7 @@ heatMapGenome <- function(obj,
 }
 
 ######################################################################
+# with palette naming contributions from Marissa Co, PhD!
 #' @title makePalette
 #' @description Generate a color palette of any length from a pre-defined set of hex codes
 #'
@@ -932,36 +933,36 @@ makePalette <- function(
     option,
     n,
     sample = T) {
-  if (option == 1) {pal <- c("#004A4A", "#419e9e", "#75C8D2", "#aae3e3", "#cfe3dc", "#d4c8b2", "mistyrose1", "#ffdea3", "#FFD554", "#fcba2b", "#FFA976",  "#FF8B73", "#F05252", "#bd083e")} # summertime
-  if (option == 2) {pal <- c("#d84c4b", "#15485d", "#439f9e", "#f2e5dd", "#f08e29", "#df431a")} #kingfisher
-  if (option == 3) {pal <- c("#150808","#ec5151","#ffdd6d","#a8dadc")} # toucan
-  if (option == 4) {pal <- c("#293241","#3d5a80","#98c1d9","#e0fbfc","#ee6c4d")} # bluebird
-  if (option == 5) {pal <- c("#00050b", "#0b704e", "#6f9d80", "#e1e9d1", "#fb8b01", "#f34509")} # caiman_lizard
-  if (option == 6) {pal <- c("#3D7577", "#4A4B1F", "#BDBEBF", "#F69E09", "#E32D12", "#540101")} # autumn_hike
-  if (option == 7) {pal <- c("#B5DCA5","#F9AB60","#E7576E", "#630661", "#220D50")} # dahlia
-  if (option == 8) {pal <- c("#0D353F","#72CDAE","#E6DAC6","#F5562A","#AB2E44")}
-  if (option == 9) {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")} # iris
-  if (option == 10) {pal <- c("#fd5145","#ff7165","#ffbaa4","#87d0bf","#157d88", "#043E44")} # lobster
-  if (option == 11) {pal <- c("#FBD8B0", "#DCF2C4", "#74DFD5", "#134077","#DF4275")}
-  if (option == 12) {pal <- c("#c05761","#734f5a","#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51","#941c2f")}
-  if (option == 13) {pal <- c("#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51")}
-  if (option == 14) {pal <- c("#870022", "#db5375","#e86c5f","#f58549","#f2a65a","#eec170", "#ccd0b5","#bbd7d7", "#288989")}
-  if (option == 15) {pal <- c("#f7b0be","#ed8e83","#ef3c23","#f15a42","#fac92c","#cfe5cc","#2178ae","#1b4793")} # macaw
-  if (option == 16) {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
-  if (option == 17) {pal <- c("#C5C9BC", "#114F5A", "#D08222", "#402742", "#B69BB2")} # pigeon
-  if (option == 18) {pal <- c("#f7ede2","#f6bd60","#f5cac3","#84a59d","#f28482")}
-  if (option == 19) {pal <- c("#218380","#73d2de","#ffbc42","#d81159","#8f2d56")} # jolly_rancher
-  if (option == 20) {pal <- c("#383536", "#361F1C", "#A23226", "#D7412E", "#EDBBBC","#979296" )} # galah
-  if (option == 21) {pal <- c("#c46c9f", "#f46b72", "#f0898c", "#feb46b", "#fe9e6c", "#acd2c7", "#bed4bd", "#d3cd79")}
-  if (option == 22) {pal <- c("#B7CFCF", "#D3C75C", "#8BA2CD", "#E2987B", "#37737D")} # green_jay
-  if (option == 23) {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
-  if (option == 24) {pal <- c("#7EAA9F", "#892B69", "#6E0B1B", "#C61B24", "#EE5C47", "#fcb9ac")} # seashell
-  if (option == 25) {pal <- c("#7C2C47", "#B4141F", "#DF6C26", "#E9B60D", "#BABC36")} # orangutan
-  if (option == 26) {pal <- c("#1c5253", "#306b34","#c3eb78", "#f3ffc6","#b6174b")}
-  if (option == 27) {pal <- c("#b6e2dd","#c8ddbb","#e9e5af","#fbdf9d","#fbc99d","#fbb39d","#fba09d")} # smarties
-  if (option == 28) {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")} # mantis_shrimp
-  if (option == 29) {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")} # moab
-  if (option == 30) {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")} # macaron
+  if (option == 1 | option == "pool_party") {pal <- c("#004A4A", "#419e9e", "#75C8D2", "#aae3e3", "#cfe3dc", "#d4c8b2", "mistyrose1", "#ffdea3", "#FFD554", "#fcba2b", "#FFA976",  "#FF8B73", "#F05252", "#bd083e")} # summertime
+  if (option == 2 | option == "kingfisher") {pal <- c("#d84c4b", "#15485d", "#439f9e", "#f2e5dd", "#f08e29", "#df431a")} #kingfisher
+  if (option == 3 | option == "toucan") {pal <- c("#150808","#ec5151","#ffdd6d","#a8dadc")} # toucan
+  if (option == 4 | option == "ice_pop") {pal <- c("#293241","#3d5a80","#98c1d9","#e0fbfc","#ee6c4d")} # ice_pop
+  if (option == 5 | option == "sushi_roll") {pal <- c("#00050b", "#0b704e", "#6f9d80", "#e1e9d1", "#fb8b01", "#f34509")} # sushi_roll
+  if (option == 6 | option == "autumn_hike") {pal <- c("#3D7577", "#4A4B1F", "#BDBEBF", "#F69E09", "#E32D12", "#540101")} # autumn_hike
+  if (option == 7 | option == "lupine_field") {pal <- c("#B5DCA5","#F9AB60","#E7576E", "#630661", "#220D50")} # lupine_field
+  if (option == 8 | option == "resplendent_quetzal") {pal <- c("#0D353F","#72CDAE","#E6DAC6","#F5562A","#AB2E44")} # resplendent_quetzal
+  if (option == 9 | option == "iris_garden") {pal <- c("#611c35","#a63446","#f44e3f","#ffa630","#f3d9dc","#d1c8e1","#2e5077","#373f51","#4da1a9", "#B4DDE1")} # iris
+  if (option == 10 | option == "betta") {pal <- c("#fd5145","#ff7165","#ffbaa4","#87d0bf","#157d88", "#043E44")} # betta
+  if (option == 11 | option == "northern_lights") {pal <- c("#FBD8B0", "#DCF2C4", "#74DFD5", "#134077","#DF4275")} # northern_lights
+  if (option == 12 | option == "wood_duck") {pal <- c("#c05761","#734f5a","#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51","#941c2f")} # autumn
+  if (option == 13 | option == "caique") {pal <- c("#264653","#2a9d8f","#e9c46a","#f4a261","#e76f51")} # caique
+  if (option == 14 | option == "rum_punch") {pal <- c("#870022", "#db5375","#e86c5f","#f58549","#f2a65a","#eec170", "#ccd0b5","#bbd7d7", "#288989")}
+  if (option == 15 | option == "macaw") {pal <- c("#f7b0be","#ed8e83","#ef3c23","#f15a42","#fac92c","#cfe5cc","#2178ae","#1b4793")} # macaw
+  if (option == 16 | option == "sea_glass") {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
+  if (option == 17 | option == "pigeon") {pal <- c("#C5C9BC", "#114F5A", "#D08222", "#402742", "#B69BB2")} # pigeon
+  if (option == 18 | option == "rainbow_trout") {pal <- c("#f7ede2","#f6bd60","#f5cac3","#84a59d","#f28482")}
+  if (option == 19 | option == "fiesta") {pal <- c("#218380","#73d2de","#ffbc42","#d81159","#8f2d56")} # jolly_rancher
+  if (option == 20 | option == "medium_rare") {pal <- c("#383536", "#361F1C", "#A23226", "#D7412E", "#EDBBBC","#979296" )} # galah
+  if (option == 21 | option == "sidewalk_chalk") {pal <- c("#c46c9f", "#f46b72", "#f0898c", "#feb46b", "#fe9e6c", "#acd2c7", "#bed4bd", "#d3cd79")}
+  if (option == 22 | option == "green_jay") {pal <- c("#B7CFCF", "#D3C75C", "#8BA2CD", "#E2987B", "#37737D")} # green_jay
+  if (option == 23 | option == "koi_pond") {pal <- c("#50514f","#f25f5c","#ffe066","#247ba0","#70c1b3","#c0e8f9")}
+  if (option == 24 | option == "rose_garden") {pal <- c("#7EAA9F", "#892B69", "#6E0B1B", "#C61B24", "#EE5C47", "#fcb9ac")} # seashell
+  if (option == 25 | option == "nectarine") {pal <- c("#7C2C47", "#B4141F", "#DF6C26", "#E9B60D", "#BABC36")} # orangutan
+  if (option == 26 | option == "venus_fly_trap") {pal <- c("#1c5253", "#306b34","#c3eb78", "#f3ffc6","#b6174b")} # venus_fly_trap
+  if (option == 27 | option == "ambrosia_salad") {pal <- c("#b6e2dd","#c8ddbb","#e9e5af","#fbdf9d","#fbc99d","#fbb39d","#fba09d")} # smarties
+  if (option == 28 | option == "mantis_shrimp") {pal <- c("#247ba0","#a15856","#f25f5c","#f9a061","#ffe066","#92ae83","#70c1b3","#4a9eaa","#50514f")} # mantis_shrimp
+  if (option == 29 | option == "salmon_fillet") {pal <- c("#579393", "#A95862", "#FB856C", "#FEB780", "#7D8EA8")} # salmon_filet
+  if (option == 30 | option == "macaron") {pal <- c("#C0CFE0", "#C5C463", "#F2AF3F","#FFA090", "#EF5356")} # macaron
 
   if (n < length(pal) && sample) {
     colors <- sample(pal, size = n)
@@ -1000,13 +1001,18 @@ testPalette <- function(output,
       colors[[i]] <- makePalette(option = i, n = n)
     }
     colors <- as.data.frame(do.call(cbind, colors))
-    colnames(colors) <- paste0(1:30)
+    palette_names <- c("pool_party", "kingfisher", "toucan", "ice_pop", "sushi_roll", "autumn_hike", "lupine_field", "resplendent_quetzal", "iris_garden", "betta",
+                       "northern_lights", "wood_duck", "caique", "rum_punch", "macaw", "sea_glass", "pigeon", "rainbow_trout", "fiesta", "medium_rare",
+                       "sidewalk_chalk", "green_jay", "koi_pond", "rose_garden", "nectarine", "venus_fly_trap", "ambrosia_salad", "mantis_shrimp", "salmon_fillet", "macaron")
+    colnames(colors) <- paste0(1:30, ": ", palette_names)
     colors <- tidyr::gather(colors, key="key", value="color")
+    colors$key <- factor(colors$key, levels = paste0(1:30, ": ", palette_names))
 
     p1 <- ggplot2::ggplot(colors, ggplot2::aes(x = color, y = key, fill = color)) +
       ggplot2::geom_tile() + ggplot2::theme_void() +
       ggplot2::scale_fill_identity() +
-      ggplot2::facet_wrap(. ~ key, scales = "free", ncol = 1, strip.position = "left")
+      ggplot2::facet_wrap(. ~ key, scales = "free", ncol = 1, strip.position = "left") +
+      ggplot2::theme(strip.text.y.left = element_text(hjust = 1))
     return(p1)
   } else if (output == "dimFeature") {
     p <- vector("list", 30) # empty plot list
@@ -1014,7 +1020,7 @@ testPalette <- function(output,
       colors <- sample(makePalette(option = i, n = length(unique(obj@metadata$cluster_id))))
       # get average methylation across a gene
       p[[i]] <- dimFeature(obj = obj, colorBy = cluster_id, pointSize = 0.1, colors = colors, reduction = "umap") +
-        theme(legend.position = "none") + ggplot2::ggtitle(paste0("pal ", i))
+        theme(legend.position = "none") + ggplot2::ggtitle(paste0(i, ": ", palette_names[[i]]))
     }
     gridExtra::grid.arrange(grobs = p, nrow = 5)
   }

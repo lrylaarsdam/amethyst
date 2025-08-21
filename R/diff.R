@@ -154,6 +154,10 @@ calcSmoothedWindows <- function(
     h5paths <- obj@h5paths
   }
 
+  if (is.null(obj@index[[index]])) {
+    stop("\nPlease make sure the chromosomes have been indexed. See ?indexChr. \nIf you used Facet to pre-calculate short genomic windows instead, see ?loadSmoothedWindows.")
+  }
+
   if (!is.null(chrList) && is.null(chrSizes)) {
     stop("\nIf a chromosome whitelist is used, you also must provide a matched vector of chromosome sizes.")
   }
@@ -370,7 +374,7 @@ calcSmoothedWindows <- function(
 #' The data.frame should have three columns with rows describing conditions of each test
 #' "name" determines the name of the test in the output; "A" lists group members, and "B" lists group nonmembers
 #' @param nminTotal Minimum number of observations across all groups to include the genome region in calculations
-#' @param nminGroup Minimum number of observations across both members and nonmembers to include the genome region in calculations
+#' @param nminGroup Minimum number of observations across either members or nonmembers to include the genome region in calculations
 #'
 #' @return Returns a data.table containing the test results for each condition as an appended column
 #' @export
@@ -464,7 +468,7 @@ testDMR <- function(
       counts <- counts[, paste0(name, "_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(name, "_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
       counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
-      cat(paste0("Finished testing ", name, ": ", paste0(m, collapse = ", "), " vs. ", paste0(nm, collapse = ", ")))
+      cat(paste0("\nFinished testing ", name, ": ", paste0(m, collapse = ", "), " vs. ", paste0(nm, collapse = ", ")))
     }
   }
   return(counts)

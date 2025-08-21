@@ -1,0 +1,206 @@
+import os
+import re
+
+name_regions = config['CPG_COORDS']['NAME_REGIONS']
+data_ID = config['DATA_ID']
+
+OUTDIR = config['OUTDIR']
+LOG_DIR = os.path.join(OUTDIR, 'log')
+CPG_COORDS_OUTDIR = os.path.join(OUTDIR, 'CpG_coordinates_in_regions')
+CELL_BASED_METH_OUTDIR = os.path.join(OUTDIR, 'cell_based_CpGs')
+CELL_BASED_STAT_OUTDIR = os.path.join(OUTDIR, 'cell_based_stats')
+
+cells, = glob_wildcards(config['COV_DIR'] + "/{cel}" + config['CELL_PATTERN'])
+
+default_mem=50
+high_mem = 120
+
+if (config['STATS_METHYLATION']['ALL_CUTOFFS']) :
+    cutoffs = config['STATS_METHYLATION']['ALL_CUTOFFS']
+else:
+    cutoffs = "_".join([str(config['STATS_METHYLATION']['NUM_CELLS_CUTOFF']), str(config['STATS_METHYLATION']['MISS_PROP_CUTOFF']), str(config['STATS_METHYLATION']['NLOCI_CUTOFF'])])
+
+#print(cutoffs)
+#cutoffs = tuple(cutoffs)
+#print(cutoffs)
+#wildcard_constraints:
+#	cutoffs = '|'.join(cutoffs)
+
+
+
+#STATS_METHYLATION_OUTDIR = os.path.join(OUTDIR, 'final_stats', cutoffs)
+#FILTER_REGIONS_OUTDIR = os.path.join(OUTDIR, 'filter_regions', cutoffs)
+#READY_EPICLOMAL_OUTDIR = os.path.join(OUTDIR, 'epiclomal_input', cutoffs)
+
+CHR = list(range(1, 23))
+CHR += ['X', 'Y']
+
+
+if config['CPG_COORDS']['GENOME_LIBRARY'] == "BSgenome.Hsapiens.UCSC.hg38" or config['CPG_COORDS']['GENOME_LIBRARY'] == "BSgenome.Mmusculus.UCSC.mm10":
+    CHR = list('chr' + str(x) for x in CHR)
+
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+wildcard_constraints:
+	cutoffs = '|'.join(cutoffs)
+
+rule all:
+    input:
+        regions = expand("{O}/epiclomal_input/{cutoffs}/regionIDs_input_Epiclomal_{data_ID}.tsv.gz", O=OUTDIR, cutoffs=cutoffs, data_ID=data_ID),
+        meth_file = expand("{O}/epiclomal_input/{cutoffs}/input_Epiclomal_{data_ID}.tsv.gz", O=OUTDIR, cutoffs=cutoffs, data_ID=data_ID)   
+
+rule get_cpgs_in_regions:
+    input:
+        regions_file=config['REGION_FILE']
+    output:
+        touch(os.path.join(OUTDIR, '.get_cpgs_in_regions_{CHR}'))
+    resources:
+        h_vmem=default_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, '{CHR}_cpgs_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, '{CHR}_cpgs_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_get_cpgs_in_regions_{{CHR}}.txt"
+    shell:
+        'mkdir -p {CPG_COORDS_OUTDIR}; '
+        '/usr/bin/time -v -o {LOG_DIR}/get_cpgs_in_regions_stats.log '
+        'Rscript {config[PROCESS_REAL_DATA_DIR]}/CpG_coordinates_across_regions.R '
+        '--output_directory {CPG_COORDS_OUTDIR} '
+        '--regions_file {input.regions_file} '
+        '--name_regions {config[CPG_COORDS][NAME_REGIONS]} '
+        '--genome_library {config[CPG_COORDS][GENOME_LIBRARY]} '
+        '--type_of_C {config[CPG_COORDS][TYPE_OF_C]} '
+        '--chr {wildcards.CHR} '
+        '1> {params.qsub_out} 2> {params.qsub_err}'
+
+rule cell_based_methylation_extraction:
+    input:
+        path_cell_data=config['COV_DIR'],
+        get_cpgs_in_regions=expand(os.path.join(OUTDIR, '.get_cpgs_in_regions_{CHR}'), CHR=CHR)
+    output:
+        os.path.join(CELL_BASED_METH_OUTDIR, "CpG_meth_data_long_" + data_ID + "_{cells}.tsv.gz")
+    resources:
+        h_vmem=high_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, 'cell_based_meth_{cells}_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, 'cell_based_meth_{cells}_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_cell_based_meth_{{cells}}.txt"
+    shell:
+        'mkdir -p {CELL_BASED_METH_OUTDIR}; '
+        '/usr/bin/time -v -o {LOG_DIR}/cell_based_meth_stats.log '
+        'Rscript {config[PROCESS_REAL_DATA_DIR]}/cell_based_methylation_extraction.R '
+        '--output_directory {CELL_BASED_METH_OUTDIR} '
+        '--data_ID {data_ID} '
+        '--path_CpG_coordinates {CPG_COORDS_OUTDIR} '
+        '--path_cell_data {input.path_cell_data} '
+        '--cell_ID {wildcards.cells} '
+        '--data_type {config[CELL_BASED_METH][DATA_TYPE]} '
+        '--genome {config[CELL_BASED_METH][GENOME]} '
+        '--include_chrY {config[CELL_BASED_METH][INCLUDE_CHRY]} '
+        '1> {params.qsub_out} 2> {params.qsub_err}'
+
+rule cell_based_stats:
+    input:
+        post_processed_CpG_data_file=os.path.join(CELL_BASED_METH_OUTDIR, "CpG_meth_data_long_" + data_ID + "_{cells}.tsv.gz")
+    output:
+        os.path.join(CELL_BASED_STAT_OUTDIR, "stats_region_" + data_ID + "_{cells}.tsv")
+    resources:
+        h_vmem=default_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, 'cell_based_stats_{cells}_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, 'cell_based_stats_{cells}_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_cell_based_stats_{{cells}}.txt"
+    shell:
+        'mkdir -p {CELL_BASED_STAT_OUTDIR}; '
+        '/usr/bin/time -v -o {LOG_DIR}/cell_based_stats_stats.log '
+        'Rscript {config[PROCESS_REAL_DATA_DIR]}/cell_based_stats_methylation.R '
+        '--output_directory {CELL_BASED_STAT_OUTDIR} '
+        '--data_ID {data_ID} '
+        '--post_processed_CpG_data_file {input.post_processed_CpG_data_file} '
+        '--cell_ID {wildcards.cells} '
+        '1> {params.qsub_out} 2> {params.qsub_err}'
+
+rule stats_methylation:
+    input:
+        cell_based_CpGs=expand(os.path.join(CELL_BASED_METH_OUTDIR, "CpG_meth_data_long_" + data_ID + "_{cells}.tsv.gz"), cells=cells),
+        cell_based_stats=expand(os.path.join(CELL_BASED_STAT_OUTDIR, "stats_region_" + data_ID + "_{cells}.tsv"), cells=cells)
+    output:
+        OUTDIR + "/final_stats/{cutoffs}/final_mean_meth_region_" + data_ID + ".tsv",
+        OUTDIR + "/final_stats/{cutoffs}/final_regions_" + data_ID + ".tsv"
+    resources:
+        h_vmem=high_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, '{cutoffs}_stats_meth_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, '{cutoffs}_stats_meth_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_stats_methylation_{{cutoffs}}.txt"
+    shell:
+        '/usr/bin/time -v -o {LOG_DIR}/stats_methylation_stats.log '
+        'Rscript {config[PROCESS_REAL_DATA_DIR]}/stats_methylation.R '
+        '--output_directory {OUTDIR}/final_stats/{wildcards.cutoffs} '
+        '--data_ID {data_ID} '
+        '--path_post_processed_CpG_data {CELL_BASED_METH_OUTDIR} '
+        '--path_stats_region_data {CELL_BASED_STAT_OUTDIR} '
+        '--all_cutoffs {wildcards.cutoffs} '
+        '--filter_regions_same_meth {config[STATS_METHYLATION][FILTER_REGIONS_SAME_METH]} '
+        '--plot_heatmap_unfiltered {config[STATS_METHYLATION][PLOT_HEATMAP_UNFILTERED]} '
+        '--plot_heatmap_filtered {config[STATS_METHYLATION][PLOT_HEATMAP_FILTERED]} '
+        '1> {params.qsub_out} 2> {params.qsub_err}'
+
+rule filter_regions:
+    input:
+        meth_file = OUTDIR + "/final_stats/{cutoffs}/final_mean_meth_region_" + data_ID + ".tsv",
+        regions_file = OUTDIR + "/final_stats/{cutoffs}/final_regions_" + data_ID + ".tsv"
+    output:
+        OUTDIR + "/filter_regions/{cutoffs}/filtered_regions_" + data_ID + ".tsv"
+    resources:
+        h_vmem=default_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, '{cutoffs}_filter_regions_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, '{cutoffs}_filter_regions_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_filter_regions_{{cutoffs}}.txt"
+    run:
+        if (config['FILTER_REGIONS']['FILTER']):
+            shell('/usr/bin/time -v -o {LOG_DIR}/filter_regions_stats.log '
+                'Rscript {config[PROCESS_REAL_DATA_DIR]}/filter_regions.R '
+                '--output_directory {OUTDIR}/filter_regions/{wildcards.cutoffs} '
+                '--data_ID {data_ID} '
+                '--mean_methylation_file {input.meth_file} '
+                '--true_file {config[TRUE_FILE]} '
+                '--coef_threshold {config[FILTER_REGIONS][COEF_THRESHOLD]} '
+                '--mean_diff_threshold {config[FILTER_REGIONS][MEAN_DIFF_THRESHOLD]} '
+                '--n_to_keep {config[FILTER_REGIONS][N_TO_KEEP]} '
+                '1> {params.qsub_out} 2> {params.qsub_err}'
+            )
+        else:
+            shell('cp {input.regions_file} {output}')
+
+rule get_data_ready_Epiclomal:
+    input:
+        cell_based_stats=expand(os.path.join(CELL_BASED_STAT_OUTDIR, "stats_region_" + data_ID + "_{cells}.tsv"), cells=cells),
+        file_final_regions = OUTDIR + "/filter_regions/{cutoffs}/filtered_regions_" + data_ID + ".tsv"
+    output:
+        regions   = OUTDIR + "/epiclomal_input/{cutoffs}/regionIDs_input_Epiclomal_" + data_ID + ".tsv.gz",
+        meth_file = OUTDIR + "/epiclomal_input/{cutoffs}/input_Epiclomal_" + data_ID + ".tsv.gz"
+    resources:
+        h_vmem=high_mem
+    params:
+        qsub_out=os.path.join(LOG_DIR, '{cutoffs}_prepare_epiclomal_qsub_out'),
+        qsub_err=os.path.join(LOG_DIR, '{cutoffs}_prepare_epiclomal_qsub_err')
+    benchmark:
+        f"{LOG_DIR}/benchmark_prepare_epiclomal_{{cutoffs}}.txt"
+    shell:
+        '/usr/bin/time -v -o {LOG_DIR}/get_data_ready_Epiclomal_stats.log '
+        'Rscript {config[PROCESS_REAL_DATA_DIR]}/get_data_ready_Epiclomal.R '
+        '--output_directory {OUTDIR}/epiclomal_input/{wildcards.cutoffs} '
+        '--data_ID {data_ID} '
+        '--path_post_processed_CpG_data {CELL_BASED_METH_OUTDIR} '
+        '--file_final_regions {input.file_final_regions} '
+        '--filter_CpG_no_data {config[READY_EPICLOMAL][FILTER_CPG_NO_DATA]} '
+        '--LuoDiamond {config[READY_EPICLOMAL][LUODIAMOND]} '
+        '1> {params.qsub_out} 2> {params.qsub_err}'
+
