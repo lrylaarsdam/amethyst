@@ -88,7 +88,7 @@ loadWindows <- function(
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/", name)))
 
           if (metric != "percent") {
-            meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
+            meth_cell <- obj@metadata[barcode_name, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           }
 
           meth_window <- h5[, .(value = round(sum(c_nz) / (sum(c_nz) + sum(t_nz)), 3), n = sum(c_nz + t_nz, na.rm = TRUE)), by = c("chr", "start", "end")]
