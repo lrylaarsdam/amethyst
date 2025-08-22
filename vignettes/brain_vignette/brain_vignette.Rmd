@@ -1,8 +1,8 @@
 ---
 output:
+  html_document: default
   pdf_document: 
     latex_engine: xelatex
-  html_document: default
 editor_options: 
   markdown: 
     wrap: sentence
@@ -284,7 +284,7 @@ sampleComp(obj, groupBy = "batch", colorBy = "louvain_cluster")
 
 If you want to make your plots look nicer, Amethyst provides many built-in color palettes. The function *testPalette* will show you what each option will look like with the required number of colors (one for each cluster, in this case).
 
-```{r, fig.width=3, fig.height=5}
+```{r, fig.width=3, fig.height=6}
 testPalette(output = "swatch", n = length(unique(obj@metadata$louvain_cluster)))
 ```
 
@@ -420,7 +420,11 @@ As a reference, we will first use *heatMapGenome* to look at 100kb levels in the
 
 ```{r, fig.width=12, fig.height=8}
 # First, aggregate CG levels by cluster
-obj@genomeMatrices[["cg_100k_score_cluster"]] <- aggregateMatrix(obj = obj, matrix = "cg_100k_score", groupBy = "louvain_cluster", nmin = 2)
+obj@genomeMatrices[["cg_100k_score_cluster"]] <- aggregateMatrix(obj = obj, 
+                                                                 matrix = "cg_100k_score", 
+                                                                 groupBy = "louvain_cluster", 
+                                                                 minCells = 2, # raise for real data
+                                                                 minValues = 2) # raise for real data
 
 # Then plot
 heatMapGenome(obj, matrix = "cg_100k_score_cluster", colors = c("#005eff", "#9daec9", "#cccccc", "#dbdbdb"))
@@ -430,7 +434,11 @@ Notice how there is subtle variation, but it relatively stable, particularly acr
 
 ```{r, fig.width=12, fig.height=8}
 # First, aggregate CH levels by cluster
-obj@genomeMatrices[["ch_100k_pct_cluster"]] <- aggregateMatrix(obj = obj, matrix = "ch_100k_pct", groupBy = "louvain_cluster", nmin = 2)
+obj@genomeMatrices[["ch_100k_pct_cluster"]] <- aggregateMatrix(obj = obj, 
+                                                               matrix = "ch_100k_pct", 
+                                                               groupBy = "louvain_cluster", 
+                                                               minCells = 2, # raise for real data
+                                                               minValues = 2) # raise for real data
 
 # Then plot
 heatMapGenome(obj, matrix = "ch_100k_pct_cluster", colors = c("black", "red", "yellow"))
@@ -548,7 +556,11 @@ Another method for cell type annotation is by comparison to an annotated referen
 ```{r}
 download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/brain_vignette/PMC9004682_5972genes_BA10_ref.RData", "~/Downloads/PMC9004682_5972genes_BA10_ref.RData", method = "curl")
 ref <- readRDS("~/Downloads/PMC9004682_5972genes_BA10_ref.RData")
-obj@genomeMatrices[["gene_ch_cluster"]] <- aggregateMatrix(obj, matrix = "gene_ch", groupBy = "louvain_cluster")
+obj@genomeMatrices[["gene_ch_cluster"]] <- aggregateMatrix(obj, 
+                                                           matrix = "gene_ch", 
+                                                           groupBy = "louvain_cluster",
+                                                           minCells = 2, # raise for real data
+                                                           minValues = 2) # raise for real data)
 ```
 
 Now see how aggregated mCH profiles from the reference compare to those of our clusters. First, merge together common windows from the pre-annotated data and our clusters. Then use the *cor* function to calculate Pearson's r for pairwise complete observations. Finally, use *pheatmap* to plot comparisons across datasets. 
