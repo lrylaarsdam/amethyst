@@ -367,7 +367,7 @@ sampleComp(obj, groupBy = "batch", colorBy = "louvain_vmr_cluster")
 
 If you want to make your plots look nicer, Amethyst provides many built-in color palettes. The function *testPalette* will show you what each option will look like with the required number of colors (one for each cluster, in this case).
 
-```{r, fig.width=3, fig.height=5}
+```{r, fig.width=3, fig.height=6}
 testPalette(output = "swatch", n = length(unique(obj@metadata$louvain_vmr_cluster)))
 ```
 
@@ -552,7 +552,11 @@ Another method one could use to aid in cell type determination is by comparison 
 ```{r, eval = FALSE}
 download.file("https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/vignettes/pbmc_vignette/pbmc_ref.RData", "~/Downloads/pbmc_ref.RData")
 ref <- readRDS("~/Downloads/pbmc_ref.RData")
-obj@genomeMatrices[["pbmc_vmrs_aggregated"]] <- aggregateMatrix(obj, matrix = "pbmc_vmrs", groupBy = "louvain_vmr_cluster", nmin = 2) # raise nmin for real data
+obj@genomeMatrices[["pbmc_vmrs_aggregated"]] <- aggregateMatrix(obj, 
+                                                                matrix = "pbmc_vmrs", 
+                                                                groupBy = "louvain_vmr_cluster", 
+                                                                minCells = 2, # raise for real data
+                                                                minValues = 2) # raise for real data
 ```
 
 Now view how well each of our clusters correlates with the pre-annotated data. First, merge together common windows from the pre-annotated data and our clusters. Then use the *cor* function to calculate Pearson's r for pairwise complete observations. Finally, use *pheatmap* to plot comparisons across datasets. 
