@@ -363,18 +363,24 @@ conflicts in Amethyst because each cell must have a unique ID. There are
 two ways to address this:</p>
 <ol style="list-style-type: decimal">
 <li>Leave the h5 file untouched and append a prefix within Amethyst</li>
+</ol>
+<ol style="list-style-type: lower-alpha">
+<li>Manually</li>
+<li>With <em>addPrefix</em></li>
+</ol>
+<ol start="2" style="list-style-type: decimal">
 <li>Append a unique prefix to the barcodes within the h5 file (or at
 prior steps) and metadata</li>
 </ol>
 <div id="section-1" class="section level104">
 <p class="heading"></p>
 </div>
-<div id="appending-a-unique-prefix-within-amethyst" class="section level3">
-<h3>1. Appending a unique prefix within Amethyst</h3>
+<div id="a.-appending-a-unique-prefix-within-amethyst-manually" class="section level3">
+<h3>1a. Appending a unique prefix within Amethyst (manually)</h3>
 <p>The first option is to append a unique prefix within Amethyst and
 leave the h5 file unaltered. This is probably the simplest option, but
 make sure to keep track of which paths correspond to which prefix.</p>
-<p>We will illustrate this workflow with two copies of the pbmc vignette
+<p>We will illustrate this workflow with two copies of the PBMC vignette
 data. First, either download it from AWS or just copy the file
 locally.</p>
 <pre class="r"><code># h5 data
@@ -391,7 +397,7 @@ download.file(&quot;https://raw.githubusercontent.com/lrylaarsdam/amethyst/main/
 ##   all.equal.connection parallelly</code></pre>
 <pre><code>## Warning: replacing previous import &#39;GenomicRanges::reduce&#39; by &#39;purrr::reduce&#39;
 ## when loading &#39;amethyst&#39;</code></pre>
-<pre><code>## Attaching amethyst version 1.0.1.</code></pre>
+<pre><code>## Attaching amethyst version 1.0.3.</code></pre>
 <pre class="r"><code>obj &lt;- createObject()</code></pre>
 <p>First we will assemble and add the metadata so that we know what
 barcodes to specify for the h5paths slot. A different method may be more
@@ -444,6 +450,88 @@ carried through analysis. For example:</p>
 ## 5: 1_ACTTCTGCCAAGATAGAGGTCGTCTGCG   chr1     1 102023
 ## 6: 1_ACTTCTGCCAATAATCGCGGCTGATGCT   chr1     1 108912</code></pre>
 <div id="section-2" class="section level104">
+<p class="heading"></p>
+</div>
+</div>
+<div id="b.-appending-a-unique-prefix-within-amethyst-with-addprefix" class="section level3">
+<h3>1b. Appending a unique prefix within Amethyst (with
+<em>addPrefix</em>)</h3>
+<p>We have created a helper function <em>addPrefix</em> to make this
+process easier for existing objects. Instead of constructing the
+combined object manually as in the example above, another approach would
+be to construct both objects separately, apply the unique identifier
+with <em>addPrefix</em>, and combine as normal.</p>
+<p>First, re-load the metadata, because it was modified in the code
+above.</p>
+<pre class="r"><code>cellinfo_1 &lt;- utils::read.table(&quot;~/Downloads/pbmc_vignette_cellInfo_1.txt&quot;, sep = &quot;\t&quot;, header = F, col.names = c(&quot;cell_id&quot;, &quot;cov&quot;, &quot;cg_cov&quot;, &quot;mcg_pct&quot;, &quot;ch_cov&quot;,&quot;mch_pct&quot;))
+cellinfo_2 &lt;- utils::read.table(&quot;~/Downloads/pbmc_vignette_cellInfo_1.txt&quot;, sep = &quot;\t&quot;, header = F, col.names = c(&quot;cell_id&quot;, &quot;cov&quot;, &quot;cg_cov&quot;, &quot;mcg_pct&quot;, &quot;ch_cov&quot;,&quot;mch_pct&quot;))</code></pre>
+<p>Now, construct two separate objects. Notice that the metadata is the
+same.</p>
+<pre class="r"><code>obj_1 &lt;- createObject(
+  h5paths = data.frame(
+    barcode = cellinfo_1$cell_id,
+    path = &quot;~/Downloads/pbmc_vignette_cellInfo_1.txt&quot;),
+  metadata = cellinfo_1 |&gt; tibble::column_to_rownames(var = &quot;cell_id&quot;))
+
+obj_2 &lt;- createObject(
+  h5paths = data.frame(
+    barcode = cellinfo_2$cell_id,
+    path = &quot;~/Downloads/pbmc_vignette_cellInfo_1.txt&quot;),
+  metadata = cellinfo_2 |&gt; tibble::column_to_rownames(var = &quot;cell_id&quot;))
+
+head(obj_1@metadata)</code></pre>
+<pre><code>##                                   cov  cg_cov mcg_pct   ch_cov mch_pct
+## ACGCGACGGCACGAGAATCACTGTCATG 27258073  923300   82.21 21341679    0.54
+## ACGCGACGGCTATACCGAAGCGCCTATA 29188802  918053   81.16 22528736    0.53
+## ACTTCTGCCAACGCTTCGTCAGTACTCC 25963119 1039143   71.63 21429728    0.45
+## ACTTCTGCCAACGCTTCGTCGATGATCC 29345922 1144694   74.76 24104451    0.45
+## ACTTCTGCCAAGATAGAGGTCGTCTGCG 27393943 1249755   68.49 23454887    0.54
+## ACTTCTGCCAATAATCGCGGCTGATGCT 28318992 1264972   69.86 23883025    0.46</code></pre>
+<pre class="r"><code>head(obj_2@metadata)</code></pre>
+<pre><code>##                                   cov  cg_cov mcg_pct   ch_cov mch_pct
+## ACGCGACGGCACGAGAATCACTGTCATG 27258073  923300   82.21 21341679    0.54
+## ACGCGACGGCTATACCGAAGCGCCTATA 29188802  918053   81.16 22528736    0.53
+## ACTTCTGCCAACGCTTCGTCAGTACTCC 25963119 1039143   71.63 21429728    0.45
+## ACTTCTGCCAACGCTTCGTCGATGATCC 29345922 1144694   74.76 24104451    0.45
+## ACTTCTGCCAAGATAGAGGTCGTCTGCG 27393943 1249755   68.49 23454887    0.54
+## ACTTCTGCCAATAATCGCGGCTGATGCT 28318992 1264972   69.86 23883025    0.46</code></pre>
+<pre class="r"><code>identical(obj_1@metadata, obj_2@metadata)</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<p>Use the <em>addPrefix</em> function to apply an identifier to each
+object. Now, notice that the prefix has been appended in the metadata
+(and elsewhere as needed), so there are no overlapping cell names.</p>
+<pre class="r"><code>obj_1 &lt;- addPrefix(obj = obj_1, prefix = &quot;1_&quot;)
+obj_2 &lt;- addPrefix(obj = obj_2, prefix = &quot;2_&quot;)
+
+head(obj_1@metadata)</code></pre>
+<pre><code>##                                     cov  cg_cov mcg_pct   ch_cov mch_pct
+## 1_ACGCGACGGCACGAGAATCACTGTCATG 27258073  923300   82.21 21341679    0.54
+## 1_ACGCGACGGCTATACCGAAGCGCCTATA 29188802  918053   81.16 22528736    0.53
+## 1_ACTTCTGCCAACGCTTCGTCAGTACTCC 25963119 1039143   71.63 21429728    0.45
+## 1_ACTTCTGCCAACGCTTCGTCGATGATCC 29345922 1144694   74.76 24104451    0.45
+## 1_ACTTCTGCCAAGATAGAGGTCGTCTGCG 27393943 1249755   68.49 23454887    0.54
+## 1_ACTTCTGCCAATAATCGCGGCTGATGCT 28318992 1264972   69.86 23883025    0.46</code></pre>
+<pre class="r"><code>head(obj_2@metadata)</code></pre>
+<pre><code>##                                     cov  cg_cov mcg_pct   ch_cov mch_pct
+## 2_ACGCGACGGCACGAGAATCACTGTCATG 27258073  923300   82.21 21341679    0.54
+## 2_ACGCGACGGCTATACCGAAGCGCCTATA 29188802  918053   81.16 22528736    0.53
+## 2_ACTTCTGCCAACGCTTCGTCAGTACTCC 25963119 1039143   71.63 21429728    0.45
+## 2_ACTTCTGCCAACGCTTCGTCGATGATCC 29345922 1144694   74.76 24104451    0.45
+## 2_ACTTCTGCCAAGATAGAGGTCGTCTGCG 27393943 1249755   68.49 23454887    0.54
+## 2_ACTTCTGCCAATAATCGCGGCTGATGCT 28318992 1264972   69.86 23883025    0.46</code></pre>
+<pre class="r"><code>identical(obj_1@metadata, obj_2@metadata) # now they no longer match</code></pre>
+<pre><code>## [1] FALSE</code></pre>
+<p>The objects can then be combined with Amethyst’s
+<em>combineObject</em> function.</p>
+<pre class="r"><code>obj &lt;- combineObject(objList = list(obj_1, obj_2))</code></pre>
+<pre><code>## 
+## Make sure barcodes are unique when combining objects. If not, please see our vignette on how to merge projects with overlapping barcodes.
+## Dimensionality reductions (i.e., irlba, umap, tsne) should not be merged and will need to be re-run.
+## Only indexes and subindexes found in all objects will be merged.
+## The first object did not contain a reference. The combined ref slot will remain empty.</code></pre>
+<pre class="r"><code>nrow(obj@metadata)</code></pre>
+<pre><code>## [1] 100</code></pre>
+<div id="section-3" class="section level104">
 <p class="heading"></p>
 </div>
 </div>

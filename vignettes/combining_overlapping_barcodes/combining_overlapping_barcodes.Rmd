@@ -10,14 +10,16 @@ output:
 If you have a large project or are combining multiple runs, you might encounter overlapping barcode sets between projects. This will cause conflicts in Amethyst because each cell must have a unique ID. There are two ways to address this:
 
 1.  Leave the h5 file untouched and append a prefix within Amethyst
+  a. Manually
+  b. With *addPrefix*
 2.  Append a unique prefix to the barcodes within the h5 file (or at prior steps) and metadata
 
 ######################################################################################################## 
-### 1. Appending a unique prefix within Amethyst
+### 1a. Appending a unique prefix within Amethyst (manually)
 
 The first option is to append a unique prefix within Amethyst and leave the h5 file unaltered. This is probably the simplest option, but make sure to keep track of which paths correspond to which prefix.
 
-We will illustrate this workflow with two copies of the pbmc vignette data. First, either download it from AWS or just copy the file locally.
+We will illustrate this workflow with two copies of the PBMC vignette data. First, either download it from AWS or just copy the file locally.
 
 ```{r, eval = FALSE}
 # h5 data
@@ -68,6 +70,58 @@ Now, you should be able to proceed as normal. The prefix will be carried through
 ```{r}
 obj@index[["chr_cg"]] <- indexChr(obj, type = "CG")
 head(obj@index[["chr_cg"]][["chr1"]])
+```
+
+######################################################################################################## 
+### 1b. Appending a unique prefix within Amethyst (with *addPrefix*)
+
+We have created a helper function *addPrefix* to make this process easier for existing objects. Instead of constructing the combined object manually as in the example above, another approach would be to construct both objects separately, apply the unique identifier with *addPrefix*, and combine as normal. 
+
+First, re-load the metadata, because it was modified in the code above.
+
+```{r}
+cellinfo_1 <- utils::read.table("~/Downloads/pbmc_vignette_cellInfo_1.txt", sep = "\t", header = F, col.names = c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov","mch_pct"))
+cellinfo_2 <- utils::read.table("~/Downloads/pbmc_vignette_cellInfo_1.txt", sep = "\t", header = F, col.names = c("cell_id", "cov", "cg_cov", "mcg_pct", "ch_cov","mch_pct"))
+```
+
+Now, construct two separate objects. Notice that the metadata is the same.
+
+```{r}
+obj_1 <- createObject(
+  h5paths = data.frame(
+    barcode = cellinfo_1$cell_id,
+    path = "~/Downloads/pbmc_vignette_cellInfo_1.txt"),
+  metadata = cellinfo_1 |> tibble::column_to_rownames(var = "cell_id"))
+
+obj_2 <- createObject(
+  h5paths = data.frame(
+    barcode = cellinfo_2$cell_id,
+    path = "~/Downloads/pbmc_vignette_cellInfo_1.txt"),
+  metadata = cellinfo_2 |> tibble::column_to_rownames(var = "cell_id"))
+
+head(obj_1@metadata)
+head(obj_2@metadata)
+
+identical(obj_1@metadata, obj_2@metadata)
+```
+
+Use the *addPrefix* function to apply an identifier to each object. Now, notice that the prefix has been appended in the metadata (and elsewhere as needed), so there are no overlapping cell names.
+
+```{r}
+obj_1 <- addPrefix(obj = obj_1, prefix = "1_")
+obj_2 <- addPrefix(obj = obj_2, prefix = "2_")
+
+head(obj_1@metadata)
+head(obj_2@metadata)
+
+identical(obj_1@metadata, obj_2@metadata) # now they no longer match
+```
+
+The objects can then be combined with Amethyst's *combineObject* function.
+
+```{r, message=FALSE, warnings=FALSE}
+obj <- combineObject(objList = list(obj_1, obj_2))
+nrow(obj@metadata)
 ```
 
 ######################################################################################################## 
