@@ -109,6 +109,7 @@ makeWindows <- function(
       bed <- data.table::data.table(read.table(bed))
     } else if (sum(class(bed) %in% c("data.frame", "data.table")) > 0) {
       data.table::setDT(bed)
+      bed <- unique(bed) # added 250922 to filter duplicate rows
     }
     if (ncol(bed) > 3) {
       stop("\nPlease make sure the bed file consists of three columns - chr, start, end - with no header.\n")
