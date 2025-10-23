@@ -86,6 +86,7 @@ loadWindows <- function(
           # read in data
           barcode_name <- paste0(prefix, sub("\\..*$", "", barcode))
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/", name)))
+          h5 <- unique(h5) # added 250922 to filter duplicate rows
 
           if (metric != "percent") {
             meth_cell <- obj@metadata[barcode_name, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
@@ -108,6 +109,9 @@ loadWindows <- function(
       },
       .progress = TRUE
     )
+
+    # 251015 - filter step added to save join when no data is present for a cell 251015
+    chunk_results <- Filter(function(x) !is.null(x) && nrow(x) > 0, chunk_results)
 
     results[[i]] <- Reduce(function(x, y) merge(x, y, by = c("chr", "start", "end"), all = TRUE, sort = FALSE), chunk_results)
     data.table::setorder(results[[i]], chr, start)

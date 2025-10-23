@@ -1,3 +1,10 @@
+# v1.0.4
+### 10-23-2025
+  - This version coincides with the official publication of our corresponding [manuscript](https://www.nature.com/articles/s42003-025-08859-2)!
+  - **Fixed**
+    - *makeWindows* remove duplicate rows when using a bed file as input (thanks Sito Torres Garcia)
+    - Removed duplicate rows from PBMC VMR bed files (thanks Sito Torres Garcia)
+
 # v1.0.3
 ### 08-21-2025
   - **Fixed**
