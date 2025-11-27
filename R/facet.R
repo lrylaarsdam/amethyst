@@ -269,6 +269,7 @@ loadSmoothedWindows <- function(
     }
   }
 
+  group_results <- group_results[!sapply(group_results, is.null)] # added 251126
   count_matrix <- Reduce(function(x, y) merge(x, y, by = c("chr", "start", "end"), all = TRUE, sort = FALSE), group_results)
   data.table::setorder(count_matrix, chr, start)
 
