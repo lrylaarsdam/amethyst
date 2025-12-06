@@ -300,16 +300,13 @@ regressCovBias <- function(
 #'
 #' @param obj Amethyst object to perform clustering on
 #' @param reduction Name of dimensionality reduction to calculate over
-#' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package; or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.
-#' @param k integer; number of nearest neighbors
-#' @param colname Character; name of column where results will be stored in metadata
-#' @return Adds cluster membership to the metadata file of the amethyst object
+#' @param method Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package; or "leiden", which utilizes the Trapnell lab's implementation of the Leiden algorithm https://github.com/cole-trapnell-lab/leidenbase
+#' @param k integer; number of nearest neighbors. Option applies to louvain method only.
+#' @return Returns cluster membership vector to be appended to the metadata of an amethyst object
 #' @importFrom Rphenograph Rphenograph
 #' @importFrom RANN nn2
-#' @importFrom igraph membership
-#' @importFrom tibble column_to_rownames
-#' @importFrom leiden leiden
-#' @importFrom rlang sym
+#' @importFrom igraph graph_from_edgelist membership
+#' @importFrom leidenbase leiden_find_partition
 #' @export
 #' @examples
 #' \dontrun{
@@ -319,51 +316,30 @@ runCluster <- function(obj,
                        k = 50,
                        reduction = "irlba",
                        method = "louvain",
-                       colname = "cluster_id") {
+                       resolution = 1e-3) {
+
+  k.param <- k
 
   if (method == "louvain") {
-    clusters <- Rphenograph::Rphenograph(obj@reductions[[reduction]], k = {{k}})
+    clusters <- Rphenograph::Rphenograph(obj@reductions[[reduction]], k = k.param)
     clusters <- do.call(rbind, Map(data.frame,
                                    cell_id = row.names(obj@reductions[[reduction]]),
                                    cluster_id = paste(igraph::membership(clusters[[2]]))))
-  } else if (method == "leiden") { # https://github.com/TomKellyGenetics/leiden
-
+  } else if (method == "leiden") { # implementing Trapnell lab's leidenbase after issues with reticulate
     cell_names <- rownames(obj@reductions[[reduction]])
-    snn <- RANN::nn2(obj@reductions[[reduction]], k = {{k}})$nn.idx
-    adjacency_matrix <- matrix(0L, length(cell_names), length(cell_names))
-    rownames(adjacency_matrix) <- colnames(adjacency_matrix) <- cell_names
-
-    for(ii in 1:length(cell_names)) {
-      adjacency_matrix[ii,cell_names[snn[ii,]]] <- 1L
-    }
+    snn <- bluster::makeSNNGraph(obj@reductions[[reduction]], k = k.param)
+    # implement leiden alg
     clusters <- data.frame(
-      row.names = cell_names,
       cell_id = cell_names,
-      cluster_id = leiden::leiden(adjacency_matrix)
-    )
-    clusters$cluster_id <- as.character(clusters$cluster_id)
+      cluster_id = leidenbase::leiden_find_partition(snn,
+                                                     partition_type = "CPMVertexPartition",
+                                                     resolution_parameter = resolution,
+                                                     num_iter = 4)$membership)
 
   } else {
     stop("Please choose method 'louvain' or 'leiden'. Any alternative method may be implemented manually and added to the object metadata.")
   }
 
-  if (colname != "cluster_id") {
-    clusters <- clusters |> dplyr::rename(!!sym(colname) := "cluster_id")
-  }
-
-  if (is.null(obj@metadata[[colname]])) {
-    if (is.null(obj@metadata)) {
-      obj@metadata <- clusters |> dplyr::select(-cell_id)
-    }
-    if (!is.null(obj@metadata)) {
-      obj@metadata <- merge(obj@metadata, clusters, by = 0) |> tibble::column_to_rownames(var = "Row.names")
-      obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
-    }
-  } else if (!is.null(obj@metadata[[colname]])) {
-    obj@metadata <- merge(obj@metadata |> dplyr::select(-!!sym(colname)),
-                          clusters, by = 0) |>
-      tibble::column_to_rownames(var = "Row.names")
-    obj@metadata <- obj@metadata[, !grepl("cell_id", colnames(obj@metadata))]
-  }
-  output <- obj
+  membership_vector <- clusters$cluster_id[match(rownames(obj@metadata), clusters$cell_id)]
+  return(membership_vector)
 }
