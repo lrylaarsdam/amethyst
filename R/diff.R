@@ -530,7 +530,8 @@ filterDMR <- function(
   }
 
   if (correctionLevel == "withinGroup") {
-    results <- results[, padj := stats::p.adjust(pval, method = method), by = test_order]
+    n_windows <- nrow(unique(results[, .(chr, start, end)]))
+    results <- results[, padj := stats::p.adjust(pval, method = method, n = n_windows), by = test_order]
   }
   if (correctionLevel == "global") {
     results <- results[, padj := stats::p.adjust(pval, method = method)]
