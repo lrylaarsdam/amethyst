@@ -62,7 +62,9 @@ findClusterMarkers <- function(
               "gene" = gene,
               "cluster_id" = id,
               mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
-              mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
+              mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE),
+              n_members = sum(!is.na(genematrix[gene, members])),
+              n_nonmembers = sum(!is.na(genematrix[gene, nonmembers]))
             ) |> dplyr::mutate(
               logFC = log2(mean_1 / mean_2),
               direction = ifelse(mean_1 > mean_2, "hypermethylated", "hypomethylated")
@@ -428,8 +430,8 @@ testDMR <- function(
       counts <- counts[, `:=`(
         member_c = get(paste0(gr, "_c")),
         member_t = get(paste0(gr, "_t")),
-        nonmember_c = rowSums(.SD[, mget(nm_c)]),
-        nonmember_t = rowSums(.SD[, mget(nm_t)])
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114 :( sorry
       )]
 
       # don't test where the minimum observations per group is not met
@@ -469,10 +471,10 @@ testDMR <- function(
       nm_t <- paste0(nm, "_t")
 
       counts <- counts[, `:=`(
-        member_c = rowSums(.SD[, mget(m_c)]),
-        member_t = rowSums(.SD[, mget(m_t)]),
-        nonmember_c = rowSums(.SD[, mget(nm_c)]),
-        nonmember_t = rowSums(.SD[, mget(nm_t)])
+        member_c = rowSums(.SD[, mget(m_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
+        member_t = rowSums(.SD[, mget(m_t)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114 :( sorry
       )]
 
       # don't test where the minimum observations per group is not met
@@ -660,4 +662,3 @@ collapseDMR <- function(
 
   return(output)
 }
-
