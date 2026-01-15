@@ -4,7 +4,14 @@
 \alias{dimFeature}
 \title{dimFeature}
 \usage{
-dimFeature(obj, colorBy, colors = NULL, pointSize = 0.5, reduction = "umap")
+dimFeature(
+  obj,
+  colorBy = NULL,
+  colors = NULL,
+  pointSize = 0.5,
+  reduction = "umap",
+  label = NULL
+)
 }
 \arguments{
 \item{obj}{The amethyst object to plot}
@@ -16,6 +23,8 @@ dimFeature(obj, colorBy, colors = NULL, pointSize = 0.5, reduction = "umap")
 \item{pointSize}{Optional; adjust point size}
 
 \item{reduction}{Name of reduction slot containing UMAP / TSNE dimensionality reduction coordinates}
+
+\item{label}{Optional; text label overlay}
 }
 \value{
 Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
@@ -27,4 +36,5 @@ Plot any feature in the metadata over UMAP / TSNE coordinates
 \dontrun{
   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
 }
+
 }

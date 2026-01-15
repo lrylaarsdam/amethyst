@@ -7,6 +7,7 @@
 filterDMR(
   dmrMatrix,
   method = "bonferroni",
+  correctionLevel = "global",
   filter = TRUE,
   keepSums = FALSE,
   pThreshold = 0.01,
@@ -18,6 +19,8 @@ filterDMR(
 Should contain a data.table of summed observations per test group and genomic region with unadjusted p values and logFC for each condition.}
 
 \item{method}{Method for p value adjustment. Bonferroni is the default. See ?p.adjust for all options.}
+
+\item{correctionLevel}{Whether to apply multiple testing correction "withinGroup" or "global".}
 
 \item{filter}{If TRUE, removes insignificant results.}
 
