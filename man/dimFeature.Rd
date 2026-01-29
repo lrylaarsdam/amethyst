@@ -8,9 +8,9 @@ dimFeature(
   obj,
   colorBy = NULL,
   colors = NULL,
+  labelBy = NULL,
   pointSize = 0.5,
-  reduction = "umap",
-  label = NULL
+  reduction = "umap"
 )
 }
 \arguments{
