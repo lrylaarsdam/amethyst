@@ -48,6 +48,7 @@ sampleComp <- function(
 #' @export
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
 #' @importFrom rlang enquo
+#' @importFrom ggrepel geom_text_repel
 #' @examples
 #' \dontrun{
 #'   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
@@ -57,25 +58,25 @@ dimFeature <- function(
     obj,
     colorBy = NULL,
     colors = NULL,
+    labelBy = NULL,
     pointSize = 0.5,
-    reduction = "umap",
-    label = NULL) {
+    reduction = "umap") {
 
   colorBy <- rlang::enquo(colorBy)
-  label   <- rlang::enquo(label)
+  labelBy   <- rlang::enquo(labelBy)
 
   metadata <- merge(obj@metadata, obj@reductions[[reduction]], by = 0)
   set.seed(123)
   metadata <- metadata[sample(seq_len(nrow(metadata))), ]
 
-  if (!rlang::quo_is_null(label)) {
+  if (!rlang::quo_is_null(labelBy)) {
     text <- metadata |>
-      dplyr::group_by(!!label) |>
+      dplyr::group_by(!!labelBy) |>
       dplyr::summarise(
         dim_x = mean(dim_x),
         dim_y = mean(dim_y),
         .groups = "drop") |>
-      dplyr::rename(id = !!label)
+      dplyr::rename(id = !!labelBy)
   }
 
   p <- ggplot2::ggplot() +
@@ -84,7 +85,7 @@ dimFeature <- function(
       ggplot2::aes(x = dim_x, y = dim_y, color = !!colorBy),
       size = pointSize) +
     { if (!is.null(colors)) ggplot2::scale_color_manual(values = colors) } +
-    { if (!rlang::quo_is_null(label))
+    { if (!rlang::quo_is_null(labelBy))
       ggrepel::geom_text_repel(data = text, aes(x = dim_x, y = dim_y, label = id))
     } +
     ggplot2::theme_classic() +
