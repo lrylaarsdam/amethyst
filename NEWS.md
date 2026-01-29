@@ -15,7 +15,7 @@
     
   - **Changed**
     - *runCluster* structure was changed to be in consensus with the others. Added warning message
-    - due to continuing issues with leiden *runCluster* using reticulate, switched to leidenbase
+    - *runCluster* now uses leidenbase due to continuing issues with reticulate
     
 # v1.0.4
 ### 10-23-2025
