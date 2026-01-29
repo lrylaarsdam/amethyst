@@ -47,6 +47,7 @@ sampleComp <- function(
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
+#' @importFrom rlang enquo
 #' @examples
 #' \dontrun{
 #'   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
@@ -373,8 +374,8 @@ dotM <-  function(
 #' @export
 #' @examples histograM(brain, track = "ch_type_tracks", genes = "SATB2")
 #' @examples histograM(brain, track = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
-#' @importFrom dplyr filter mutate rowwise cur_group_id
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
+#' @importFrom dplyr filter mutate rowwise cur_group_id n_groups
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate element_line
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 histograM <- function(obj,
@@ -537,7 +538,7 @@ histograM <- function(obj,
       {if (orientation == "cols") ggplot2::facet_grid(cols = vars(group))} +
       {if (!legend) ggplot2::theme(legend.position = "none")} +
       ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax), oob = scales::squish) + theme(axis.title.y = element_blank()) +
-      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed")) +
+      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = ggplot2::element_line(color = "#dbdbdb", linetype = "dashed")) +
 
       # plotting genes beneath
       ggplot2::geom_rect(data = promoters, fill = "pink", ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
@@ -554,7 +555,7 @@ histograM <- function(obj,
             track <- extraTracks[[j]] |>
               dplyr::filter(chr == chrom & start >= min & end <= max) |>
               dplyr::mutate(
-                trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                trackHeight = ngroups * (dplyr::n_groups(ref) + j) * trackScale,
                 ymin = -(trackHeight - (ngroups * 0.5)),
                 ymax = -(trackHeight + (ngroups * 0.5)),
                 track_name = names(extraTracks[j])
@@ -573,7 +574,7 @@ histograM <- function(obj,
             min = min,
             trackName = names(extraTracks),
             trackHeight = seq_along(extraTracks) %>%
-              sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+              sapply(function(j) (ngroups * (dplyr::n_groups(ref) + j) * trackScale) * -1)
           )
           ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
         }
@@ -584,7 +585,7 @@ histograM <- function(obj,
       {if (!legend)ggplot2::theme(legend.position = "none")} +
       ggplot2::theme(panel.background = element_blank(),
                      axis.ticks = element_blank(),
-                     panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+                     panel.grid.major.y = ggplot2::element_line(color = "#f0f0f0", linetype = "dashed")) +
       ggplot2::ylab("Group ID") +
       ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
       {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +
@@ -622,8 +623,8 @@ histograM <- function(obj,
 #'
 #' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
 #' @export
-#' @importFrom dplyr filter mutate rowwise cur_group_id
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
+#' @importFrom dplyr filter mutate rowwise cur_group_id n_groups
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate element_line
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 #' @examples
@@ -804,7 +805,7 @@ heatMap <- function(obj,
             track <- extraTracks[[j]] |>
               dplyr::filter(chr == chrom & start >= min & end <= max) |>
               dplyr::mutate(
-                trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                trackHeight = ngroups * (dplyr::n_groups(ref) + j) * trackScale,
                 ymin = -(trackHeight - (ngroups * 0.03)),
                 ymax = -(trackHeight + (ngroups * 0.03)),
                 track_name = names(extraTracks[j])
@@ -823,7 +824,7 @@ heatMap <- function(obj,
             min = min,
             trackName = names(extraTracks),
             trackHeight = seq_along(extraTracks) %>%
-              sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+              sapply(function(j) (ngroups * (dplyr::n_groups(ref) + j) * trackScale) * -1)
           )
           ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
         }
@@ -834,7 +835,7 @@ heatMap <- function(obj,
       {if (!legend)ggplot2::theme(legend.position = "none")} +
       ggplot2::theme(panel.background = element_blank(),
                      axis.ticks = element_blank(),
-                     panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+                     panel.grid.major.y = ggplot2::element_line(color = "#f0f0f0", linetype = "dashed")) +
       ggplot2::ylab("Group ID") +
       ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
       {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +

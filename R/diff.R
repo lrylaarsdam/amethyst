@@ -430,8 +430,8 @@ testDMR <- function(
       counts <- counts[, `:=`(
         member_c = get(paste0(gr, "_c")),
         member_t = get(paste0(gr, "_t")),
-        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
-        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114 :( sorry
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114
       )]
 
       # don't test where the minimum observations per group is not met
@@ -471,10 +471,10 @@ testDMR <- function(
       nm_t <- paste0(nm, "_t")
 
       counts <- counts[, `:=`(
-        member_c = rowSums(.SD[, mget(m_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
-        member_t = rowSums(.SD[, mget(m_t)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
-        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114 :( sorry
-        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114 :( sorry
+        member_c = rowSums(.SD[, mget(m_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        member_t = rowSums(.SD[, mget(m_t)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114
       )]
 
       # don't test where the minimum observations per group is not met

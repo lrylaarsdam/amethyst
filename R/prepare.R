@@ -318,6 +318,7 @@ runCluster <- function(obj,
                        method = "louvain",
                        resolution = 1e-3) {
 
+  cat("\nPlease note output structure has been updated in v1.0.5 in an effort to harmonize amethyst commands.\nCall should now be in format: obj@metadata$cluster_id <- runCluster(...)\nIf you used the <v1.0.5 method: obj <- runCluster(...), control+c to interrupt the process so your object isn't overwritten.\n")
   k.param <- k
 
   if (method == "louvain") {
@@ -325,6 +326,7 @@ runCluster <- function(obj,
     clusters <- do.call(rbind, Map(data.frame,
                                    cell_id = row.names(obj@reductions[[reduction]]),
                                    cluster_id = paste(igraph::membership(clusters[[2]]))))
+
   } else if (method == "leiden") { # implementing Trapnell lab's leidenbase after issues with reticulate
     cell_names <- rownames(obj@reductions[[reduction]])
     snn <- bluster::makeSNNGraph(obj@reductions[[reduction]], k = k.param)
