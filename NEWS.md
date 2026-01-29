@@ -1,3 +1,22 @@
+# v1.0.5
+### 01-29-2026
+  - **Fixed**
+    - *testDMR* na.rm = T when calculating member/nonmember totals. Critical for summing of many groups
+    - *filterDMR* checks all groups exist in count matrix
+    - *makeWindows* gene issue when using prefixes
+    - *makeDoubletObject* speed improvements (thanks to @shengzha)
+    - *loadSmoothedWindows* issue with empty groups (thanks to @shengzha)
+  
+  - **Added**
+    - *heatMap* now has subset groups option 
+    - metacells.R written by Andrew Adey, PhD
+    - *filterDMR* now has the option to correct for multiple testing either within a group or across all groups x windows
+    - *dimFeature* now has a text label option
+    
+  - **Changed**
+    - *runCluster* structure was changed to be in consensus with the others. Added warning message
+    - due to continuing issues with leiden *runCluster* using reticulate, switched to leidenbase
+    
 # v1.0.4
 ### 10-23-2025
   - This version coincides with the official publication of our corresponding [manuscript](https://www.nature.com/articles/s42003-025-08859-2)!
