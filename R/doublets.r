@@ -89,25 +89,34 @@ makeDoubletObject <- function(
     doublet_matrix <- matrix(nrow = nrow(pct_matrix), ncol = num_doublets)
 
     # Use future_lapply for parallel processing
-    doublets <- future.apply::future_lapply(1:ncol(pairings), function(col_idx) {
+    doublets <- future.apply::future_lapply(1:ncol(pairings), function(col_idx) { # line 92 - 119 was written by @shengzha
       cell1 <- pairings[1, col_idx]
       cell2 <- pairings[2, col_idx]
-      sapply(seq_len(nrow(pct_matrix)), function(j) {
-        vals <- c(pct_matrix[j, cell1], pct_matrix[j, cell2])
-        if (all(is.na(vals))) {
-          NA
-        } else if (any(is.na(vals))) {
-          # 50% chance to keep as NA or report the non-NA
-          if (runif(1) < 0.5) {
-            mean(vals, na.rm = TRUE)
-          } else {
-            NA
-          }
-        } else {
-          mean(vals, na.rm = TRUE)
-        }
-      })
-    }, future.seed = TRUE)
+      v1 <- pct_matrix[, cell1]
+      v2 <- pct_matrix[, cell2]
+
+      out <- numeric(length(v1))
+
+      # Both NA
+      idx_both_na <- is.na(v1) & is.na(v2)
+      out[idx_both_na] <- NA_real_
+
+      # One NA
+      idx_one_na <- xor(is.na(v1), is.na(v2))
+      # the non-NA value
+      v_non_na <- ifelse(is.na(v1[idx_one_na]), v2[idx_one_na], v1[idx_one_na])
+      out[idx_one_na] <- ifelse(
+        runif(sum(idx_one_na)) < 0.5, # 50% chance to keep as NA or report the non-NA
+        v_non_na,
+        NA_real_
+      )
+
+      # No NA
+      idx_ok <- !(idx_both_na | idx_one_na)
+      out[idx_ok] <- (v1[idx_ok] + v2[idx_ok]) / 2
+
+      out
+    }, future.globals = list(pairings = pairings, pct_matrix = pct_matrix), future.seed = TRUE)
 
     # Bind the results back into a matrix
     doublet_matrix <- do.call(cbind, doublets)

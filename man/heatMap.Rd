@@ -21,6 +21,7 @@ heatMap(
   extraTracks = NULL,
   extraTrackColors = NULL,
   remove = NULL,
+  subset = NULL,
   nrow = max(length(genes), length(regions))
 )
 }
@@ -59,6 +60,8 @@ Input should be a named list of coordinate files containing chr, start, and end 
 
 \item{remove}{Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
 Helpful when plotting very large regions.}
+
+\item{subset}{Option to subset tracks to groups containing specific text patterns, e.g. "^Pvalb|^Sst".}
 
 \item{nrow}{When multiple genes or regions are plotted, number of rows the output is divided across.}
 }

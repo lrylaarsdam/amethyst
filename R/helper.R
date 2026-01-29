@@ -149,8 +149,8 @@ makeWindows <- function(
           }
 
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
-                                                     start = sites$start[sites$cell_id == barcode],
-                                                     count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
+                                                     start = sites$start[sites$cell_id == cell_name],
+                                                     count = sites$count[sites$cell_id == cell_name])) # read in 1 chr at a time
 
           meth_window <- h5[bed_tmp, on = .(chr = chr, pos >= start, pos <= end), nomatch = 0L, .(chr, start, end, pos = x.pos, c, t)]
           meth_window <- meth_window[, .(value = round((sum(c != 0)/ (sum(c != 0) + sum(t != 0))), 4),
@@ -325,8 +325,8 @@ makeWindows <- function(
             meth_cell <- obj@metadata[barcode, paste0("m", tolower(type), "_pct")]/100 # pull global methylation level from metadata
           }
           h5 <- data.table::data.table(rhdf5::h5read(path, name = paste0(type, "/", barcode, "/1"),
-                                                     start = sites$start[sites$cell_id == barcode],
-                                                     count = sites$count[sites$cell_id == barcode])) # read in 1 chr at a time
+                                                     start = sites$start[sites$cell_id == cell_name],
+                                                     count = sites$count[sites$cell_id == cell_name])) # read in 1 chr at a time
 
           meth_gene <- h5[bed_tmp, on = .(chr = chr, pos >= start, pos <= end), nomatch = 0L, .(chr, start, end, pos = x.pos, c, t, gene)]
           meth_gene <- meth_gene[, .(value = round((sum(c != 0)/ (sum(c != 0) + sum(t != 0))), 4),

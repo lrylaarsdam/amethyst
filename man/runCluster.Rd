@@ -9,23 +9,20 @@ runCluster(
   k = 50,
   reduction = "irlba",
   method = "louvain",
-  colname = "cluster_id"
+  resolution = 0.001
 )
 }
 \arguments{
 \item{obj}{Amethyst object to perform clustering on}
 
-\item{k}{integer; number of nearest neighbors}
+\item{k}{integer; number of nearest neighbors. Option applies to louvain method only.}
 
 \item{reduction}{Name of dimensionality reduction to calculate over}
 
-\item{method}{Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package;}
-
-\item{colname}{Character; name of column where results will be stored in metadata
-or "leiden", which utilizes the igraph package https://igraph.org/r/doc/cluster_leiden.html.}
+\item{method}{Options are "louvain", which utilizes the Rphenograph https://github.com/JinmiaoChenLab/Rphenograph package; or "leiden", which utilizes the Trapnell lab's implementation of the Leiden algorithm https://github.com/cole-trapnell-lab/leidenbase}
 }
 \value{
-Adds cluster membership to the metadata file of the amethyst object
+Returns cluster membership vector to be appended to the metadata of an amethyst object
 }
 \description{
 Determine cluster membership with Rphenograph https://github.com/JinmiaoChenLab/Rphenograph

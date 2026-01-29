@@ -1,13 +1,13 @@
 Package: amethyst
 Title: A comprehensive toolkit for single-cell methylation sequencing data analysis
-Version: 1.0.4
+Version: 1.0.5
 Authors@R: 
     c(person(given = "Lauren", family = "Rylaarsdam", email = "rylaarsd@ohsu.edu", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-1614-408X")),
       person(given = "Stephen", family = "Coleman", email = "colemste@ohsu.edu", role = c("aut")),
       person(given = "Andrew", family = "Adey", email = "adey@ohsu.edu", role = c("aut"), comment = c(ORCID = "0000-0001-7648-8717")))
 Description: The goal of Amethyst is to provide user-friendly tools to facilitate a comprehensive analysis of single-cell methylation sequencing data. 
-Imports: caret, cowplot, data.table, dplyr, FNN, furrr, future, future.apply, GenomicRanges, ggplot2, grDevices, gridExtra, igraph, IRanges, irlba, leiden, Matrix, mgcv, methods, plotly, plyr, purrr, randomForest, RANN, rhdf5, rlang, Rmagic, Rphenograph, rtracklayer, Rtsne, scales, stats, stringr, tibble, tidyr, umap, utils
+Imports: bluster, caret, cowplot, data.table, dplyr, FNN, furrr, future, future.apply, GenomicRanges, ggplot2, ggrepel, grDevices, gridExtra, igraph, IRanges, irlba, jsonlite, leidenbase, Matrix, mgcv, methods, plotly, plyr, purrr, randomForest, RANN, rhdf5, rlang, Rmagic, Rphenograph, rtracklayer, Rtsne, scales, stats, stringr, tibble, tidyr, umap, utils
 License: MIT License
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2

@@ -42,36 +42,57 @@ sampleComp <- function(
 #' @param colors Optional color scale
 #' @param reduction Name of reduction slot containing UMAP / TSNE dimensionality reduction coordinates
 #' @param pointSize Optional; adjust point size
+#' @param label Optional; text label overlay
 #'
 #' @return Returns a ggplot graph plotting xy coordinates of cells colored according to the specified feature
 #' @export
 #' @importFrom ggplot2 ggplot aes geom_point scale_color_manual theme_classic guides guide_legend element_blank
+#' @importFrom rlang enquo
+#' @importFrom ggrepel geom_text_repel
 #' @examples
 #' \dontrun{
 #'   dimFeature(obj = obj, colorBy = "cluster_id", reduction = "umap")
 #' }
+#'
 dimFeature <- function(
     obj,
-    colorBy,
+    colorBy = NULL,
     colors = NULL,
+    labelBy = NULL,
     pointSize = 0.5,
     reduction = "umap") {
 
-  # shuffle points so they aren't directly on top of each other
+  colorBy <- rlang::enquo(colorBy)
+  labelBy   <- rlang::enquo(labelBy)
+
   metadata <- merge(obj@metadata, obj@reductions[[reduction]], by = 0)
   set.seed(123)
-  metadata <- metadata[sample(x = 1:nrow(x = metadata)), ]
+  metadata <- metadata[sample(seq_len(nrow(metadata))), ]
 
-  p <- ggplot2::ggplot(metadata, ggplot2::aes(x = dim_x, y = dim_y, color = {{colorBy}})) +
-    ggplot2::geom_point(size = pointSize) +
-    {if (!is.null(colors)) ggplot2::scale_color_manual(values = {{colors}})} +
+  if (!rlang::quo_is_null(labelBy)) {
+    text <- metadata |>
+      dplyr::group_by(!!labelBy) |>
+      dplyr::summarise(
+        dim_x = mean(dim_x),
+        dim_y = mean(dim_y),
+        .groups = "drop") |>
+      dplyr::rename(id = !!labelBy)
+  }
+
+  p <- ggplot2::ggplot() +
+    ggplot2::geom_point(
+      data = metadata,
+      ggplot2::aes(x = dim_x, y = dim_y, color = !!colorBy),
+      size = pointSize) +
+    { if (!is.null(colors)) ggplot2::scale_color_manual(values = colors) } +
+    { if (!rlang::quo_is_null(labelBy))
+      ggrepel::geom_text_repel(data = text, aes(x = dim_x, y = dim_y, label = id))
+    } +
     ggplot2::theme_classic() +
     noAxes() +
-    ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size=3)))
+    ggplot2::guides(colour = ggplot2::guide_legend(override.aes = list(size = 3)))
   p
-
 }
-
 ############################################################################################################################
 #' @title dimM
 #' @description Plot cumulative % methylation of a feature over UMAP / TSNE coordinates
@@ -354,8 +375,8 @@ dotM <-  function(
 #' @export
 #' @examples histograM(brain, track = "ch_type_tracks", genes = "SATB2")
 #' @examples histograM(brain, track = "ch_type_tracks", regions = c("chr2_170813213_170861151", "chr2_199269505_199471266"), orientation = "cols", trackOverhang = 1000000, remove = "ENS|LINC")
-#' @importFrom dplyr filter mutate rowwise cur_group_id
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
+#' @importFrom dplyr filter mutate rowwise cur_group_id n_groups
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate element_line
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 histograM <- function(obj,
@@ -518,7 +539,7 @@ histograM <- function(obj,
       {if (orientation == "cols") ggplot2::facet_grid(cols = vars(group))} +
       {if (!legend) ggplot2::theme(legend.position = "none")} +
       ggplot2::scale_fill_gradientn(colors = pal, limits = c(0,colorMax), oob = scales::squish) + theme(axis.title.y = element_blank()) +
-      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = element_line(color = "#dbdbdb", linetype = "dashed")) +
+      ggplot2::theme(panel.background = element_blank(), axis.ticks = element_blank(), panel.grid.major.y = ggplot2::element_line(color = "#dbdbdb", linetype = "dashed")) +
 
       # plotting genes beneath
       ggplot2::geom_rect(data = promoters, fill = "pink", ggplot2::aes(xmin = promoter_start, xmax = promoter_end, ymin = ymin, ymax = ymax)) +
@@ -535,7 +556,7 @@ histograM <- function(obj,
             track <- extraTracks[[j]] |>
               dplyr::filter(chr == chrom & start >= min & end <= max) |>
               dplyr::mutate(
-                trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                trackHeight = ngroups * (dplyr::n_groups(ref) + j) * trackScale,
                 ymin = -(trackHeight - (ngroups * 0.5)),
                 ymax = -(trackHeight + (ngroups * 0.5)),
                 track_name = names(extraTracks[j])
@@ -554,7 +575,7 @@ histograM <- function(obj,
             min = min,
             trackName = names(extraTracks),
             trackHeight = seq_along(extraTracks) %>%
-              sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+              sapply(function(j) (ngroups * (dplyr::n_groups(ref) + j) * trackScale) * -1)
           )
           ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
         }
@@ -565,7 +586,7 @@ histograM <- function(obj,
       {if (!legend)ggplot2::theme(legend.position = "none")} +
       ggplot2::theme(panel.background = element_blank(),
                      axis.ticks = element_blank(),
-                     panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+                     panel.grid.major.y = ggplot2::element_line(color = "#f0f0f0", linetype = "dashed")) +
       ggplot2::ylab("Group ID") +
       ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
       {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +
@@ -598,11 +619,13 @@ histograM <- function(obj,
 #' @param arrowOverhang Number of base pairs the track arrow should extend beyond the gene
 #' @param remove Option to remove genes containing specific patterns from the plot, e.g. "^ENS|^LINC".
 #' Helpful when plotting very large regions.
+#' @param subset Option to subset tracks to groups containing specific text patterns, e.g. "^Pvalb|^Sst".
 #' @param extraTrackColors Optional vector of hex code colors to use when plotting extraTracks
+#'
 #' @return A ggplot geom_tile object with colors indicating % methylation over tiled windows and the gene of interest beneath
 #' @export
-#' @importFrom dplyr filter mutate rowwise cur_group_id
-#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate
+#' @importFrom dplyr filter mutate rowwise cur_group_id n_groups
+#' @importFrom ggplot2 ggplot geom_tile aes geom_rect geom_segment theme scale_fill_gradientn ylab arrow unit annotate element_line
 #' @importFrom gridExtra grid.arrange
 #' @importFrom tidyr pivot_longer
 #' @examples
@@ -626,6 +649,7 @@ heatMap <- function(obj,
                     extraTracks = NULL,
                     extraTrackColors = NULL,
                     remove = NULL,
+                    subset = NULL,
                     nrow = max(length(genes), length(regions))) {
 
   if (is.null(obj@ref)) {
@@ -676,6 +700,9 @@ heatMap <- function(obj,
 
     # get methylation values from track
     values <- obj@tracks[[track]][(chr == chrom & start >= min & end <= max)]
+    if (!is.null(subset)) {
+      values <- values[, c(1:3, grep(pattern = subset, x = colnames(values))), with = FALSE]
+    }
     ngroups <- ncol(values) - 3
 
     # calculate track heights
@@ -697,8 +724,8 @@ heatMap <- function(obj,
 
     # isolate gene coordinates to make plotting more legible
     genenames <- ref |> dplyr::group_by(gene_name) |> dplyr::arrange(desc(end)) |> dplyr::slice_head(n = 1) |> dplyr::mutate(text_start = ifelse(strand == "+", (end + 2500), (end + 1000)))
-    genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end),
-                                                                      xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+    genebody <- ref |> dplyr::filter(type == "gene") |> dplyr::mutate(x = ifelse(strand == "+", start, end), xend = ifelse(strand == "+", end + arrowOverhang, start - arrowOverhang))
+
     if (!is.null(regions)) {
       wholegenes <- genenames$gene_name[!(genenames$gene_name %in% genebody$gene_name)]
       wholegenes <- ref |> dplyr::filter(gene_name %in% wholegenes) |> dplyr::group_by(gene_name, strand) |> dplyr::summarise(start = min,
@@ -779,7 +806,7 @@ heatMap <- function(obj,
             track <- extraTracks[[j]] |>
               dplyr::filter(chr == chrom & start >= min & end <= max) |>
               dplyr::mutate(
-                trackHeight = ngroups * (n_groups(ref) + j) * trackScale,
+                trackHeight = ngroups * (dplyr::n_groups(ref) + j) * trackScale,
                 ymin = -(trackHeight - (ngroups * 0.03)),
                 ymax = -(trackHeight + (ngroups * 0.03)),
                 track_name = names(extraTracks[j])
@@ -798,7 +825,7 @@ heatMap <- function(obj,
             min = min,
             trackName = names(extraTracks),
             trackHeight = seq_along(extraTracks) %>%
-              sapply(function(j) (ngroups * (n_groups(ref) + j) * trackScale) * -1)
+              sapply(function(j) (ngroups * (dplyr::n_groups(ref) + j) * trackScale) * -1)
           )
           ggplot2::geom_text(data = trackNames, aes(x = min, y = trackHeight, label = trackName))
         }
@@ -809,7 +836,7 @@ heatMap <- function(obj,
       {if (!legend)ggplot2::theme(legend.position = "none")} +
       ggplot2::theme(panel.background = element_blank(),
                      axis.ticks = element_blank(),
-                     panel.grid.major.y = element_line(color = "#f0f0f0", linetype = "dashed")) +
+                     panel.grid.major.y = ggplot2::element_line(color = "#f0f0f0", linetype = "dashed")) +
       ggplot2::ylab("Group ID") +
       ggplot2::scale_fill_gradientn(colors = pal,limits = c(0,colorMax), oob = scales::squish) +
       {if (!is.null(regions)) ggplot2::xlab(paste0(chrom, ": ", min, " - ", max)) } +

@@ -12,7 +12,8 @@ loadSmoothedWindows(
   smoothTrim = 500,
   futureType = "multicore",
   groupBy = "cluster_id",
-  nmin = 10,
+  nminValues = 10,
+  nminCells = 2,
   chunkSize = 50,
   returnSumMatrix = TRUE,
   returnPctMatrix = TRUE
@@ -34,7 +35,9 @@ calculate a 1500x500bp smoothed sliding window matrix, so 500 is trimmed off eit
 
 \item{groupBy}{Parameter contained in the metadata over which to aggregate observations. Default is "cluster_id"}
 
-\item{nmin}{Minimum number of observations to include window value}
+\item{nminValues}{Minimum number of observations to include window value}
+
+\item{nminCells}{Minimum number of cells in the group to return an aggregated output}
 
 \item{chunkSize}{How many cells to process at a time (for memory management purposes)}
 

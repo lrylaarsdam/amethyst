@@ -21,24 +21,25 @@ Welcome to Amethyst! The goal of Amethyst is to facilitate comprehensive analysi
 
 If you are new to R, you may need to install some of the dependencies:
 
-```{r eval=FALSE}
+```{r, eval = FALSE}
 if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
 
 library("BiocManager")
-BiocManager::install(c("caret", "devtools", "data.table", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", "pheatmap",
-  "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
-  "tibble", "tidyr", "umap", "utils", "dplyr"))
-```
+BiocManager::install(c("bluster", "caret", "cowplot", "devtools", "data.table", "dplyr", "FNN", "furrr", "future", "future.apply", "GenomicRanges", "ggplot2", "ggrepel", "grDevices", "gridExtra", "igraph", "IRanges", "irlba", "janitor", "jsonlite", "Matrix", "mgcv", "methods", "pheatmap", "plotly", "plyr", "purrr", "randomForest", "RANN", "rhdf5", "rtracklayer", "rlang", "Rtsne", "scales", "stats", "stringr", "tibble", "tidyr", "umap", "utils"))
 
-Next, install a few additional dependencies found on Github, including amethyst itself.
-
-```{r eval=FALSE}
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
-devtools::install_github("TomKellyGenetics/leiden")
+```
+
+Installation of Amethyst can then be done using devtools or remotes:
+
+```{r, eval = FALSE}
+library("devtools")
 devtools::install_github("lrylaarsdam/amethyst")
+
+library("remotes")
+remotes::install_github("lrylaarsdam/amethyst")
 ```
 
 Now load libraries into R:
@@ -48,10 +49,10 @@ Sys.setenv(OMP_NUM_THREADS = "1") # Package "leiden" needed this for local vigne
 ```
 
 ```{r message=FALSE, warning=FALSE}
-library(leiden)
 library(amethyst)
 library(data.table)
 library(ggplot2)
+library(leidenbase)
 library(tibble)
 library(tidyr)
 library(plyr)
@@ -249,7 +250,7 @@ set.seed(111)
 obj@reductions[["irlba_cg_100k_score"]] <- runIrlba(obj, genomeMatrices = c("cg_100k_score"), dims = c(7), replaceNA = c(0))
 ```
 
-Now determine cluster membership with *runCluster*. Either a Louvain-based or Leiden-based strategy can be used. Assign the output column name, which will be added to the metadata (or leave blank and it will be assigned "cluster_id"). This update was implemented so one can save multiple iterations within the same object. 
+Now determine cluster membership with *runCluster*. Either a Louvain-based or Leiden-based strategy can be used. Assign the output column name, which will be added to the metadata. **Please note that the structure for assigning results to the metadata has changed from <v1.0.5, in an effort to synchronize amethyst commands.**
 
 *Note: In this example, k is low because pbmc_vignette.h5 has 50 cells. ****Increase for larger datasets***, *depending on number of cells and expected heterogeneity. For example, we would typically use values of 30-100 for datasets of 1k-100k cells. A general rule of thumb is k = sqrt(n)/2.*
 *Note: I am setting the seed to try and make results reproducible. It is not essential, but good practice for your own data. Annoyingly, different R versions produce different random results with the same seed. I am using v4.3.0. Don't worry if your projections look slightly different.*
@@ -257,9 +258,9 @@ Now determine cluster membership with *runCluster*. Either a Louvain-based or Le
 ```{r, warning=FALSE}
 set.seed(111)
 # run clustering with louvain-based method
-obj <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score", method = "louvain", colname = "louvain_cluster_100k") 
+obj@metadata$louvain_cluster_100k <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score", method = "louvain") 
 # example: run leiden-based algorithm and store within the same object
-obj <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score", method = "leiden", colname = "leiden_cluster_100k") 
+obj@metadata$leiden_cluster_100k <- runCluster(obj, k = 10, reduction = "irlba_cg_100k_score", method = "leiden") 
 
 # look at how results are stored
 head(obj@metadata)
@@ -339,7 +340,7 @@ Now re-run clustering and UMAP with the new VMR-based windows. We will use the p
 
 ```{r, fig.width=4, fig.height=3}
 set.seed(111)
-obj <- runCluster(obj, k = 10, reduction = "irlba_cg_vmr_pct", method = "louvain", colname = "louvain_vmr_cluster") # consider increasing k_phenograph to 50 for larger datasets
+obj@metadata$louvain_vmr_cluster <- runCluster(obj, k = 10, reduction = "irlba_cg_vmr_pct", method = "louvain") # consider increasing k_phenograph for larger datasets
 set.seed(123) # the changing of seed number here is not important
 obj@reductions[["umap_irlba_cg_vmr_pct"]] <- runUmap(obj, neighbors = 5, dist = 0.05, method = "euclidean", reduction = "irlba_cg_vmr_pct") 
 dimFeature(obj, colorBy = louvain_vmr_cluster, reduction = "umap_irlba_cg_vmr_pct", pointSize = .8)
@@ -371,11 +372,11 @@ If you want to make your plots look nicer, Amethyst provides many built-in color
 testPalette(output = "swatch", n = length(unique(obj@metadata$louvain_vmr_cluster)))
 ```
 
-If there is one you like, it is helpful to store the vector as a variable like "pal" for future use. Below we are illustrating how to store the pallete and recall it for use with *dimFeature*.
+If there is one you like, it is helpful to store the vector as a variable like "pal" for future use. Below we are illustrating how to store the palette and recall it for use with *dimFeature*.
 
 ```{r, fig.width=4, fig.height=3}
 pal <- c("#F9AB60", "#E7576E", "#630661", "#B5DCA5") # makePalette(option = 7, n = 4) 
-dimFeature(obj, colorBy = louvain_vmr_cluster, colors = pal, pointSize = .8, reduction = "umap_irlba_cg_vmr_pct")
+dimFeature(obj, colorBy = louvain_vmr_cluster, labelBy = louvain_vmr_cluster, colors = pal, pointSize = .8, reduction = "umap_irlba_cg_vmr_pct")
 ```
 
 
@@ -425,7 +426,7 @@ Add the percent matrix output to the **tracks** slot. This will be used for visu
 obj@tracks[["cg_cluster_tracks"]] <- cluster1kbwindows[["pct_matrix"]]
 ```
 
-Now you can view methylation patterns over key marker genes with the *heatMap* function. This is a very versatile function and one of the best ways to view methylation tracks in Amethyst, so we recommend becoming acquainted with the parameters. Shown below are mean smoothed methylation levels per short genomic window with hypomethylated regions in blue and hypermethylated regions in light grey. Rows are pseudobulked values for each distinct population in the *groupBy* parameter. Below each plot, the gene body is shown, with orientation indicated by the arrow, exons in black rectangles, and the putative promoter (start +/- 1500 bp) in pink. 
+Now you can view methylation patterns over key marker genes with the *heatMap* function. This is a very versatile function and one of the best ways to view methylation tracks in Amethyst, so we recommend becoming acquainted with the parameters (see more with ?heatMap). Shown below are mean smoothed methylation levels per short genomic window with hypomethylated regions in blue and hypermethylated regions in light grey. Rows are pseudobulked values for each distinct population in the *groupBy* parameter. Below each plot, the gene body is shown, with orientation indicated by the arrow, exons in black rectangles, and the putative promoter (start +/- 1500 bp) in pink. 
 
 *Note: By default, the arrow hangs over the gene by 3k bp so you can see it after the last exon. This can be adjusted with the arrowOverhang parameter.*
 
@@ -577,12 +578,9 @@ obj@metadata[["type"]] <- dplyr::recode(obj@metadata[["louvain_vmr_cluster"]],
                                              "2" = "NK", 
                                              "3" = "B",
                                              "4" = "Mono")
-
-group_labels <- merge(obj@metadata, obj@reductions[["umap_irlba_cg_vmr_pct"]], by = 0) |> dplyr::group_by(type) |> dplyr::summarise(dim_x = mean(dim_x), dim_y = mean(dim_y))
   
 library(ggrepel)
-dimFeature(obj, colorBy = type, colors = pal, pointSize = 0.8, reduction = "umap_irlba_cg_vmr_pct") +
-  geom_text_repel(data = group_labels, aes(x = dim_x, y = dim_y, label = type))
+dimFeature(obj, colorBy = type, labelBy = type, colors = pal, pointSize = 0.8, reduction = "umap_irlba_cg_vmr_pct")
 ```
 
 You might also want to rename cluster tracks with the group annotations. Recalculate, or just copy the previous one and name like so:

@@ -37,14 +37,13 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 install.packages("BiocManager")
 
 library("BiocManager")
-BiocManager::install(c("caret", "devtools", "data.table", "dplyr", "furrr", "future", "future.apply",
-  "ggplot2", "grDevices", "gridExtra", "igraph", "irlba", "janitor", "Matrix", "methods", "pheatmap",
-  "plotly", "plyr", "purrr", "randomForest", "rhdf5", "rtracklayer", "Rtsne", "scales", "stats", "stringr", 
+BiocManager::install(c("caret", "cowplot", "devtools", "data.table", "dplyr", "FNN", "furrr", "future", "future.apply",
+  "GenomicRanges", "ggplot2", "grDevices", "gridExtra", "igraph", "IRanges", "irlba", "janitor", "jsonlite", "Matrix", "mgcv", "methods", "pheatmap",
+  "plotly", "plyr", "purrr", "randomForest", "RANN", "rhdf5", "rtracklayer", "rlang", "Rtsne", "scales", "stats", "stringr", 
   "tibble", "tidyr", "umap", "utils"))
 
 devtools::install_github("JinmiaoChenLab/Rphenograph")
 devtools::install_github("KrishnaswamyLab/MAGIC/Rmagic")
-devtools::install_github("TomKellyGenetics/leiden")
 ```
 
 Installation of Amethyst can then be done using devtools or remotes:

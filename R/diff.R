@@ -62,7 +62,9 @@ findClusterMarkers <- function(
               "gene" = gene,
               "cluster_id" = id,
               mean_1 = mean(genematrix[gene, members], na.rm = TRUE),
-              mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE)
+              mean_2 = mean(genematrix[gene, nonmembers], na.rm = TRUE),
+              n_members = sum(!is.na(genematrix[gene, members])),
+              n_nonmembers = sum(!is.na(genematrix[gene, nonmembers]))
             ) |> dplyr::mutate(
               logFC = log2(mean_1 / mean_2),
               direction = ifelse(mean_1 > mean_2, "hypermethylated", "hypomethylated")
@@ -428,8 +430,8 @@ testDMR <- function(
       counts <- counts[, `:=`(
         member_c = get(paste0(gr, "_c")),
         member_t = get(paste0(gr, "_t")),
-        nonmember_c = rowSums(.SD[, mget(nm_c)]),
-        nonmember_t = rowSums(.SD[, mget(nm_t)])
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114
       )]
 
       # don't test where the minimum observations per group is not met
@@ -439,7 +441,7 @@ testDMR <- function(
       counts <- counts[, paste0(gr, "_all_pval") := apply(.SD, 1, function(x) fast.fisher(matrix(x, nrow = 2, byrow = TRUE))), .SDcols = c("member_c", "member_t", "nonmember_c", "nonmember_t")]
       counts <- counts[, paste0(gr, "_all_logFC") := round(log2((member_c / (member_c + member_t)) / (nonmember_c / (nonmember_c + nonmember_t))), 4)]
       counts <- counts[, c("member_c", "member_t", "nonmember_c", "nonmember_t") := NULL] # this line used to be outside the loop in < v1.0.2, causing nonmember variable buildup :(
-      cat(paste0("Finished group ", gr, "\n"))
+      cat(paste0("\nFinished group ", gr))
     }
 
   } else if (!is.null(comparisons)) {
@@ -448,6 +450,20 @@ testDMR <- function(
       nm <- unlist(strsplit(comparisons[i, "B"], ',', fixed = FALSE))
       name <- comparisons[i, "name"]
 
+      # check all members exist in count matrix
+      if (any(!(paste0(m, "_c") %in% colnames(sumMatrix)))) {
+        missing_m <- m[(!(paste0(m, "_c") %in% colnames(sumMatrix)))]
+        cat(paste0("\nWarning: "), missing_m, " not in data. Being removed from members.")
+        m <- m[(paste0(m, "_c") %in% colnames(sumMatrix))]
+      }
+
+      # check all nonmembers exist in count matrix
+      if (any(!(paste0(nm, "_c") %in% colnames(sumMatrix)))) {
+        missing_nm <- nm[(!(paste0(nm, "_c") %in% colnames(sumMatrix)))]
+        cat(paste0("\nWarning: "), missing_nm, " not in data. Being removed from non-members.")
+        nm <- nm[(paste0(nm, "_c") %in% colnames(sumMatrix))]
+      }
+
       m_c <- paste0(m, "_c") # m = member
       m_t <- paste0(m, "_t")
 
@@ -455,10 +471,10 @@ testDMR <- function(
       nm_t <- paste0(nm, "_t")
 
       counts <- counts[, `:=`(
-        member_c = rowSums(.SD[, mget(m_c)]),
-        member_t = rowSums(.SD[, mget(m_t)]),
-        nonmember_c = rowSums(.SD[, mget(nm_c)]),
-        nonmember_t = rowSums(.SD[, mget(nm_t)])
+        member_c = rowSums(.SD[, mget(m_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        member_t = rowSums(.SD[, mget(m_t)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_c = rowSums(.SD[, mget(nm_c)], na.rm = TRUE), # added na.rm = TRUE on 260114
+        nonmember_t = rowSums(.SD[, mget(nm_t)], na.rm = TRUE) # added na.rm = TRUE on 260114
       )]
 
       # don't test where the minimum observations per group is not met
@@ -484,7 +500,9 @@ testDMR <- function(
 #' @param filter If TRUE, removes insignificant results.
 #' @param keepSums If TRUE, does not remove summed c and t observations per group from the resulting data.table.
 #' @param pThreshold Maxmimum adjusted p value to allow if filter = TRUE.
+#' @param correctionLevel Whether to apply multiple testing correction "withinGroup" or "global".
 #' @param logThreshold Minimum absolute value of the log2FC to allow if filter = TRUE.
+#'
 #' @return Returns an expanded data table with results from testDMR.
 #' @export
 #' @importFrom data.table data.table copy := melt
@@ -496,6 +514,7 @@ testDMR <- function(
 filterDMR <- function(
     dmrMatrix,
     method = "bonferroni",
+    correctionLevel = "global",
     filter = TRUE,
     keepSums = FALSE,
     pThreshold = 0.01,
@@ -511,7 +530,14 @@ filterDMR <- function(
   } else if (!(keepSums)) {
     results <- data.table::melt(results, id.vars = c("chr", "start", "end"), measure.vars = patterns("_pval$", "_logFC$"), variable.name = "test_order", value.name = c("pval", "logFC"), na.rm = TRUE)
   }
-  results <- results[, padj := stats::p.adjust(pval, method = method)]
+
+  if (correctionLevel == "withinGroup") {
+    n_windows <- nrow(unique(results[, .(chr, start, end)]))
+    results <- results[, padj := stats::p.adjust(pval, method = method, n = n_windows), by = test_order]
+  }
+  if (correctionLevel == "global") {
+    results <- results[, padj := stats::p.adjust(pval, method = method)]
+  }
 
   if (filter) {
     results <- results[padj < pThreshold & abs(logFC) > logThreshold]
@@ -636,4 +662,3 @@ collapseDMR <- function(
 
   return(output)
 }
-
