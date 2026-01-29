@@ -307,6 +307,7 @@ regressCovBias <- function(
 #' @importFrom RANN nn2
 #' @importFrom igraph graph_from_edgelist membership
 #' @importFrom leidenbase leiden_find_partition
+#' @importFrom bluster makeSNNGraph
 #' @export
 #' @examples
 #' \dontrun{
